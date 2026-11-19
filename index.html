@@ -58,16 +58,18 @@
   #place{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 176px);padding:10px 10px 10px 16px;border-radius:24px;font-size:14px;display:none;align-items:center;gap:10px;white-space:nowrap}
   #place button{height:36px;padding:0 14px;border-radius:18px;border:0;background:rgba(255,255,255,.16);color:#F4F1EA;font-size:13px}
   #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.7);pointer-events:none;display:none}
-  .scrim{position:fixed;inset:0;background:rgba(6,7,12,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet>*{flex-shrink:0}
+  @media (max-height:620px){ #edWrap{width:min(100%,300px,32vh);width:min(100%,300px,32dvh)} .sheet{gap:8px;padding-top:12px} .sw{width:36px;height:36px} }
+  .scrim{position:fixed;inset:0;height:100vh;height:100dvh;background:rgba(6,7,12,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
   .scrim.on{display:flex}
-  .sheet{width:100%;max-width:460px;max-height:96vh;overflow-y:auto;background:#1D202C;border-radius:24px 24px 0 0;padding:18px 18px calc(env(safe-area-inset-bottom) + 20px);display:flex;flex-direction:column;gap:12px}
+  .sheet{width:100%;max-width:460px;max-height:92vh;max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#1D202C;border-radius:24px 24px 0 0;padding:18px 18px calc(env(safe-area-inset-bottom) + 20px);display:flex;flex-direction:column;gap:12px}
   .sheet h2{margin:0;font-size:18px}
   .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .close{width:44px;height:44px;border-radius:22px;border:0;background:#2A2E3C;color:#F4F1EA;display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .swatches{display:flex;gap:10px}
   .sw{width:40px;height:40px;border-radius:10px;border:3px solid transparent;padding:0}
   .sw.on{border-color:#F4F1EA}
-  #edWrap{align-self:center;width:min(100%,360px,46vh);aspect-ratio:1;position:relative;box-shadow:0 10px 24px rgba(0,0,0,.4);transform:rotate(-0.6deg)}
+  #edWrap{align-self:center;width:min(100%,360px,40vh);width:min(100%,360px,40dvh);aspect-ratio:1;position:relative;box-shadow:0 10px 24px rgba(0,0,0,.4);transform:rotate(-0.6deg)}
   .quota{font-size:12px;font-weight:700;color:#1A1712;background:#FFC94D;border-radius:10px;padding:3px 8px;white-space:nowrap}
   .quota:empty{display:none}
   #placeRow{display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px;color:#D9D4C9}
@@ -199,10 +201,10 @@
 <div id="cross"></div>
 <div id="joy" class="glass" aria-hidden="true"><div id="knob"></div></div>
 <div id="acts">
-  <button id="jumpBtn" class="glass act" aria-label="점프 (Space)" hidden>
+  <button id="jumpBtn" class="glass act" aria-label="점프 (Space)">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/><path d="M6 20h12"/></svg>점프
   </button>
-  <button id="sitBtn" class="glass act" aria-label="앉기 (C) · 위로 밀면 점프 (Space)">
+  <button id="sitBtn" class="glass act" aria-label="앉기 (C)">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/><path d="M6 20h12"/></svg><span id="sitLabel">앉기</span>
   </button>
 </div>
@@ -1318,7 +1320,7 @@ function hideHint(){ $('hint').style.opacity=0; }
 var hintT;
 function showHint(){
   var h=$('hint');
-  h.textContent = TOUCH ? '화면을 끌어 둘러보고, 포스트잇을 누르면 읽어요 · 앉기 버튼을 위로 밀면 점프' : '드래그로 둘러보기 · WASD 이동 · Space 점프 · C 앉기 · 포스트잇을 클릭하면 읽어요';
+  h.textContent = TOUCH ? '화면을 끌어 둘러보고, 포스트잇을 누르면 읽을 수 있어요' : '드래그로 둘러보기 · WASD 이동 · Space 점프 · C 앉기 · 포스트잇을 클릭하면 읽어요';
   h.style.opacity=1; clearTimeout(hintT); hintT=setTimeout(hideHint, 7000);
 }
 var toastT;
