@@ -21,6 +21,10 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-title" content="유리창">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Jua&family=Gowun+Batang:wght@400;700&family=Gamja+Flower&family=Hi+Melody&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -416,7 +420,7 @@ function sm(a,b,x){ var t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t
 function col(h){ return new THREE.Color(h).convertSRGBToLinear(); }
 function lin(a,k){ return new THREE.Color(a[0]*(k||1), a[1]*(k||1), a[2]*(k||1)); }
 var OUT = '#include <tonemapping_fragment>\n#include <encodings_fragment>\n';
-var EQ = 'uniform sampler2D env; uniform float rot; uniform float skyI; vec3 envAt(vec3 d){ float u=atan(d.x,-d.z)*0.15915494+0.5+rot; float v=acos(clamp(d.y,-1.,1.))*0.31830989; return texture2D(env, vec2(fract(u), v)).rgb*skyI; }';
+var EQ = 'uniform sampler2D env; uniform float rot; uniform float skyI; uniform vec3 tint; vec3 envAt(vec3 d){ float u=atan(d.x,-d.z)*0.15915494+0.5+rot; float v=acos(clamp(d.y,-1.,1.))*0.31830989; return texture2D(env, vec2(fract(u), v)).rgb*skyI*tint; }';
 var $ = function(id){ return document.getElementById(id); };
 var store = { get:function(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } },
               set:function(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
@@ -493,7 +497,31 @@ function lightDir(){
   var e = (cfg.lightElev||cfg.elev||20)*Math.PI/180, ph = Math.atan(cfg.az||0);
   return new THREE.Vector3(Math.sin(ph)*Math.cos(e), Math.sin(e), -Math.cos(ph)*Math.cos(e)).normalize();
 }
-function fogColor(){ return lin(cfg.hor, cfg.skyI); }
+// ---------- living windows: real time of day (device clock) and real Seoul weather ----------
+var PHASE_LABEL = { dawn:'새벽', day:'낮', dusk:'노을', night:'밤' };
+var curPhase = 'day', forcedPhase = null, weather = { kind:'clear', forced:null };
+function phaseNow(){ var d=new Date(), x=d.getHours()+d.getMinutes()/60; if(x>=19.5 || x<5) return 'night'; if(x<7) return 'dawn'; if(x>=17) return 'dusk'; return 'day'; }
+var GRADES = {
+  day:   { sky:[1,1,1],          light:1,    hemi:1,    exp:1,    lights:false, stars:false },
+  dawn:  { sky:[0.6,0.6,0.88],   light:0.55, hemi:0.7,  exp:1.08, lights:false, stars:false, lightCol:[1,0.78,0.72] },
+  dusk:  { sky:[1.0,0.56,0.38],  light:0.5,  hemi:0.6,  exp:1.1,  lights:true,  stars:false, lightCol:[1,0.62,0.42] },
+  night: { sky:[0.075,0.09,0.17],light:0.1,  hemi:0.2,  exp:1.75, lights:true,  stars:true,  lightCol:[0.6,0.7,1] }
+};
+var grade = GRADES.day;
+function wx(){ return weather.forced || weather.kind; }
+function computeGrade(){
+  curPhase = forcedPhase || phaseNow();
+  var fixedNight = cfg.id==='busan' || cfg.id==='newyear';          // these windows are night scenes by design
+  var g = JSON.parse(JSON.stringify(fixedNight ? GRADES.day : GRADES[curPhase]));
+  g.fixedNight = fixedNight;
+  if(wx()==='rain' || wx()==='snow'){                               // overcast: greyer sky, flatter light, closer fog
+    var k = wx()==='rain' ? [0.52,0.56,0.62] : [0.72,0.76,0.84];
+    g.sky = [g.sky[0]*k[0], g.sky[1]*k[1], g.sky[2]*k[2]]; g.light *= 0.4; g.hemi *= 0.85; g.fog = 0.6;
+  }
+  grade = g;
+}
+function tintC(c){ return c.multiply(new THREE.Color(grade.sky[0], grade.sky[1], grade.sky[2])); }
+function fogColor(){ return tintC(lin(cfg.hor, cfg.skyI)); }
 
 // ---------- environment (HDRI photo sky) ----------
 var envTex = null, envPM = null, envFor = null, envCache = {}, envLoading = {};
@@ -538,14 +566,14 @@ function applyEnv(c, e){
     var m = o.material; if(!m) return;
     if(m.userData.sky){ o.material = photoSkyMaterial(); m.dispose(); }
     if(m.userData.water){ m.uniforms.env.value = envTex; m.uniforms.hasEnv.value = 1; }
-    if(m.userData.pbr){ m.envMap = envPM; m.envMapIntensity = m.userData.pbr*cfg.skyI; m.needsUpdate = true; }
+    if(m.userData.pbr){ m.envMap = envPM; m.envMapIntensity = m.userData.pbr*cfg.skyI*(grade.sky[0]+grade.sky[1]+grade.sky[2])/3; m.needsUpdate = true; }
   });
 }
 
 // ---------- shaders ----------
 var fogPars = 'uniform vec3 fogC; uniform float fogN; uniform float fogF;';
 function drawnSkyMaterial(){
-  var u = { top:{value:col(cfg.sky[0])}, mid:{value:col(cfg.sky[1])}, bot:{value:col(cfg.sky[2])},
+  var u = { top:{value:tintC(col(cfg.sky[0]))}, mid:{value:tintC(col(cfg.sky[1]))}, bot:{value:tintC(col(cfg.sky[2]))},
             sunDir:{value:sunDir()}, sunCol:{value:col(cfg.sunCol)} };
   var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
     vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -553,7 +581,7 @@ function drawnSkyMaterial(){
   m.userData.sky = true; return m;
 }
 function photoSkyMaterial(){
-  var u = { env:{value:envTex}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, fogC:{value:fogColor()}, cut:{value:Math.sin((cfg.cut||2)*Math.PI/180)} };
+  var u = { env:{value:envTex}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, tint:{value:new THREE.Vector3().fromArray(grade.sky)}, fogC:{value:fogColor()}, cut:{value:Math.sin((cfg.cut||2)*Math.PI/180)} };
   return new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
     vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
     fragmentShader:EQ+' uniform vec3 fogC; uniform float cut; varying vec3 vP; void main(){ vec3 d=normalize(vP); vec3 c=envAt(vec3(d.x, max(d.y, cut*1.15), d.z)); c=mix(fogC, c, smoothstep(cut*0.55, cut*1.25, d.y)); gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
@@ -584,7 +612,7 @@ function makeGround(){
 function makeWater(){
   if(cfg.water==='none') return null;
   var u = { t:{value:0}, deep:{value:col(cfg.deep)}, shallow:{value:col(cfg.shallow)}, sunDir:{value:sunDir()}, sunCol:{value:lin(cfg.lightCol, 6)},
-            env:{value:null}, hasEnv:{value:0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI},
+            env:{value:null}, hasEnv:{value:0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, tint:{value:new THREE.Vector3().fromArray(grade.sky)},
             fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} };
   uniformsList.push(u);
   var m = new THREE.ShaderMaterial({ uniforms:u,
@@ -601,7 +629,7 @@ function makeGrass(){
   var bp = blade.attributes.position, buv = blade.attributes.uv;
   for(var i=0;i<bp.count;i++){ bp.setX(i, bp.getX(i)*(1-buv.getY(i)*0.85)); }
   var N = (cfg.flowerP>0.3 ? 16000 : 11000) * (hq?1.4:1) * (natReady?0.55:1) | 0;
-  var light = lin(cfg.up, cfg.skyI*0.35).add(lin(cfg.lightCol, cfg.lightI*0.6*Math.max(0.2,lightDir().y)));
+  var light = tintC(lin(cfg.up, cfg.skyI*0.35*grade.hemi)).add(lin(grade.lightCol||cfg.lightCol, cfg.lightI*grade.light*0.6*Math.max(0.2,lightDir().y)));
   light.multiplyScalar(cfg.grassI||1);
   var u = { t:{value:0}, base:{value:col(cfg.grassBase)}, tip:{value:col(cfg.grassTip)}, flower:{value:col(cfg.flower)}, lightC:{value:light},
             fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} };
@@ -704,7 +732,7 @@ function makeWindow(group){
   var st = new THREE.Mesh(new THREE.PlaneGeometry(W,y1-y0), new THREE.MeshBasicMaterial({map:stTex, transparent:true, opacity:0.12, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false}));
   st.position.set(0,(y0+y1)/2,0.002); group.add(st);
   group.add(box(1.8,0.07,0.45,'#9a7654',BENCH.x,0.6,BENCH.z,0.6)); group.add(box(0.08,0.45,0.4,dark,-0.8,0.375,BENCH.z)); group.add(box(0.08,0.45,0.4,dark,0.8,0.375,BENCH.z));
-  if(cfg.lamp){
+  if(cfg.lamp || grade.lights){
     group.add(box(0.07,2.4,0.07,'#2b2b2b',2.9,1.35,1.9,0.4));
     var bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11,12,8), new THREE.MeshBasicMaterial({color:col('#ffe2a8').multiplyScalar(6), fog:false})); bulb.position.set(2.9,2.6,1.9); group.add(bulb);
     var pl = new THREE.PointLight(col('#ffc77a'), 2.2, 10, 2); pl.position.set(2.9,2.5,1.9); group.add(pl);
@@ -1011,7 +1039,7 @@ function makeCritters(group){
 }
 function updateCritters(dt, T){
   var cc = CRITTERS[cfg.id] || {};
-  if(cc.birds && critterGroup){ flyT -= dt; if(flyT < 0){ flyover(critterGroup, Math.random, 1 + Math.floor(Math.random()*cc.birds[2])); flyT = cc.birds[0] + Math.random()*(cc.birds[1]-cc.birds[0]); } }
+  if(cc.birds && critterGroup && curPhase!=='night'){ flyT -= dt; if(flyT < 0){ flyover(critterGroup, Math.random, 1 + Math.floor(Math.random()*cc.birds[2])); flyT = cc.birds[0] + Math.random()*(cc.birds[1]-cc.birds[0]); } }
   for(var i=critters.length-1;i>=0;i--){ if(critters[i].update(dt, T) === false) critters.splice(i,1); }
 }
 
@@ -1028,7 +1056,7 @@ function makeSnow(n){
 }
 var snowU = null, bulbs = [];
 // strings of warm bulbs along the window frame and around a few pines
-function makeLights(group){
+function makeLights(group, frameOnly){
   bulbs = [];
   var cols = ['#ffd27a','#ff9a6b','#fff2c8','#ffb3c7','#a8d8ff'];
   function bulb(x,y,z,i,r){ var m = new THREE.Mesh(new THREE.SphereGeometry(r||0.035, 8, 6), new THREE.MeshBasicMaterial({color:col(cols[i%cols.length]).multiplyScalar(4), toneMapped:false, fog:false}));
@@ -1036,6 +1064,7 @@ function makeLights(group){
   var i=0, k;
   for(k=0;k<=24;k++){ var x=-2.05+4.1*k/24; bulb(x, 3.1+Math.sin(k*0.9)*0.05, 0.09, i++); }          // along the top of the frame, gently sagging
   for(k=0;k<=12;k++){ var y=0.5+2.6*k/12; bulb(-2.1, y, 0.09, i++); bulb(2.1, y, 0.09, i++); }        // down both sides
+  if(frameOnly){ var wl = new THREE.PointLight(col('#ffcf8a'), 0.9, 6, 2); wl.position.set(0, 2.6, 0.8); group.add(wl); return; }
   [[-6,-4],[6.5,-5],[-8,3]].forEach(function(t){
     var gx=t[0], gz=t[1], gy=groundH(gx,gz);
     for(k=0;k<34;k++){ var a=k*0.75, h=0.7+k*0.11, r=1.15*(1-k/38)+0.12; bulb(gx+Math.cos(a)*r, gy+h, gz+Math.sin(a)*r, i++, 0.075); }
@@ -1083,6 +1112,67 @@ function newYearTick(){
   box.className = '';
 }
 setInterval(newYearTick, 250);
+
+// ---------- night sky and rain ----------
+function makeStars(){
+  var n = 900, pos = new Float32Array(n*3), sd = new Float32Array(n), R = rng(17);
+  for(var i=0;i<n;i++){ var u=0.06+R()*0.94, a=R()*Math.PI*2, r=Math.sqrt(1-u*u); pos[i*3]=Math.cos(a)*r*420; pos[i*3+1]=u*420; pos[i*3+2]=Math.sin(a)*r*420; sd[i]=R(); }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('aS', new THREE.BufferAttribute(sd,1));
+  var u = { t:{value:0} }; uniformsList.push(u);
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
+    vertexShader:'attribute float aS; uniform float t; varying float vA; void main(){ vec4 mv=modelViewMatrix*vec4(position+cameraPosition,1.); vA=(0.35+0.65*fract(aS*7.3))*(0.65+0.35*sin(t*(1.0+aS*3.0)+aS*50.0)); gl_PointSize=1.2+fract(aS*13.1)*2.2; gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying float vA; void main(){ float d=length(gl_PointCoord-.5); gl_FragColor=vec4(vec3(1.0,0.97,0.9), smoothstep(.5,.0,d)*vA); }' });
+  var pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.renderOrder = -1; return pts;
+}
+var rainU = null;
+function makeRain(){
+  var n = 1800, pos = new Float32Array(n*6), sd = new Float32Array(n*2), end = new Float32Array(n*2), R = rng(29);
+  for(var i=0;i<n;i++){ var x=(R()-0.5)*50, y=R()*18, z=(R()-0.5)*50, s=R()*100;
+    for(var e=0;e<2;e++){ pos[(i*2+e)*3]=x; pos[(i*2+e)*3+1]=y; pos[(i*2+e)*3+2]=z; sd[i*2+e]=s; end[i*2+e]=e; } }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('aS', new THREE.BufferAttribute(sd,1)); g.setAttribute('aE', new THREE.BufferAttribute(end,1));
+  var u = { t:{value:0}, cam:{value:new THREE.Vector3()} }; uniformsList.push(u); rainU = u;
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, depthWrite:false,
+    vertexShader:'attribute float aS; attribute float aE; uniform float t; uniform vec3 cam; varying float vA; void main(){ vec3 p=position; float sp=11.0+fract(aS*0.37)*4.0; p.y=mod(p.y - t*sp, 18.0) + aE*0.45; p.x+=aE*0.06; p.x=cam.x+mod(p.x-cam.x+25.0,50.0)-25.0; p.z=cam.z+mod(p.z-cam.z+25.0,50.0)-25.0; vec4 mv=modelViewMatrix*vec4(p,1.); vA=clamp(1.0-(-mv.z)/40.0,0.0,1.0)*(0.25+0.3*aE); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying float vA; void main(){ gl_FragColor=vec4(vec3(0.82,0.86,0.92), vA); }' });
+  var ls = new THREE.LineSegments(g, m); ls.frustumCulled = false; return ls;
+}
+// raindrops sitting on and running down the glass: a small canvas redrawn a few times a second
+var dropsTex = null, drops = null, dropsCv = null, dropsT = 0;
+function makeDrops(group){
+  dropsCv = document.createElement('canvas'); dropsCv.width = 512; dropsCv.height = 320;
+  drops = []; var R = Math.random;
+  for(var i=0;i<260;i++) drops.push({x:R()*512, y:R()*320, r:1+R()*3.2, v:0, run:R()<0.12});
+  dropsTex = new THREE.CanvasTexture(dropsCv); dropsTex.encoding = THREE.sRGBEncoding;
+  var m = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.5), new THREE.MeshBasicMaterial({map:dropsTex, transparent:true, depthWrite:false, side:THREE.DoubleSide, opacity:0.9}));
+  m.position.set(0, 1.75, 0.004); group.add(m); drawDrops(0.1);
+}
+function drawDrops(dt){
+  if(!dropsCv || !dropsTex) return;
+  var x = dropsCv.getContext('2d'); x.clearRect(0,0,512,320);
+  for(var i=0;i<drops.length;i++){
+    var d = drops[i];
+    if(d.run){ d.v = Math.min(140, d.v + dt*60); d.y += d.v*dt; if(d.y > 330){ d.y = -10; d.x = Math.random()*512; d.v = 0; }
+      x.strokeStyle = 'rgba(220,230,240,.18)'; x.lineWidth = d.r*0.9; x.beginPath(); x.moveTo(d.x, d.y-30); x.lineTo(d.x, d.y); x.stroke(); }
+    else if(Math.random() < dt*0.08){ d.run = true; d.v = 0; }
+    var g = x.createRadialGradient(d.x-d.r*0.3, d.y-d.r*0.3, 0, d.x, d.y, d.r);
+    g.addColorStop(0, 'rgba(255,255,255,.75)'); g.addColorStop(0.45, 'rgba(210,220,235,.28)'); g.addColorStop(1, 'rgba(60,70,90,.35)');
+    x.fillStyle = g; x.beginPath(); x.arc(d.x, d.y, d.r, 0, Math.PI*2); x.fill();
+  }
+  if(drops.length < 340 && Math.random() < dt*6) drops.push({x:Math.random()*512, y:Math.random()*320, r:1+Math.random()*3, v:0, run:false});
+  dropsTex.needsUpdate = true;
+}
+function fetchWeather(){
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.978&current=precipitation,rain,showers,snowfall,weather_code&timezone=Asia%2FSeoul')
+  .then(function(r){ return r.json(); }).then(function(j){
+    var c = (j && j.current) || {}, code = c.weather_code|0;
+    var k = (c.snowfall>0 || [71,73,75,77,85,86].indexOf(code)>=0) ? 'snow'
+          : (c.rain>0 || c.showers>0 || c.precipitation>0 || (code>=51 && code<=67) || (code>=80 && code<=82) || code>=95) ? 'rain' : 'clear';
+    if(k !== weather.kind){ weather.kind = k; if(world){ build(); setAmbience(); } }
+  }).catch(function(){});
+}
+fetchWeather(); setInterval(fetchWeather, 15*60*1000);
+// re-grade when the time of day changes (checked every minute)
+setInterval(function(){ if(!world || forcedPhase) return; if(phaseNow() !== curPhase){ build(); setAmbience(); } }, 60000);
 
 // ---------- post-it rendering (shared by 3D, reader, editor) ----------
 function wrap(ctx, text, maxW){
@@ -1187,10 +1277,11 @@ function build(){
   uniformsList = []; noteMeshes = [];
   renderer.shadowMap.enabled = hq;
   world = new THREE.Group(); scene.add(world);
-  renderer.toneMappingExposure = cfg.exp||0.6;
-  scene.fog = new THREE.Fog(fogColor(), cfg.fogN2, cfg.fogF2);
-  hemi = new THREE.HemisphereLight(lin(cfg.up, cfg.skyI*0.9), lin(cfg.low, cfg.skyI*0.9), 1.0); world.add(hemi);
-  sun = new THREE.DirectionalLight(lin(cfg.lightCol), cfg.lightI); sun.position.copy(lightDir()).multiplyScalar(60);
+  computeGrade();
+  renderer.toneMappingExposure = (cfg.exp||0.6)*grade.exp;
+  scene.fog = new THREE.Fog(fogColor(), cfg.fogN2*(grade.fog||1), cfg.fogF2*(grade.fog||1));
+  hemi = new THREE.HemisphereLight(tintC(lin(cfg.up, cfg.skyI*0.9)), tintC(lin(cfg.low, cfg.skyI*0.9)), grade.hemi); world.add(hemi);
+  sun = new THREE.DirectionalLight(lin(grade.lightCol||cfg.lightCol), cfg.lightI*grade.light); sun.position.copy(lightDir()).multiplyScalar(60);
   if(hq){
     sun.castShadow = true; sun.shadow.mapSize.set(2048,2048);
     var sc = sun.shadow.camera; sc.left=-16; sc.right=16; sc.top=16; sc.bottom=-16; sc.near=1; sc.far=140;
@@ -1204,16 +1295,20 @@ function build(){
   if(natReady) makeNature(world); else makeTrees(world);
   makeWindow(world);
   makeCritters(world);
+  var motesWas = cfg.motes; if(curPhase==='night' && !grade.fixedNight && cfg.motes!=='none') cfg.motes='firefly';
   if(cfg.motes!=='none') world.add(makeMotes());
-  snowU = null; if(cfg.snow || snowSeason()) world.add(makeSnow(cfg.snow || 700));
-  bulbs = []; if(cfg.lights && natReady) makeLights(world);
+  cfg.motes = motesWas;
+  if(grade.stars && wx()==='clear') world.add(makeStars());
+  snowU = null; if(cfg.snow || snowSeason() || wx()==='snow') world.add(makeSnow(cfg.snow || (wx()==='snow' ? 1400 : 700)));
+  rainU = null; dropsTex = null; dropsCv = null; if(wx()==='rain' && !cfg.snow){ world.add(makeRain()); makeDrops(world); }
+  bulbs = []; if(cfg.lights && natReady) makeLights(world); else if(grade.lights && curPhase!=='day') makeLights(world, true);
   fw.list = [];
   regionNotes().forEach(addNoteMesh);
   syncSig = ''; syncRegion(true);
   loadEnv();
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
-  $('locSub').textContent = cfg.scene;
+  $('locSub').textContent = cfg.scene + (grade.fixedNight ? '' : ' · '+PHASE_LABEL[curPhase]) + (wx()==='rain' ? ' · 서울에 비' : wx()==='snow' ? ' · 서울에 눈' : '');
 }
 
 // ---------- movement: jump / crouch / sit ----------
@@ -1738,6 +1833,7 @@ function every(min, max, fn){
   (function loop(){ id.t = setTimeout(function(){ if(soundOn && !document.hidden) fn(); loop(); }, (min + Math.random()*(max-min))*1000); })();
 }
 function bird(lo, hi, n){
+  if(curPhase==='night' && !grade.fixedNight) return;
   var at = 0; for(var i=0;i<n;i++){ var f = lo + Math.random()*(hi-lo); chirp(f, f*(0.75+Math.random()*0.2), 0.05+Math.random()*0.07, 0.035, at); at += 0.07+Math.random()*0.08; }
 }
 var SCAPES = {
@@ -1785,6 +1881,8 @@ function startSound(){
 function setAmbience(){
   if(!actx) return;
   ambStop(); (SCAPES[cfg.id] || SCAPES.mapo)();
+  if(curPhase==='night' && !grade.fixedNight) every(0.5, 1.6, function(){ var f=4000+Math.random()*600; for(var i=0;i<3+Math.floor(Math.random()*3);i++) chirp(f, f*0.98, 0.028, 0.011, i*0.045, 'triangle'); });
+  if(wx()==='rain'){ bed('white','lowpass',2600,0.5,0.09,0.11,0.02); bed('pink','bandpass',900,0.8,0.05,0.07,0.02); every(0.15, 0.6, function(){ var f=1800+Math.random()*2200; chirp(f, f*0.6, 0.03, 0.012); }); }
   master.gain.cancelScheduledValues(actx.currentTime);
   master.gain.setValueAtTime(0, actx.currentTime);
   master.gain.linearRampToValueAtTime(soundOn ? 0.9 : 0, actx.currentTime + 1.5);   // fade in on arrival
@@ -2136,6 +2234,8 @@ function frame(){
   WIND.value = t;
   updateCritters(dt, t);
   if(snowU) snowU.cam.value.copy(camera.position);
+  if(rainU) rainU.cam.value.copy(camera.position);
+  if(dropsCv){ dropsT += dt; if(dropsT > 0.06){ drawDrops(dropsT); dropsT = 0; } }
   if(bulbs.length) twinkle(t);
   updateFireworks(dt, performance.now());
   var superPR = 0;
@@ -2148,6 +2248,9 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
+if('serviceWorker' in navigator && /github\.io$|localhost$/.test(location.hostname)){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
 function boot(){ build(); frame(); loadNature(); if(linked) enterWorld(); fetchNews(); }
 var fontWait = document.fonts && document.fonts.load ? Promise.race([Promise.all(FONTS.map(function(f){ return document.fonts.load('40px '+f.css.split(',')[0]); })), new Promise(function(r){ setTimeout(r,3000); })]) : Promise.resolve();
 fontWait.then(boot, boot);
