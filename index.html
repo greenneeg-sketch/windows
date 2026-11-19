@@ -3,7 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>유리창 — 3D 시안</title>
+<title>유리창 — 포스트잇 한 장 붙이고 가요</title>
+<meta name="description" content="그날 마음에 맞는 유리창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요. 수고했어 · 털어놓는 · 다짐하는 · 소원 창.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="유리창">
+<meta property="og:title" content="유리창 — 포스트잇 한 장 붙이고 가요">
+<meta property="og:description" content="그날 마음에 맞는 창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.">
+<meta property="og:url" content="https://greenneeg-sketch.github.io/windows/">
+<meta property="og:image" content="https://greenneeg-sketch.github.io/windows/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://greenneeg-sketch.github.io/windows/og.jpg">
+<meta name="theme-color" content="#14161F">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-title" content="유리창">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Jua&family=Gowun+Batang:wght@400;700&family=Gamja+Flower&family=Hi+Melody&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -98,6 +115,10 @@
   .theme{min-height:92px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.18);color:#F4F1EA;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;box-shadow:0 8px 20px rgba(0,0,0,.3)}
   .theme b{font-size:17px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
   .theme span{font-size:12px;color:#fff;line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  #loader{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 16px);transform:translateX(-50%);z-index:25;display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:18px;font-size:13px;color:#F4F1EA;white-space:nowrap;transition:opacity .5s;opacity:0;pointer-events:none}
+  body:not(.intro) #loader{top:calc(env(safe-area-inset-top) + 70px)}
+  #loader i{display:block;width:90px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
+  #loader b{display:block;height:100%;width:0;background:#FFC94D;transition:width .3s}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);padding:10px 16px;border-radius:18px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:30;white-space:nowrap}
 </style>
 </head>
@@ -136,6 +157,7 @@
 </button>
 <div id="place" class="glass">유리창을 눌러 붙일 자리를 골라요 <button id="placeCancel">취소</button></div>
 <div id="toast" class="glass"></div>
+<div id="loader" class="glass" role="status" aria-live="polite"><span id="ldText">풍경을 그리는 중</span><i><b id="ldBar"></b></i></div>
 
 <div id="composeScrim" class="scrim">
   <div class="sheet" role="dialog" aria-labelledby="composeTitle">
@@ -359,7 +381,7 @@ function lightDir(){
 function fogColor(){ return lin(cfg.hor, cfg.skyI); }
 
 // ---------- environment (HDRI photo sky) ----------
-var envTex = null, envPM = null, envFor = null, envCache = {};
+var envTex = null, envPM = null, envFor = null, envCache = {}, envLoading = {};
 var pmrem = new THREE.PMREMGenerator(renderer);
 // HDR sky packed in a PNG: top half = RGB mantissa, bottom half = shared exponent (RGBE)
 var EXP = new Float32Array(256); for(var ei=1;ei<256;ei++) EXP[ei]=Math.pow(2, ei-136);
@@ -386,11 +408,13 @@ function loadEnv(){
   var c = cfg;
   if(!c.hdri || !(THREE.DataUtils && THREE.DataUtils.toHalfFloat)) return;
   if(envCache[c.id]){ applyEnv(c, envCache[c.id]); return; }
+  if(envLoading[c.id]) return; envLoading[c.id] = true; ldStart(1);
   loadPackedHDR('hdri/'+c.hdri+'.png', function(tex){
+    ldDone(); envLoading[c.id] = false;
     var pm = pmrem.fromEquirectangular(tex).texture;
     envCache[c.id] = {tex:tex, pm:pm};
     if(cfg===c) applyEnv(c, envCache[c.id]);
-  }, function(){ /* keep the drawn sky */ });
+  }, function(){ ldDone(); envLoading[c.id] = false; /* keep the drawn sky */ });
 }
 function applyEnv(c, e){
   if(cfg!==c || !world) return;
@@ -573,6 +597,18 @@ function makeWindow(group){
 }
 
 
+// ---------- loading progress ----------
+var LD = {done:0, total:0}, ldHideT;
+function ldStart(n){ LD.total += n; ldUpdate(); }
+function ldDone(){ LD.done = Math.min(LD.total, LD.done+1); ldUpdate(); }
+function ldUpdate(){
+  var el = $('loader'), pct = LD.total ? Math.round(LD.done/LD.total*100) : 100;
+  $('ldBar').style.width = pct+'%'; $('ldText').textContent = '풍경을 그리는 중 · '+pct+'%';
+  clearTimeout(ldHideT);
+  if(LD.done >= LD.total){ ldHideT = setTimeout(function(){ el.style.opacity = 0; LD.done = LD.total = 0; }, 500); }
+  else el.style.opacity = 1;
+}
+
 // ---------- 3D nature models (Quaternius Stylized Nature MegaKit, CC0) ----------
 var NAT = null, NTEX = {}, natGeo = {}, natReady = false;
 var WIND = { value: 0 };
@@ -596,16 +632,17 @@ function geomFrom(part){
 var TEXLIST = { leaves_tree:'png', leaf_pine:'png', leaves_twisted:'png', leaves:'png', flowers:'png', grass:'png', bark_tree:'jpg', bark_twisted:'jpg', rocks:'jpg', frame_color:'jpg', frame_normal:'jpg', frame_rough:'jpg' };
 function loadNature(){
   var tl = new THREE.TextureLoader(), keys = Object.keys(TEXLIST), left = keys.length + 1, failed = false;
-  function done(){ if(--left===0 && !failed){ natReady = true; build(); } }
+  ldStart(left);
+  function done(){ ldDone(); if(--left===0 && !failed){ natReady = true; build(); } }
   keys.forEach(function(k){
     tl.load('tex/'+k+'.'+TEXLIST[k], function(t){
       t.flipY = k.indexOf('frame_')===0; if(k!=='frame_normal' && k!=='frame_rough') t.encoding = THREE.sRGBEncoding;
       t.anisotropy = 4; t.__keep = true;
       if(k.indexOf('frame_')===0){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
       NTEX[k]=t; done();
-    }, undefined, function(){ failed = true; });
+    }, undefined, function(){ failed = true; done(); });
   });
-  fetch('models/nature.json').then(function(r){ return r.json(); }).then(function(j){ NAT=j; done(); }).catch(function(){ failed = true; });
+  fetch('models/nature.json').then(function(r){ return r.json(); }).then(function(j){ NAT=j; done(); }).catch(function(){ failed = true; done(); });
 }
 function windify(m, amt){
   m.onBeforeCompile = function(sh){

@@ -148,3 +148,12 @@ alter table public.notes add column place text check (place in ('서울','부산
 grant select (place) on public.notes to anon, authenticated;
 drop function public.post_note(text, text, real, real, real, text, jsonb, jsonb);
 -- post_note is recreated with one more argument, p_place text default null, inserted into notes.place (same body otherwise)
+
+-- migration "yurichang_admin": operator tools behind a secret key (only its SHA-256 is stored)
+-- tables: admin_keys(key_hash)  — no grants to anon/authenticated
+-- functions (each checks the key first, waits 0.5s on a wrong key):
+--   admin_stats(p_key)                      -> totals, today, reported, hidden, per window
+--   admin_list(p_key, p_filter)             -> 'reported' | 'hidden' | 'recent', with report reasons
+--   admin_set_hidden(p_key, p_id, p_hidden) -> restoring also clears that note's reports
+--   admin_delete(p_key, p_id)
+-- To rotate the key: insert the new sha256 hex into admin_keys and delete the old row (SQL editor).
