@@ -168,3 +168,7 @@ create policy "visible notes are public" on public.notes for select to anon, aut
 -- notes.ip_day = sha256('yurichang|' || client_ip || '|' || seoul_date) — a per-day hash, never the raw address
 -- yc_client_ip() reads cf-connecting-ip / x-forwarded-for / x-real-ip from request.headers
 -- post_note: at most 3 per device and 10 per network per Seoul day
+
+-- migration "yurichang_newyear_window": allow the seasonal window
+alter table public.notes drop constraint notes_region_check;
+alter table public.notes add constraint notes_region_check check (region in ('mapo','busan','gangneung','jeju','newyear'));
