@@ -86,7 +86,7 @@
 <div id="top">
   <button id="loc" class="glass" aria-label="지역 창 바꾸기">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFC94D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-    <span><b id="locName">서울 마포 창</b><small id="locSub">반경 3km 안에서만 열려요</small></span>
+    <span><b id="locName">서울 마포 창</b><small id="locSub">창 4곳 중 하나</small></span>
   </button>
   <div id="topR">
     <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
@@ -175,7 +175,7 @@
   <div class="sheet" role="dialog" aria-labelledby="regionTitle">
     <div class="row"><h2 id="regionTitle">지역 창</h2>
       <button class="close" data-close="regionScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
-    <p class="muted">실제 서비스에서는 내 위치 근처의 창만 열려요. 시안이라 다른 지역 창도 직접 골라볼 수 있어요.</p>
+    <p class="muted">지금은 창이 4곳이에요. 내 위치에서 가장 가까운 창이 먼저 열리고, 다른 창에도 들어가 볼 수 있어요.</p>
     <div class="regions" id="regions"></div>
   </div>
 </div>
@@ -795,7 +795,7 @@ function build(){
   loadEnv();
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
-  $('locSub').textContent = cfg.scene+' · 반경 3km 안에서만 열려요';
+  $('locSub').textContent = cfg.scene+(cfg.id===nearestId ? ' · 내 위치에서 가장 가까운 창' : '');
 }
 
 // ---------- movement: jump / crouch / sit ----------
@@ -1267,14 +1267,14 @@ $('snd').addEventListener('click', function(){
 
 // ---------- location ----------
 function nearest(lat,lng){ var best=REGIONS[0],bd=1e9; REGIONS.forEach(function(r){ var d=Math.hypot(r.lat-lat,(r.lng-lng)*Math.cos(lat*Math.PI/180)); if(d<bd){bd=d;best=r;} }); return best; }
-var located = false;
+var located = false, nearestId = null;
 function locFail(){ if(located) return; located=true; $('statusText').textContent='위치를 확인할 수 없어 서울 마포 창으로 안내할게요. 위쪽에서 바꿀 수 있어요.'; }
 try{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(function(p){
       if(located) return; located=true; var r=nearest(p.coords.latitude,p.coords.longitude);
       if(r.id!==cfg.id){ cfg=r; build(); }
-      $('statusText').textContent='가까운 창을 찾았어요: '+r.name+' 창 (반경 3km)';
+      nearestId=r.id; $('locSub').textContent = cfg.scene+(cfg.id===nearestId ? ' · 내 위치에서 가장 가까운 창' : ''); $('statusText').textContent='내 위치에서 가장 가까운 창: '+r.name+' 창';
     }, locFail, {timeout:4000, maximumAge:600000});
     setTimeout(locFail, 4500);
   } else locFail();
