@@ -1417,24 +1417,37 @@ $('shareWin').addEventListener('click', function(){
 var cardBlob = null, cardUrl = null;
 function makeCard(n){
   var W=1080, H=1920, cv=document.createElement('canvas'); cv.width=W; cv.height=H; var x=cv.getContext('2d');
-  var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,cfg.sky[0]); g.addColorStop(0.62,cfg.sky[1]); g.addColorStop(1,cfg.ground); x.fillStyle=g; x.fillRect(0,0,W,H);
-  var v=x.createRadialGradient(W/2,H*0.45,W*0.2,W/2,H*0.5,H*0.75); v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,.45)'); x.fillStyle=v; x.fillRect(0,0,W,H);
-  // window frame behind the note
-  x.save(); x.strokeStyle='rgba(58,44,34,.85)'; x.lineWidth=28; x.strokeRect(110,430,860,1000); x.lineWidth=16; x.beginPath(); x.moveTo(540,430); x.lineTo(540,1430); x.moveTo(110,930); x.lineTo(970,930); x.stroke();
-  x.fillStyle='rgba(255,255,255,.07)'; x.fillRect(124,444,832,972); x.restore();
-  var S=700, nc=document.createElement('canvas'); nc.width=S; nc.height=S; renderNote(nc.getContext('2d'), n, S, {deco:false});
-  x.save(); x.translate(W/2, 930); x.rotate(-0.045); x.shadowColor='rgba(0,0,0,.45)'; x.shadowBlur=60; x.shadowOffsetY=30;
-  x.drawImage(nc,-S/2,-S/2); x.shadowColor='transparent';
-  x.fillStyle='rgba(255,255,255,.55)'; x.fillRect(-90,-S/2-28,180,56); x.restore();
-  x.fillStyle='#FFFFFF'; x.textAlign='center'; x.textBaseline='alphabetic';
-  x.font='150px "Nanum Pen Script", cursive'; x.fillText('유리창', W/2, 250);
-  x.font='500 46px "Noto Sans KR", sans-serif'; x.fillStyle='rgba(255,255,255,.92)'; x.fillText(cfg.name+' 창 · '+cfg.scene, W/2, 330);
-  var meta = (n.place ? n.place+'에서' : '')+(n.h ? (n.place?'  ·  ':'')+'♥ '+n.h : '');
-  if(meta){ x.font='500 44px "Noto Sans KR", sans-serif'; x.fillText(meta, W/2, 1540); }
-  x.font='400 38px "Noto Sans KR", sans-serif'; x.fillStyle='rgba(255,255,255,.85)';
-  x.fillText('나도 한 장 붙이러 가기', W/2, 1720);
-  x.font='500 40px "Noto Sans KR", sans-serif'; x.fillStyle='#FFE08F';
-  x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W/2, 1784);
+  // calm backdrop: the window's sky, softened and darkened toward the edges
+  var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,cfg.sky[0]); g.addColorStop(0.55,cfg.sky[1]); g.addColorStop(1,cfg.sky[2]); x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='rgba(16,18,26,.38)'; x.fillRect(0,0,W,H);
+  var glow=x.createRadialGradient(W/2,880,40,W/2,880,720); glow.addColorStop(0,'rgba(255,240,215,.30)'); glow.addColorStop(1,'rgba(255,240,215,0)'); x.fillStyle=glow; x.fillRect(0,0,W,H);
+  var v=x.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,H*0.72); v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,.35)'); x.fillStyle=v; x.fillRect(0,0,W,H);
+  // fine paper grain
+  var gr=x.getImageData(0,0,W,H), d=gr.data;
+  for(var i=0;i<d.length;i+=4){ var k=(Math.random()-0.5)*10; d[i]+=k; d[i+1]+=k; d[i+2]+=k; }
+  x.putImageData(gr,0,0);
+  // the post-it, large, with a soft lifted shadow and a strip of tape
+  var S=760, nc=document.createElement('canvas'); nc.width=S; nc.height=S; renderNote(nc.getContext('2d'), n, S, {deco:false});
+  x.save(); x.translate(W/2, 900); x.rotate(-0.035);
+  x.shadowColor='rgba(0,0,0,.32)'; x.shadowBlur=80; x.shadowOffsetY=40; x.fillStyle='#000'; x.fillRect(-S/2+10,-S/2+20,S-20,S-20);
+  x.shadowColor='transparent'; x.drawImage(nc,-S/2,-S/2);
+  x.fillStyle='rgba(255,255,255,.5)'; x.fillRect(-80,-S/2-24,160,48);
+  x.restore();
+  x.textAlign='center'; x.textBaseline='alphabetic';
+  // small wordmark + window name, quiet and spaced
+  x.fillStyle='rgba(255,255,255,.96)'; x.font='88px "Nanum Pen Script", cursive'; x.fillText('유리창', W/2, 210);
+  x.fillStyle='rgba(255,255,255,.72)'; x.font='500 28px "Noto Sans KR", sans-serif';
+  if('letterSpacing' in x) x.letterSpacing='6px';
+  x.fillText(cfg.name+' 창', W/2, 266);
+  if('letterSpacing' in x) x.letterSpacing='0px';
+  // meta under the note
+  var meta=[]; if(n.place) meta.push(n.place+'에서'); if(n.h) meta.push('♥ '+n.h);
+  if(meta.length){ x.fillStyle='rgba(255,255,255,.85)'; x.font='400 32px "Noto Sans KR", sans-serif'; x.fillText(meta.join('   ·   '), W/2, 1400); }
+  // footer: hairline + invitation + address
+  x.fillStyle='rgba(255,255,255,.35)'; x.fillRect(W/2-40, 1660, 80, 2);
+  x.fillStyle='rgba(255,255,255,.82)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText('나도 한 장 붙이러 가기', W/2, 1730);
+  x.fillStyle='rgba(255,255,255,.55)'; x.font='400 26px "Noto Sans KR", sans-serif';
+  x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W/2, 1780);
   return cv;
 }
 function openCard(mesh){
