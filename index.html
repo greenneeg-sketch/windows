@@ -76,7 +76,10 @@
   #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity .8s}
   #intro h1{margin:0 0 10px;font-family:'Nanum Pen Script',cursive;font-size:64px;font-weight:400;line-height:1}
   #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
-  #status{display:flex;align-items:center;gap:8px;margin:14px 0 22px !important;font-size:13px !important;color:#C9C4B8 !important}
+  .themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+  .theme{min-height:92px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.18);color:#F4F1EA;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;box-shadow:0 8px 20px rgba(0,0,0,.3)}
+  .theme b{font-size:17px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+  .theme span{font-size:12px;color:#fff;line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.6)}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);padding:10px 16px;border-radius:18px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:30;white-space:nowrap}
 </style>
 </head>
@@ -84,9 +87,9 @@
 <canvas id="c" aria-label="유리창 3D 공간"></canvas>
 
 <div id="top">
-  <button id="loc" class="glass" aria-label="지역 창 바꾸기">
+  <button id="loc" class="glass" aria-label="다른 창으로 가기">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFC94D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-    <span><b id="locName">서울 마포 창</b><small id="locSub">창 4곳 중 하나</small></span>
+    <span><b id="locName">수고했어 창</b><small id="locSub">노을 호숫가</small></span>
   </button>
   <div id="topR">
     <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
@@ -136,6 +139,7 @@
     </div>
     <div class="row">
       <p class="muted" id="quota" style="margin:-4px 0 0;color:#FFC94D"></p>
+    <label class="muted" id="placeRow" style="display:flex;align-items:center;gap:8px;min-height:32px"><input type="checkbox" id="showPlace" checked style="width:20px;height:20px;accent-color:#FFC94D"> 내 지역(시·도)을 포스트잇에 작게 남기기</label>
     <p class="muted" id="edHelp">손가락으로 아무 곳에나 자유롭게 써요</p>
       <button class="tbtn" id="delSel" style="display:none;flex-shrink:0">글자 지우기</button>
     </div>
@@ -173,18 +177,17 @@
 
 <div id="regionScrim" class="scrim">
   <div class="sheet" role="dialog" aria-labelledby="regionTitle">
-    <div class="row"><h2 id="regionTitle">지역 창</h2>
+    <div class="row"><h2 id="regionTitle">어떤 창 앞에 설까요?</h2>
       <button class="close" data-close="regionScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
-    <p class="muted">지금은 창이 4곳이에요. 내 위치에서 가장 가까운 창이 먼저 열리고, 다른 창에도 들어가 볼 수 있어요.</p>
+    <p class="muted">창마다 모이는 이야기가 달라요. 포스트잇에는 붙인 사람의 지역(시·도)만 작게 남아요.</p>
     <div class="regions" id="regions"></div>
   </div>
 </div>
 
 <div id="intro">
   <h1>유리창</h1>
-  <p>우리 동네 어딘가에 서 있는 유리창.<br>근처 사람들이 남긴 포스트잇을 읽고, 한 장 붙이고 가요.</p>
-  <p id="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFC94D" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/></svg><span id="statusText">내 위치를 확인하는 중이에요…</span></p>
-  <button class="primary" id="enter">창문 앞으로 가기</button>
+  <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
+  <div id="themes" class="themes"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -219,34 +222,34 @@ var FONT = {}; FONTS.forEach(function(f){ FONT[f.id]=f; });
 function fontCss(tx, S){ var f = FONT[tx.f||'pen']||FONTS[0]; return (tx.s*S*f.k)+'px '+f.css; }
 
 var REGIONS = [
-  {id:'mapo', name:'서울 마포', scene:'한강 가을 호숫가', lat:37.556, lng:126.91,
+  {id:'mapo', name:'수고했어', scene:'노을 호숫가', about:'하루를 마치며 서로 토닥이는 말',
    sky:['#33416f','#f0a06a','#b8826a'], sun:[0.15,0.07,-1], sunCol:'#ffc98a', sunI:0.95, hemi:['#ffd0a0','#3d4a33'],
    fog:'#e2a985', fogN:28, fogF:240, ground:'#6a8549', grassBase:'#3f5a2c', grassTip:'#b7b45a', flower:'#f7e6a0', flowerP:0.05,
    water:'lake', deep:'#3f5a80', shallow:'#f1b98c', trees:46, treeKind:'autumn', motes:'firefly', lamp:true, bloom:0.55,
    cut:1.5, flora:{common:52, tint:['#e8a03a','#f2c84b','#d9622e','#c4503a','#a8b44e','#e9b23f'], bush:22, bushf:10, rocks:8, flowers:14, plants:6, grassTint:'#efe2a8', clumps:1}, 
    hdri:'blouberg_sunrise_2_1k', rot:0.5325, elev:8.3, az:0.15, skyI:1.0, hor:[1.113,1.143,1.065], up:[0.488,0.562,0.767], low:[0.562,0.53,0.485], lightI:2.2, lightCol:[1,0.84,0.62], lightElev:14, exp:0.55, fogN2:30, fogF2:230,
-   notes:[['한강 노을 보러 왔다가 들렀어요','y',0.1,4],['망원시장 떡볶이 최고','o',0.2,12],['오늘 퇴사했어요 후련하다','p',0.05,31],['다들 오늘도 수고했어','m',0.3,18],['연남동 산책 중','b',0.85,1],['내년엔 꼭 독립한다','y',0.4,7],['여기 앉아 있으니 좋다','m',0.15,9],['여름에 왔다 감','o',0.95,2]]},
-  {id:'busan', name:'부산 해운대', scene:'해운대 밤바다', lat:35.163, lng:129.163,
+   notes:[['오늘도 수고했어 진짜로','y',0.1,24,'서울'],['퇴근길 노을 보고 힘났어요','o',0.2,12,'경기'],['다들 오늘 버티느라 고생했어','p',0.05,31,'부산'],['칼퇴 성공!','m',0.3,9,'인천'],['잘하고 있어 너','b',0.15,18,'대전'],['내일은 금요일이다','y',0.4,7,'광주'],['여기 앉아 있으니 좋다','m',0.15,5,'강원'],['실수했지만 괜찮아','o',0.9,2,'경남']]},
+  {id:'busan', name:'털어놓는', scene:'밤바다', about:'잠 안 오는 밤의 고민과 속마음',
    sky:['#0d1736','#3b4c86','#161d38'], sun:[-0.35,0.22,-1], sunCol:'#dfe6ff', sunI:0.35, hemi:['#6a7ab8','#1a1f2c'],
    fog:'#26315a', fogN:30, fogF:260, ground:'#3b5040', sand:'#b8a27c', grassBase:'#24352a', grassTip:'#55704e', flower:'#e8eaf6', flowerP:0.02,
    water:'sea', deep:'#0f2244', shallow:'#5b6ea6', trees:22, treeKind:'pine', motes:'firefly', lamp:true, bloom:0.9,
    cut:1.5, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
    hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, hor:[0.221,0.199,0.179], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
-   notes:[['바다 소리 듣고 싶을 때 와요','b',0.1,22],['광안대교 불빛 보고 감','y',0.25,8],['부산 사람 손!','p',0.2,40],['서울에서 여행 왔어요','m',0.05,5],['파도멍 최고','o',0.5,14],['내년에 또 올게','y',0.9,3],['잠이 안 와서 나왔어요','b',0.15,11]]},
-  {id:'gangneung', name:'강원 강릉', scene:'솔숲 새벽 안개', lat:37.751, lng:128.876,
+   notes:[['잠이 안 와서 나왔어요','b',0.1,22,'서울'],['사실 요즘 좀 지쳤어','p',0.25,30,'경기'],['말 못 한 고민이 있어','m',0.2,11,'대구'],['바다 소리 들으니 좀 낫다','b',0.05,14,'부산'],['보고 싶은 사람이 있어','p',0.5,19,'전북'],['내 마음 나도 모르겠어','y',0.9,3,'충남'],['들어줘서 고마워','o',0.15,8,'울산']]},
+  {id:'gangneung', name:'다짐하는', scene:'새벽 안개 숲', about:'새 출발, 결심, 내일의 나에게',
    sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
    fog:'#dde6e2', fogN:12, fogF:130, ground:'#56773f', grassBase:'#34502a', grassTip:'#8fae5c', flower:'#ffffff', flowerP:0.03,
    water:'none', trees:150, treeKind:'pine', motes:'pollen', lamp:false, bloom:0.25,
    cut:1.5, flora:{pine:70, hero:1, bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
    hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[1.706,1.252,2.081], up:[0.598,0.637,1.528], low:[0.932,0.642,1.022], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
-   notes:[['솔향 맡으면서 쉬어가요','m',0.1,16],['커피거리 다녀왔어요','o',0.2,6],['경포 일출 보러 새벽에 옴','y',0.3,25],['숲멍 중입니다','m',0.05,9],['다음엔 엄마랑 올래','p',0.6,13],['조용해서 좋다','b',0.2,4]]},
-  {id:'jeju', name:'제주', scene:'유채꽃 들판과 바다', lat:33.45, lng:126.57,
+   notes:[['내일부터 진짜 운동한다','m',0.1,16,'서울'],['올해 안에 자격증 딴다','y',0.2,21,'경기'],['엄마한테 전화 자주 하기','p',0.3,25,'경북'],['하루 한 페이지 읽기','b',0.05,9,'세종'],['미루지 말자 제발','o',0.6,13,'충북'],['다시 시작해 보자','m',0.2,6,'강원']]},
+  {id:'jeju', name:'소원', scene:'유채꽃 들판', about:'바라는 것, 설레는 일, 응원',
    sky:['#4f97da','#cde4f4','#9fc3d6'], sun:[0.45,0.6,-0.6], sunCol:'#fff6dc', sunI:1.0, hemi:['#dcefff','#5d7a3a'],
    fog:'#cfe1ec', fogN:40, fogF:300, ground:'#76994a', sand:'#d8c79c', grassBase:'#4d6e2e', grassTip:'#9cbc55', flower:'#ffd93a', flowerP:0.55,
    water:'farsea', deep:'#1f5f9a', shallow:'#8fc9e6', trees:14, treeKind:'round', motes:'pollen', lamp:false, bloom:0.3,
    cut:1.5, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
    hdri:'rooitou_park_1k', rot:0.0328, elev:10.4, az:0.45, skyI:2.6, hor:[0.31,0.481,0.848], up:[0.26,0.42,0.88], low:[0.15,0.222,0.378], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
-   notes:[['유채꽃 냄새 나는 것 같아','y',0.05,19],['한 달 살기 3주차','m',0.2,8],['귤 먹고 힘내세요','o',0.1,33],['오름 올라갔다 왔어요','b',0.3,6],['바람 많이 부는 날','m',0.7,2],['제주 또 오고 싶다','p',0.15,15],['혼자 여행 첫날','y',0.4,10]]}
+   notes:[['가족 모두 건강하게','y',0.05,33,'경기'],['합격하게 해주세요','m',0.2,40,'서울'],['올해는 꼭 연애','p',0.1,19,'부산'],['좋아하는 일 하면서 살기','b',0.3,15,'전남'],['다 잘될 거야','o',0.7,8,'제주'],['제주 또 오고 싶다','y',0.15,6,'인천'],['로또 1등 가즈아','m',0.4,10,'대구']]}
 ];
 
 // ---------- helpers ----------
@@ -727,6 +730,7 @@ function renderNote(x, n, S, opt){
     if(n.age>0.6){ x.fillStyle='rgba(255,255,255,'+(0.25+0.3*(n.age-0.6)/0.4)+')'; x.fillRect(0,0,S,S); }
     var k2=S/256;
     if(n.h>=10){ x.fillStyle='rgba(255,255,255,.55)'; x.save(); x.translate(S/2,4*k2); x.rotate(-0.05); x.fillRect(-46*k2,-10*k2,92*k2,26*k2); x.restore(); }
+    if(n.place){ x.font=(15*k2)+'px "Noto Sans KR", sans-serif'; x.fillStyle='rgba(42,36,32,.55)'; x.textAlign='left'; x.textBaseline='alphabetic'; x.fillText(n.place+'에서', 14*k2, S-14*k2); }
     if(n.h>0){ x.font='bold '+(18*k2)+'px "Noto Sans KR", sans-serif'; x.fillStyle='rgba(107,46,62,.85)'; x.textAlign='right'; x.textBaseline='alphabetic'; x.fillText('♥ '+n.h, S-14*k2, S-14*k2); }
     if(n.age>0.6){ x.fillStyle='rgba(255,255,255,.5)'; x.beginPath(); x.moveTo(S,S-46*k2); x.lineTo(S-46*k2,S); x.lineTo(S,S); x.fill(); }
   }
@@ -754,7 +758,7 @@ function slotsFor(seed){
 function mineKey(){ return 'yurichang2:'+cfg.id; }
 function regionNotes(){
   var R = rng(hashStr(cfg.id)+3), slots = slotsFor(hashStr(cfg.id));
-  var seeded = cfg.notes.map(function(a,i){ return {t:a[0], c:a[1], age:a[2], h:a[3], x:slots[i].x, y:slots[i].y, r:(R()-0.5)*0.24, id:cfg.id+'-s'+i}; });
+  var seeded = cfg.notes.map(function(a,i){ return {t:a[0], c:a[1], age:a[2], h:a[3], place:a[4], x:slots[i].x, y:slots[i].y, r:(R()-0.5)*0.24, id:cfg.id+'-s'+i}; });
   var mine = (store.get(mineKey()) || []).map(function(n){ n.mine=true; return n; });
   var hearts = store.get('yurichang-h:'+cfg.id) || {};
   var hid = store.get(hiddenKey()) || {};
@@ -762,7 +766,7 @@ function regionNotes(){
 }
 function saveMine(){
   var list = noteMeshes.map(function(m){ return m.userData.note; }).filter(function(n){ return n.mine && !n.server; })
-    .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts}; });
+    .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts,place:n.place}; });
   store.set(mineKey(), list);
 }
 
@@ -795,7 +799,7 @@ function build(){
   loadEnv();
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
-  $('locSub').textContent = cfg.scene+(cfg.id===nearestId ? ' · 내 위치에서 가장 가까운 창' : '');
+  $('locSub').textContent = cfg.scene+' · '+cfg.about;
 }
 
 // ---------- movement: jump / crouch / sit ----------
@@ -950,14 +954,14 @@ var SERVER_MSG = { daily_limit:'오늘은 '+3+'장을 다 붙였어요. 내일 �
 function serverMsg(e){ for(var k in SERVER_MSG){ if(e && e.message && e.message.indexOf(k)>=0) return SERVER_MSG[k]; } return '잠시 문제가 생겼어요. 다시 시도해 주세요'; }
 function fromServer(row){
   var days = (Date.now() - new Date(row.created_at).getTime())/86400000;
-  return { id:row.id, server:true, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
+  return { id:row.id, server:true, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
            age:Math.min(1, Math.max(0, days/30)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
 }
 var syncSig = '', syncing = false;
 function syncRegion(force){
   if(syncing || !world) return; syncing = true;
   var region = cfg.id;
-  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
+  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,place,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
   .then(function(rows){
     syncing = false;
     if(region !== cfg.id || !rows) return;
@@ -1122,6 +1126,8 @@ function openComposer(mesh){
   ed.hist=[]; ed.sel=null; ed.cur=null; ed.drag=null;
   $('composeTitle').textContent = mesh ? '내 포스트잇 수정' : '포스트잇 쓰기';
   $('quota').textContent = mesh ? '' : '오늘 붙일 수 있는 포스트잇 '+leftToday()+'장 남았어요 (하루 '+DAILY+'장)';
+  $('placeRow').style.display = mesh ? 'none' : 'flex';
+  var pv = store.get('yurichang-showplace'); $('showPlace').checked = pv===null ? true : !!pv;
   $('stick').textContent = mesh ? '수정 완료' : '창문에 붙이기';
   inl.style.display='none'; ed.inl=null; setTool('pen'); markSw(); markFont();
   openModal('composeScrim');
@@ -1154,7 +1160,10 @@ $('stick').addEventListener('click', function(){
   var region = cfg.id;
   function keepLocal(msg){ useOne(); addNoteMesh(nn, noteMeshes.length); saveMine(); closeModal('composeScrim'); toast(msg); }
   btn.disabled = true;
-  sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts}).then(function(res){
+  var wantPlace = $('showPlace').checked; store.set('yurichang-showplace', wantPlace);
+  (wantPlace ? getPlace : function(cb){ cb(null); })(function(place){
+  nn.place = place || undefined;
+  sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts, p_place:place||null}).then(function(res){
     useOne(); setToken(res.id, res.token);
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
@@ -1163,6 +1172,7 @@ $('stick').addEventListener('click', function(){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
   }).then(function(){ btn.disabled = false; edState(); });
+  });
 });
 
 // ---------- reader ----------
@@ -1177,7 +1187,7 @@ function openReader(mesh){
   reading = mesh; var n = mesh.userData.note;
   openModal('readerScrim');
   requestAnimationFrame(drawReader);
-  $('readerMeta').textContent = (n.mine?'내가 붙인 포스트잇 · ':'')+(n.age>0.6?'오래전에 붙은 포스트잇 · ':'')+'♥ '+(n.h||0);
+  $('readerMeta').textContent = (n.mine?'내가 붙인 포스트잇 · ':'')+(n.place?n.place+'에서 · ':'')+(n.age>0.6?'오래전에 붙은 포스트잇 · ':'')+'♥ '+(n.h||0);
   $('heartBtn').textContent = n.liked ? '♥ 공감했어요' : '♥ 공감';
   $('heartBtn').style.display = n.mine ? 'none' : '';
   $('editBtn').style.display = n.mine ? '' : 'none';
@@ -1222,14 +1232,14 @@ function renderRegions(){
   REGIONS.forEach(function(r){
     var b=document.createElement('button'); b.className='region'+(r.id===cfg.id?' on':'');
     var i=document.createElement('i'); i.style.background='linear-gradient(180deg,'+r.sky[0]+','+r.sky[1]+' 70%,'+r.ground+' 70%)';
-    var s=document.createElement('div'); var bb=document.createElement('b'); bb.textContent=r.name+' 창'; var sp=document.createElement('span'); sp.textContent=r.scene+' · 포스트잇 '+(r.notes.length+((store.get('yurichang2:'+r.id)||[]).length))+'장';
+    var s=document.createElement('div'); var bb=document.createElement('b'); bb.textContent=r.name+' 창'; var sp=document.createElement('span'); sp.textContent=r.scene+' · '+r.about;
     s.appendChild(bb); s.appendChild(sp); b.appendChild(i); b.appendChild(s);
     b.addEventListener('click', function(){ goRegion(r); closeModal('regionScrim'); });
     regEl.appendChild(b);
   });
 }
 $('loc').addEventListener('click', function(){ renderRegions(); openModal('regionScrim'); });
-function goRegion(r){ cfg=r; player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창으로 왔어요'); }
+function goRegion(r){ cfg=r; player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창 앞에 섰어요'); }
 
 // ---------- graphics quality ----------
 function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute('aria-label', hq?'고화질 끄기':'고화질 켜기'); }
@@ -1265,25 +1275,37 @@ $('snd').addEventListener('click', function(){
   $('snd').setAttribute('aria-label', soundOn?'소리 끄기':'소리 켜기');
 });
 
-// ---------- location ----------
-function nearest(lat,lng){ var best=REGIONS[0],bd=1e9; REGIONS.forEach(function(r){ var d=Math.hypot(r.lat-lat,(r.lng-lng)*Math.cos(lat*Math.PI/180)); if(d<bd){bd=d;best=r;} }); return best; }
-var located = false, nearestId = null;
-function locFail(){ if(located) return; located=true; $('statusText').textContent='위치를 확인할 수 없어 서울 마포 창으로 안내할게요. 위쪽에서 바꿀 수 있어요.'; }
-try{
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(function(p){
-      if(located) return; located=true; var r=nearest(p.coords.latitude,p.coords.longitude);
-      if(r.id!==cfg.id){ cfg=r; build(); }
-      nearestId=r.id; $('locSub').textContent = cfg.scene+(cfg.id===nearestId ? ' · 내 위치에서 가장 가까운 창' : ''); $('statusText').textContent='내 위치에서 가장 가까운 창: '+r.name+' 창';
-    }, locFail, {timeout:4000, maximumAge:600000});
-    setTimeout(locFail, 4500);
-  } else locFail();
-}catch(e){ locFail(); }
+// ---------- where a note came from: province only, worked out on the phone ----------
+var PROVINCES = [['서울',37.5665,126.978],['부산',35.1796,129.0756],['대구',35.8714,128.6014],['인천',37.4563,126.7052],['광주',35.1595,126.8526],['대전',36.3504,127.3845],
+  ['울산',35.5384,129.3114],['세종',36.48,127.289],['경기',37.4138,127.5183],['강원',37.8228,128.1555],['충북',36.8,127.7],['충남',36.5184,126.8],['전북',35.7175,127.153],
+  ['전남',34.8679,126.991],['경북',36.4919,128.8889],['경남',35.4606,128.2132],['제주',33.4996,126.5312]];
+function provinceOf(lat, lng){
+  var best=null, bd=1e9;
+  PROVINCES.forEach(function(p){ var d=Math.hypot(p[1]-lat,(p[2]-lng)*Math.cos(lat*Math.PI/180)); if(d<bd){ bd=d; best=p[0]; } });
+  return bd < 1.6 ? best : null;            // roughly 170 km: outside Korea gets no tag
+}
+function getPlace(done){
+  var c = store.get('yurichang-place');
+  if(c && Date.now()-c.t < 6*3600000) return done(c.p);
+  if(!navigator.geolocation) return done(null);
+  var fin = false; function end(v){ if(fin) return; fin = true; if(v) store.set('yurichang-place', {p:v, t:Date.now()}); done(v); }
+  try{ navigator.geolocation.getCurrentPosition(function(pos){ end(provinceOf(pos.coords.latitude, pos.coords.longitude)); }, function(){ end(null); }, {timeout:6000, maximumAge:3600000, enableHighAccuracy:false}); }catch(e){ end(null); }
+  setTimeout(function(){ end(null); }, 6500);
+}
 
-$('enter').addEventListener('click', function(){
-  var i=$('intro'); i.style.opacity=0; setTimeout(function(){ i.style.display='none'; },800);
-  startSound();
-  setTimeout(hideHint, 8000);
+// ---------- intro: choose a window ----------
+REGIONS.forEach(function(r, i){
+  var b = document.createElement('button'); b.className='theme';
+  b.style.background = 'linear-gradient(180deg,rgba(10,12,20,0) 15%,rgba(10,12,20,.72) 100%),linear-gradient(180deg,'+r.sky[0]+','+r.sky[1]+' 65%,'+r.ground+')';
+  var t = document.createElement('b'); t.textContent = r.name+' 창';
+  var d = document.createElement('span'); d.textContent = r.scene+' · '+r.about;
+  b.appendChild(t); b.appendChild(d);
+  b.addEventListener('click', function(){
+    if(r.id!==cfg.id){ cfg = r; build(); }
+    var it=$('intro'); it.style.opacity=0; setTimeout(function(){ it.style.display='none'; },800);
+    startSound(); setTimeout(hideHint, 8000);
+  });
+  $('themes').appendChild(b);
 });
 
 // ---------- loop ----------

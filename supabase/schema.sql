@@ -142,3 +142,9 @@ end $$;
 
 revoke all on function public.post_note, public.edit_note, public.delete_note, public.report_note, public.heart_note, public.yc_bad_text, public.yc_check_payload from public;
 grant execute on function public.post_note, public.edit_note, public.delete_note, public.report_note, public.heart_note to anon, authenticated;
+
+-- migration "yurichang_place_tag": province tag (시·도 only) on each note
+alter table public.notes add column place text check (place in ('서울','부산','대구','인천','광주','대전','울산','세종','경기','강원','충북','충남','전북','전남','경북','경남','제주'));
+grant select (place) on public.notes to anon, authenticated;
+drop function public.post_note(text, text, real, real, real, text, jsonb, jsonb);
+-- post_note is recreated with one more argument, p_place text default null, inserted into notes.place (same body otherwise)
