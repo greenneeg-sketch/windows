@@ -172,3 +172,9 @@ create policy "visible notes are public" on public.notes for select to anon, aut
 -- migration "yurichang_newyear_window": allow the seasonal window
 alter table public.notes drop constraint notes_region_check;
 alter table public.notes add constraint notes_region_check check (region in ('mapo','busan','gangneung','jeju','newyear'));
+
+-- v24: post-its on trees and rocks (migration notes_spot_on_nature)
+alter table public.notes add column if not exists spot real[];  -- [x,y,z, nx,ny,nz]; null = on the window
+alter table public.notes add constraint notes_spot_ok check (spot is null or (array_length(spot,1) = 6 and abs(spot[1]) < 70 and abs(spot[2]) < 30 and abs(spot[3]) < 70 and abs(spot[4]) <= 1.01 and abs(spot[5]) <= 1.01 and abs(spot[6]) <= 1.01));
+grant select (spot) on public.notes to anon, authenticated;
+-- post_note recreated with one more argument p_spot real[] default null, inserted into notes.spot
