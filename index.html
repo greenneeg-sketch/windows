@@ -59,7 +59,6 @@
   #place button{height:36px;padding:0 14px;border-radius:18px;border:0;background:rgba(255,255,255,.16);color:#F4F1EA;font-size:13px}
   #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.7);pointer-events:none;display:none}
   .sheet>*{flex-shrink:0}
-  @media (max-height:620px){ #edWrap{width:min(100%,300px,32vh);width:min(100%,300px,32dvh)} .sheet{gap:8px;padding-top:12px} .sw{width:36px;height:36px} }
   .scrim{position:fixed;inset:0;height:100vh;height:100dvh;background:rgba(6,7,12,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
   .scrim.on{display:flex}
   .sheet{width:100%;max-width:460px;max-height:92vh;max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#1D202C;border-radius:24px 24px 0 0;padding:18px 18px calc(env(safe-area-inset-bottom) + 20px);display:flex;flex-direction:column;gap:12px}
@@ -70,6 +69,7 @@
   .sw{width:40px;height:40px;border-radius:10px;border:3px solid transparent;padding:0}
   .sw.on{border-color:#F4F1EA}
   #edWrap{align-self:center;width:min(100%,360px,40vh);width:min(100%,360px,40dvh);aspect-ratio:1;position:relative;box-shadow:0 10px 24px rgba(0,0,0,.4);transform:rotate(-0.6deg)}
+  @media (max-height:620px){ #edWrap{width:min(100%,300px,32vh);width:min(100%,300px,32dvh)} .sheet{gap:8px;padding-top:12px} .sw{width:36px;height:36px} }
   .quota{font-size:12px;font-weight:700;color:#1A1712;background:#FFC94D;border-radius:10px;padding:3px 8px;white-space:nowrap}
   .quota:empty{display:none}
   #placeRow{display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px;color:#D9D4C9}
