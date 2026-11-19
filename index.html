@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>유리창 — 3D 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Jua&family=Gowun+Batang:wght@400;700&family=Gamja+Flower&family=Hi+Melody&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0d0f16;font-family:'Noto Sans KR',system-ui,sans-serif;color:#F4F1EA;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  canvas#c{display:block;width:100vw;height:100vh;touch-action:none}
+  button{font-family:inherit;cursor:pointer}
+  button:focus-visible,input:focus-visible{outline:2px solid #FFC94D;outline-offset:2px}
+  .glass{background:rgba(20,22,32,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12)}
+  #top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 14px) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
+  #top>*{pointer-events:auto}
+  #topR{display:flex;gap:8px}
+  #loc{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;border-radius:22px;color:#F4F1EA;font-size:14px;text-align:left}
+  #loc small{display:block;font-size:11px;color:#C9C4B8;font-weight:400}
+  #loc b{font-weight:700}
+  .iconbtn{width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;color:#F4F1EA;font-size:12px;font-weight:700}
+  .iconbtn.off{color:#8d8a84}
+  #hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 74px);padding:8px 14px;border-radius:16px;font-size:12.5px;color:#E6E1D6;white-space:nowrap;transition:opacity .6s;pointer-events:none}
+  #joy{position:fixed;left:calc(env(safe-area-inset-left) + 22px);bottom:calc(env(safe-area-inset-bottom) + 22px);width:124px;height:124px;border-radius:50%;touch-action:none}
+  #knob{position:absolute;left:37px;top:37px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 4px 10px rgba(0,0,0,.3);pointer-events:none}
+  #acts{position:fixed;right:calc(env(safe-area-inset-right) + 18px);bottom:calc(env(safe-area-inset-bottom) + 104px);display:flex;gap:10px}
+  .act{width:60px;height:60px;border-radius:30px;color:#F4F1EA;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;touch-action:none}
+  .act.on{background:rgba(255,201,77,.35)}
+  #add{position:fixed;right:calc(env(safe-area-inset-right) + 18px);bottom:calc(env(safe-area-inset-bottom) + 30px);height:56px;padding:0 22px;border:0;border-radius:28px;background:#FFC94D;color:#1A1712;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+  #place{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 176px);padding:10px 10px 10px 16px;border-radius:24px;font-size:14px;display:none;align-items:center;gap:10px;white-space:nowrap}
+  #place button{height:36px;padding:0 14px;border-radius:18px;border:0;background:rgba(255,255,255,.16);color:#F4F1EA;font-size:13px}
+  #cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.7);pointer-events:none;display:none}
+  .scrim{position:fixed;inset:0;background:rgba(6,7,12,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .scrim.on{display:flex}
+  .sheet{width:100%;max-width:460px;max-height:96vh;overflow-y:auto;background:#1D202C;border-radius:24px 24px 0 0;padding:18px 18px calc(env(safe-area-inset-bottom) + 20px);display:flex;flex-direction:column;gap:12px}
+  .sheet h2{margin:0;font-size:18px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .close{width:44px;height:44px;border-radius:22px;border:0;background:#2A2E3C;color:#F4F1EA;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .swatches{display:flex;gap:10px}
+  .sw{width:40px;height:40px;border-radius:10px;border:3px solid transparent;padding:0}
+  .sw.on{border-color:#F4F1EA}
+  #edWrap{align-self:center;width:min(100%,360px);aspect-ratio:1;position:relative;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+  #ed{position:absolute;inset:0;width:100%;height:100%;touch-action:none;border-radius:2px}
+  .tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .seg{display:flex;background:#2A2E3C;border-radius:12px;padding:3px}
+  .seg button{height:38px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#C9C4B8;font-size:14px;font-weight:700}
+  .seg button.on{background:#F4F1EA;color:#1A1712}
+  .ink{width:28px;height:28px;border-radius:14px;border:3px solid transparent;padding:0}
+  .ink.on{border-color:#F4F1EA}
+  .tbtn{height:38px;padding:0 12px;border:0;border-radius:10px;background:#2A2E3C;color:#F4F1EA;font-size:13px;display:flex;align-items:center;gap:4px}
+  .tbtn:disabled{opacity:.4}
+  #textRow{display:none;flex-direction:column;gap:8px}
+  #textRow.on{display:flex}
+  #textRow .seg{align-self:flex-start}
+  .fonts{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .fonts button{flex-shrink:0;height:40px;padding:0 12px;border-radius:10px;border:2px solid transparent;background:#2A2E3C;color:#F4F1EA;font-size:18px;white-space:nowrap}
+  .fonts button.on{border-color:#FFC94D}
+  #inl{position:absolute;z-index:2;transform-origin:50% 50%;min-width:80px;padding:2px 8px;border:2px dashed rgba(42,36,32,.6);border-radius:6px;background:rgba(255,255,255,.35);outline:none;text-align:center;-webkit-user-select:text;user-select:text}
+    .muted{margin:0;font-size:12.5px;color:#BDB8AD}
+  .primary{height:54px;border:0;border-radius:16px;background:#FFC94D;color:#1A1712;font-size:16px;font-weight:700;flex-shrink:0}
+  .primary:disabled{opacity:.5}
+  #readerScrim{align-items:center}
+  #readerCard{display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px}
+  #readerNote{width:min(80vw,320px);aspect-ratio:1;box-shadow:0 18px 40px rgba(0,0,0,.45);transform:rotate(-2deg)}
+  #readerNote canvas{width:100%;height:100%;display:block}
+  #readerMeta{font-size:13px;color:#D9D4C9}
+  .pillrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .pill{height:46px;padding:0 18px;border-radius:23px;border:0;font-size:15px;font-weight:700}
+  .regions{display:flex;flex-direction:column;gap:10px}
+  .region{display:flex;align-items:center;gap:14px;padding:10px;border-radius:16px;border:2px solid transparent;background:#262A38;color:#F4F1EA;text-align:left;min-height:64px}
+  .region.on{border-color:#FFC94D}
+  .region i{width:52px;height:52px;border-radius:12px;flex-shrink:0}
+  .region b{display:block;font-size:15px}
+  .region span{font-size:12.5px;color:#C9C4B8}
+  #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity .8s}
+  #intro h1{margin:0 0 10px;font-family:'Nanum Pen Script',cursive;font-size:64px;font-weight:400;line-height:1}
+  #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
+  #status{display:flex;align-items:center;gap:8px;margin:14px 0 22px !important;font-size:13px !important;color:#C9C4B8 !important}
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);padding:10px 16px;border-radius:18px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:30;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="유리창 3D 공간"></canvas>
+
+<div id="top">
+  <button id="loc" class="glass" aria-label="지역 창 바꾸기">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFC94D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+    <span><b id="locName">서울 마포 창</b><small id="locSub">반경 3km 안에서만 열려요</small></span>
+  </button>
+  <div id="topR">
+    <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
+    <button id="snd" class="glass iconbtn" aria-label="소리 끄기">
+      <svg id="sndOn" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <svg id="sndOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="hint" class="glass">드래그로 둘러보고 조이스틱으로 걸어요 · Space 점프 · C 앉기</div>
+<div id="cross"></div>
+<div id="joy" class="glass" aria-hidden="true"><div id="knob"></div></div>
+<div id="acts">
+  <button id="jumpBtn" class="glass act" aria-label="점프 (Space)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/><path d="M6 20h12"/></svg>점프
+  </button>
+  <button id="sitBtn" class="glass act" aria-label="앉기 (C)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/><path d="M6 20h12"/></svg><span id="sitLabel">앉기</span>
+  </button>
+</div>
+<button id="add">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+  포스트잇 붙이기
+</button>
+<div id="place" class="glass">유리창을 눌러 붙일 자리를 골라요 <button id="placeCancel">취소</button></div>
+<div id="toast" class="glass"></div>
+
+<div id="composeScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="composeTitle">
+    <div class="row"><h2 id="composeTitle">포스트잇 쓰기</h2>
+      <button class="close" data-close="composeScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <div class="swatches" id="swatches"></div>
+    <div id="edWrap"><input id="inl" type="text" maxlength="20" enterkeyhint="done" aria-label="포스트잇에 넣을 글자" style="display:none"><canvas id="ed" aria-label="포스트잇 전체 면. 펜으로 아무 곳에나 쓰거나 글자를 원하는 위치에 놓을 수 있어요"></canvas></div>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="도구">
+        <button id="toolPen" class="on">펜</button><button id="toolText">글자</button>
+      </div>
+      <div id="inks" style="display:flex;gap:6px"></div>
+      <div style="flex:1"></div>
+      <button class="tbtn" id="undo" aria-label="되돌리기"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="tbtn" id="clear" aria-label="전체 지우기">비우기</button>
+    </div>
+    <div id="textRow">
+      <div id="fonts" class="fonts" role="group" aria-label="글씨체"></div>
+      <div class="seg" role="group" aria-label="글자 크기"><button data-size="s">작게</button><button data-size="m" class="on">보통</button><button data-size="l">크게</button></div>
+    </div>
+    <div class="row">
+      <p class="muted" id="quota" style="margin:-4px 0 0;color:#FFC94D"></p>
+    <p class="muted" id="edHelp">손가락으로 아무 곳에나 자유롭게 써요</p>
+      <button class="tbtn" id="delSel" style="display:none;flex-shrink:0">글자 지우기</button>
+    </div>
+    <button class="primary" id="stick" disabled>창문에 붙이기</button>
+  </div>
+</div>
+
+<div id="readerScrim" class="scrim">
+  <div id="readerCard" role="dialog" aria-label="포스트잇 읽기">
+    <div id="readerNote"><canvas id="readerCanvas"></canvas></div>
+    <div id="readerMeta"></div>
+    <div class="pillrow">
+      <button class="pill" id="heartBtn" style="background:#FF9EC4;color:#3A1424">♥ 공감</button>
+      <button class="pill" id="editBtn" style="background:#FFC94D;color:#1A1712;display:none">수정</button>
+      <button class="pill" id="delBtn" style="background:#2A2E3C;color:#FFB4A8;display:none">떼어내기</button>
+      <button class="pill" id="reportBtn" style="background:#2A2E3C;color:#FFB4A8">신고</button>
+      <button class="pill" data-close="readerScrim" style="background:#2A2E3C;color:#F4F1EA">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="reportScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="reportTitle">
+    <div class="row"><h2 id="reportTitle">이 포스트잇 신고하기</h2>
+      <button class="close" data-close="reportScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <p class="muted">신고한 포스트잇은 바로 내 화면에서 사라져요.</p>
+    <div class="regions" id="reasons">
+      <button class="region" data-reason="abuse"><div><b>욕설·비하·혐오</b><span>기분 나쁜 말이나 그림이 있어요</span></div></button>
+      <button class="region" data-reason="spam"><div><b>광고·도배</b><span>홍보, 링크, 같은 내용 반복</span></div></button>
+      <button class="region" data-reason="privacy"><div><b>개인정보 노출</b><span>전화번호, 실명, 주소 등</span></div></button>
+      <button class="region" data-reason="sexual"><div><b>음란·불쾌한 그림</b><span>보기 불편한 그림이나 글</span></div></button>
+    </div>
+  </div>
+</div>
+
+<div id="regionScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="regionTitle">
+    <div class="row"><h2 id="regionTitle">지역 창</h2>
+      <button class="close" data-close="regionScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <p class="muted">실제 서비스에서는 내 위치 근처의 창만 열려요. 시안이라 다른 지역 창도 직접 골라볼 수 있어요.</p>
+    <div class="regions" id="regions"></div>
+  </div>
+</div>
+
+<div id="intro">
+  <h1>유리창</h1>
+  <p>우리 동네 어딘가에 서 있는 유리창.<br>근처 사람들이 남긴 포스트잇을 읽고, 한 장 붙이고 가요.</p>
+  <p id="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFC94D" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/></svg><span id="statusText">내 위치를 확인하는 중이에요…</span></p>
+  <button class="primary" id="enter">창문 앞으로 가기</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script>
+(function(){
+'use strict';
+// ---------- data ----------
+var COLORS = [
+  {id:'y',hex:'#FFE45C',name:'노랑'},{id:'p',hex:'#FF9EC4',name:'분홍'},{id:'m',hex:'#8FE3C4',name:'민트'},
+  {id:'b',hex:'#8EC9FF',name:'하늘'},{id:'o',hex:'#FFB067',name:'주황'}
+];
+var CHEX = {}; COLORS.forEach(function(c){CHEX[c.id]=c.hex;});
+var INKS = [{hex:'#2A2420',name:'검정'},{hex:'#2D4FA3',name:'파랑'},{hex:'#C2413B',name:'빨강'}];
+var TSIZE = {s:0.085, m:0.125, l:0.18};
+var FONTS = [
+  {id:'pen', name:'손글씨', css:'"Nanum Pen Script", cursive', k:1},
+  {id:'gaegu', name:'개구쟁이', css:'"Gaegu", cursive', k:0.78},
+  {id:'gamja', name:'감자꽃', css:'"Gamja Flower", cursive', k:0.8},
+  {id:'melody', name:'하이멜로디', css:'"Hi Melody", cursive', k:0.82},
+  {id:'jua', name:'주아', css:'"Jua", sans-serif', k:0.7},
+  {id:'batang', name:'고운바탕', css:'"Gowun Batang", serif', k:0.66}
+];
+var FONT = {}; FONTS.forEach(function(f){ FONT[f.id]=f; });
+function fontCss(tx, S){ var f = FONT[tx.f||'pen']||FONTS[0]; return (tx.s*S*f.k)+'px '+f.css; }
+
+var REGIONS = [
+  {id:'mapo', name:'서울 마포', scene:'한강 노을 호숫가', lat:37.556, lng:126.91,
+   sky:['#33416f','#f0a06a','#b8826a'], sun:[0.15,0.07,-1], sunCol:'#ffc98a', sunI:0.95, hemi:['#ffd0a0','#3d4a33'],
+   fog:'#e2a985', fogN:28, fogF:240, ground:'#6a8549', grassBase:'#3f5a2c', grassTip:'#b7b45a', flower:'#f7e6a0', flowerP:0.05,
+   water:'lake', deep:'#3f5a80', shallow:'#f1b98c', trees:46, treeKind:'autumn', motes:'firefly', lamp:true, bloom:0.55,
+   cut:13, flora:{common:52, tint:['#e8a03a','#f2c84b','#d9622e','#c4503a','#a8b44e','#e9b23f'], bush:22, bushf:10, rocks:8, flowers:14, plants:6, grassTint:'#efe2a8', clumps:1}, 
+   hdri:'venice_sunset_1k', rot:0.0764, elev:3.3, az:0.15, skyI:1.0, hor:[0.652,0.676,0.777], up:[0.384,0.565,0.991], low:[0.30,0.24,0.18], lightI:2.2, lightCol:[1,0.62,0.38], lightElev:12, exp:0.55, fogN2:30, fogF2:230,
+   notes:[['한강 노을 보러 왔다가 들렀어요','y',0.1,4],['망원시장 떡볶이 최고','o',0.2,12],['오늘 퇴사했어요 후련하다','p',0.05,31],['다들 오늘도 수고했어','m',0.3,18],['연남동 산책 중','b',0.85,1],['내년엔 꼭 독립한다','y',0.4,7],['여기 앉아 있으니 좋다','m',0.15,9],['여름에 왔다 감','o',0.95,2]]},
+  {id:'busan', name:'부산 해운대', scene:'해운대 밤바다', lat:35.163, lng:129.163,
+   sky:['#0d1736','#3b4c86','#161d38'], sun:[-0.35,0.22,-1], sunCol:'#dfe6ff', sunI:0.35, hemi:['#6a7ab8','#1a1f2c'],
+   fog:'#26315a', fogN:30, fogF:260, ground:'#3b5040', sand:'#b8a27c', grassBase:'#24352a', grassTip:'#55704e', flower:'#e8eaf6', flowerP:0.02,
+   water:'sea', deep:'#0f2244', shallow:'#5b6ea6', trees:22, treeKind:'pine', motes:'firefly', lamp:true, bloom:0.9,
+   cut:13, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
+   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, hor:[0.222,0.173,0.124], up:[0.063,0.069,0.073], low:[0.03,0.02,0.015], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
+   notes:[['바다 소리 듣고 싶을 때 와요','b',0.1,22],['광안대교 불빛 보고 감','y',0.25,8],['부산 사람 손!','p',0.2,40],['서울에서 여행 왔어요','m',0.05,5],['파도멍 최고','o',0.5,14],['내년에 또 올게','y',0.9,3],['잠이 안 와서 나왔어요','b',0.15,11]]},
+  {id:'gangneung', name:'강원 강릉', scene:'솔숲 새벽 안개', lat:37.751, lng:128.876,
+   sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
+   fog:'#dde6e2', fogN:12, fogF:130, ground:'#56773f', grassBase:'#34502a', grassTip:'#8fae5c', flower:'#ffffff', flowerP:0.03,
+   water:'none', trees:150, treeKind:'pine', motes:'pollen', lamp:false, bloom:0.25,
+   cut:13, flora:{pine:70, hero:1, bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
+   hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[0.95,0.78,1.3], up:[0.575,0.619,1.498], low:[0.25,0.22,0.2], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
+   notes:[['솔향 맡으면서 쉬어가요','m',0.1,16],['커피거리 다녀왔어요','o',0.2,6],['경포 일출 보러 새벽에 옴','y',0.3,25],['숲멍 중입니다','m',0.05,9],['다음엔 엄마랑 올래','p',0.6,13],['조용해서 좋다','b',0.2,4]]},
+  {id:'jeju', name:'제주', scene:'유채꽃 들판과 바다', lat:33.45, lng:126.57,
+   sky:['#4f97da','#cde4f4','#9fc3d6'], sun:[0.45,0.6,-0.6], sunCol:'#fff6dc', sunI:1.0, hemi:['#dcefff','#5d7a3a'],
+   fog:'#cfe1ec', fogN:40, fogF:300, ground:'#76994a', sand:'#d8c79c', grassBase:'#4d6e2e', grassTip:'#9cbc55', flower:'#ffd93a', flowerP:0.55,
+   water:'farsea', deep:'#1f5f9a', shallow:'#8fc9e6', trees:14, treeKind:'round', motes:'pollen', lamp:false, bloom:0.3,
+   cut:13, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
+   hdri:'rooitou_park_1k', rot:0.0328, elev:10.4, az:0.45, skyI:2.6, hor:[0.391,0.553,0.801], up:[0.26,0.42,0.88], low:[0.15,0.2,0.06], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
+   notes:[['유채꽃 냄새 나는 것 같아','y',0.05,19],['한 달 살기 3주차','m',0.2,8],['귤 먹고 힘내세요','o',0.1,33],['오름 올라갔다 왔어요','b',0.3,6],['바람 많이 부는 날','m',0.7,2],['제주 또 오고 싶다','p',0.15,15],['혼자 여행 첫날','y',0.4,10]]}
+];
+
+// ---------- helpers ----------
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; var t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+function sm(a,b,x){ var t=Math.min(1,Math.max(0,(x-a)/(b-a))); return t*t*(3-2*t); }
+function col(h){ return new THREE.Color(h).convertSRGBToLinear(); }
+function lin(a,k){ return new THREE.Color(a[0]*(k||1), a[1]*(k||1), a[2]*(k||1)); }
+var OUT = '#include <tonemapping_fragment>\n#include <encodings_fragment>\n';
+var EQ = 'uniform sampler2D env; uniform float rot; uniform float skyI; vec3 envAt(vec3 d){ float u=atan(d.x,-d.z)*0.15915494+0.5+rot; float v=acos(clamp(d.y,-1.,1.))*0.31830989; return texture2D(env, vec2(fract(u), v)).rgb*skyI; }';
+var $ = function(id){ return document.getElementById(id); };
+var store = { get:function(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } },
+              set:function(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
+
+// ---------- renderer ----------
+var canvas = $('c');
+var renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+var DPR = Math.min(window.devicePixelRatio||1, 2);
+renderer.setPixelRatio(DPR);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(68, window.innerWidth/window.innerHeight, 0.05, 900);
+camera.rotation.order = 'YXZ';
+var BENCH = {x:0, z:2.35};
+var player = { x:0, z:5.2, yaw:0, pitch:0.04, vx:0, vz:0, bob:0, jy:0, vy:0, eye:1.6, crouch:false, sit:false };
+
+var hasPost = !!(THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass);
+var hq = store.get('yurichang-hq'); if(hq===null) hq = true;
+var composer = null, bloom = null;
+function setupComposer(){
+  if(!hasPost) return;
+  try{
+    composer = new THREE.EffectComposer(renderer);
+    composer.setPixelRatio && composer.setPixelRatio(DPR);
+    composer.setSize(window.innerWidth, window.innerHeight);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth/2, window.innerHeight/2), 0.5, 0.45, 0.82);
+    composer.addPass(bloom);
+    if(THREE.GammaCorrectionShader && THREE.ShaderPass) composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+  }catch(e){ composer=null; hasPost=false; }
+}
+setupComposer();
+
+var cfg = REGIONS[0];
+var world = null, noteMeshes = [], glassMesh = null, uniformsList = [];
+var WATER = -0.25;
+
+function groundH(x,z){
+  var r = Math.hypot(x,z);
+  var y = (Math.sin(x*0.08)*Math.cos(z*0.07)*0.6 + Math.sin(x*0.21+z*0.13)*0.15) * sm(7,30,r);
+  var far = sm(60,160,r)*(1.2+0.8*Math.sin(x*0.02+z*0.017));
+  if(cfg.water==='lake'){
+    var d = Math.hypot(x/28,(z+31)/14);
+    y -= 1.8*(1-sm(0.75,1.12,d));
+  } else if(cfg.water==='sea'){
+    y -= 2.4*sm(-9,-22,z);
+    far *= sm(-30,10,z);
+  } else if(cfg.water==='farsea'){
+    y -= 3.0*sm(-42,-60,z);
+    far *= sm(-60,0,z);
+  }
+  return y + far;
+}
+function sunDir(){
+  var e = (cfg.elev||10)*Math.PI/180, ph = Math.atan(cfg.az||0);
+  return new THREE.Vector3(Math.sin(ph)*Math.cos(e), Math.sin(e), -Math.cos(ph)*Math.cos(e)).normalize();
+}
+function lightDir(){
+  var e = (cfg.lightElev||cfg.elev||20)*Math.PI/180, ph = Math.atan(cfg.az||0);
+  return new THREE.Vector3(Math.sin(ph)*Math.cos(e), Math.sin(e), -Math.cos(ph)*Math.cos(e)).normalize();
+}
+function fogColor(){ return lin(cfg.hor, cfg.skyI); }
+
+// ---------- environment (HDRI photo sky) ----------
+var envTex = null, envPM = null, envFor = null, envCache = {};
+var pmrem = new THREE.PMREMGenerator(renderer);
+// HDR sky packed in a PNG: top half = RGB mantissa, bottom half = shared exponent (RGBE)
+var EXP = new Float32Array(256); for(var ei=1;ei<256;ei++) EXP[ei]=Math.pow(2, ei-136);
+function loadPackedHDR(url, done, fail){
+  var img = new Image();
+  img.onload = function(){
+    try{
+      var w=img.width, h=img.height/2, cv=document.createElement('canvas'); cv.width=w; cv.height=img.height;
+      var x=cv.getContext('2d'); x.drawImage(img,0,0); var d=x.getImageData(0,0,w,img.height).data;
+      var n=w*h, out=new Uint16Array(n*4), H=THREE.DataUtils.toHalfFloat, one=H(1);
+      for(var i=0;i<n;i++){
+        var e=d[(n+i)*4], f=e?EXP[e]:0, j=i*4;
+        out[j]=H((d[j]+0.5)*f); out[j+1]=H((d[j+1]+0.5)*f); out[j+2]=H((d[j+2]+0.5)*f); out[j+3]=one;
+      }
+      var tex = new THREE.DataTexture(out, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
+      tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.flipY = false;
+      tex.needsUpdate = true; done(tex);
+    }catch(err){ fail && fail(err); }
+  };
+  img.onerror = function(){ fail && fail(); };
+  img.src = url;
+}
+function loadEnv(){
+  var c = cfg;
+  if(!c.hdri || !(THREE.DataUtils && THREE.DataUtils.toHalfFloat)) return;
+  if(envCache[c.id]){ applyEnv(c, envCache[c.id]); return; }
+  loadPackedHDR('hdri/'+c.hdri+'.png', function(tex){
+    var pm = pmrem.fromEquirectangular(tex).texture;
+    envCache[c.id] = {tex:tex, pm:pm};
+    if(cfg===c) applyEnv(c, envCache[c.id]);
+  }, function(){ /* keep the drawn sky */ });
+}
+function applyEnv(c, e){
+  if(cfg!==c || !world) return;
+  envTex = e.tex; envPM = e.pm; envFor = c.id;
+  world.traverse(function(o){
+    var m = o.material; if(!m) return;
+    if(m.userData.sky){ o.material = photoSkyMaterial(); m.dispose(); }
+    if(m.userData.water){ m.uniforms.env.value = envTex; m.uniforms.hasEnv.value = 1; }
+    if(m.userData.pbr){ m.envMap = envPM; m.envMapIntensity = m.userData.pbr*cfg.skyI; m.needsUpdate = true; }
+  });
+}
+
+// ---------- shaders ----------
+var fogPars = 'uniform vec3 fogC; uniform float fogN; uniform float fogF;';
+function drawnSkyMaterial(){
+  var u = { top:{value:col(cfg.sky[0])}, mid:{value:col(cfg.sky[1])}, bot:{value:col(cfg.sky[2])},
+            sunDir:{value:sunDir()}, sunCol:{value:col(cfg.sunCol)} };
+  var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
+    vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:'uniform vec3 top,mid,bot,sunDir,sunCol; varying vec3 vP; void main(){ vec3 d=normalize(vP); float h=d.y; vec3 c = h>0. ? mix(mid,top,pow(clamp(h*1.4,0.,1.),0.7)) : mix(mid,bot,pow(clamp(-h*3.,0.,1.),0.6)); float s=max(dot(d,sunDir),0.); c += sunCol*(pow(s,900.)*8. + pow(s,12.)*0.3 + pow(s,3.)*0.07); gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
+  m.userData.sky = true; return m;
+}
+function photoSkyMaterial(){
+  var u = { env:{value:envTex}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, fogC:{value:fogColor()}, cut:{value:Math.sin((cfg.cut||2)*Math.PI/180)} };
+  return new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
+    vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:EQ+' uniform vec3 fogC; uniform float cut; varying vec3 vP; void main(){ vec3 d=normalize(vP); vec3 c=envAt(vec3(d.x, max(d.y, cut*1.15), d.z)); c=mix(fogC, c, smoothstep(cut*0.55, cut*1.25, d.y)); gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
+}
+function makeSky(){
+  var sky = new THREE.Mesh(new THREE.SphereGeometry(500,48,24), drawnSkyMaterial());
+  sky.renderOrder = -1;
+  return sky;
+}
+
+function makeGround(){
+  var g = new THREE.PlaneGeometry(520,520,170,170); g.rotateX(-Math.PI/2);
+  var p = g.attributes.position, colors = [], base = col(cfg.ground), sand = col(cfg.sand||'#b9a57d'), c = new THREE.Color(), rock = col('#7d8a6e');
+  var R = rng(7);
+  for(var i=0;i<p.count;i++){
+    var x=p.getX(i), z=p.getZ(i), y=groundH(x,z); p.setY(i,y);
+    c.copy(base).multiplyScalar(0.85+R()*0.3);
+    if(cfg.water!=='none'){ var s = 1-sm(WATER+0.15, WATER+0.9, y); c.lerp(sand, s*(cfg.sand?1:0.6)); }
+    colors.push(c.r,c.g,c.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  g.computeVertexNormals();
+  var m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors:true}));
+  m.receiveShadow = true;
+  return m;
+}
+
+function makeWater(){
+  if(cfg.water==='none') return null;
+  var u = { t:{value:0}, deep:{value:col(cfg.deep)}, shallow:{value:col(cfg.shallow)}, sunDir:{value:sunDir()}, sunCol:{value:lin(cfg.lightCol, 6)},
+            env:{value:null}, hasEnv:{value:0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI},
+            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} };
+  uniformsList.push(u);
+  var m = new THREE.ShaderMaterial({ uniforms:u,
+    vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp; void main(){ vec3 v=normalize(cameraPosition-wp); float w=sin(wp.x*1.3+t*1.1)*.5+sin(wp.z*1.7-t*.8)*.5+sin((wp.x+wp.z)*3.3+t*1.9)*.25+sin(wp.x*7.+wp.z*5.-t*3.)*.1; vec3 n=normalize(vec3(w*.045,1.,w*.035)); float fr=0.04+0.96*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.24); vec3 refl = hasEnv>.5 ? envAt(r) : mix(shallow,deep,.3); vec3 c=mix(deep*0.35, refl, clamp(fr*1.6+0.12,0.,1.)); c+=sunCol*pow(max(dot(r,sunDir),0.),220.)*2.; float f=smoothstep(fogN,fogF,length(wp-cameraPosition)); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+  m.userData.water = true;
+  var w = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,1,1), m);
+  w.rotation.x = -Math.PI/2; w.position.y = WATER;
+  return w;
+}
+
+function makeGrass(){
+  var blade = new THREE.PlaneGeometry(0.07,0.55,1,3); blade.translate(0,0.275,0);
+  var bp = blade.attributes.position, buv = blade.attributes.uv;
+  for(var i=0;i<bp.count;i++){ bp.setX(i, bp.getX(i)*(1-buv.getY(i)*0.85)); }
+  var N = (cfg.flowerP>0.3 ? 16000 : 11000) * (hq?1.4:1) * (natReady?0.55:1) | 0;
+  var light = lin(cfg.up, cfg.skyI*0.35).add(lin(cfg.lightCol, cfg.lightI*0.6*Math.max(0.2,lightDir().y)));
+  light.multiplyScalar(cfg.grassI||1);
+  var u = { t:{value:0}, base:{value:col(cfg.grassBase)}, tip:{value:col(cfg.grassTip)}, flower:{value:col(cfg.flower)}, lightC:{value:light},
+            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} };
+  uniformsList.push(u);
+  var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.DoubleSide,
+    vertexShader:'attribute float aF; uniform float t; varying float vH; varying float vF; varying float vD; void main(){ vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); float h=uv.y; float s=sin(t*1.5+w.x*.35+w.z*.27)*.55+sin(t*2.4+w.x*.9)*.2; w.x+=s*.13*h*h; w.z+=s*.07*h*h; vH=h; vF=aF; vD=length(w.xyz-cameraPosition); gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform vec3 base,tip,flower,lightC; '+fogPars+' varying float vH; varying float vF; varying float vD; void main(){ vec3 c=mix(base*0.55,tip,vH); if(vF>.5 && vH>.74) c=flower; c*=lightC; float f=smoothstep(fogN,fogF,vD); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+  var mesh = new THREE.InstancedMesh(blade, m, N);
+  var R = rng(hashStr(cfg.id)), d = new THREE.Object3D(), aF = new Float32Array(N), n = 0, tries = 0;
+  while(n<N && tries<N*4){
+    tries++;
+    var r = 2+Math.pow(R(),0.8)*44, a = R()*Math.PI*2, x = Math.cos(a)*r, z = Math.sin(a)*r;
+    if(Math.abs(x)<3.3 && z>-1.6 && z<3.2) continue;
+    var y = groundH(x,z); if(y<WATER+0.2) continue;
+    d.position.set(x,y,z); d.rotation.set(0,R()*Math.PI,0);
+    var s = 0.7+R()*0.7; var fl = R()<cfg.flowerP;
+    d.scale.set(s, fl? s*1.25 : s, s); d.updateMatrix();
+    mesh.setMatrixAt(n, d.matrix); aF[n] = fl?1:0; n++;
+  }
+  mesh.count = n;
+  blade.setAttribute('aF', new THREE.InstancedBufferAttribute(aF,1));
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function makeTrees(group){
+  var R = rng(hashStr(cfg.id)+11), list = [];
+  var tries = 0;
+  while(list.length<cfg.trees && tries<cfg.trees*20){
+    tries++;
+    var r = 9+R()*(cfg.trees>100?70:55), a = R()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r;
+    if(z<0 && Math.abs(x)<7+(-z)*0.35 && cfg.trees<100) continue;
+    if(z<0 && Math.abs(x)<4 && z>-14) continue;
+    var y = groundH(x,z); if(y<WATER+0.4) continue;
+    list.push({x:x,y:y,z:z,s:0.8+R()*0.9,r:R()});
+  }
+  var n = list.length; if(!n) return;
+  var d = new THREE.Object3D();
+  var trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12,0.2,1.6,6), new THREE.MeshLambertMaterial({color:col('#5a4232')}), n);
+  list.forEach(function(t,i){ d.position.set(t.x,t.y+0.8*t.s,t.z); d.rotation.set(0,0,0); d.scale.set(t.s,t.s,t.s); d.updateMatrix(); trunk.setMatrixAt(i,d.matrix); });
+  trunk.castShadow = true; group.add(trunk);
+  var c = new THREE.Color();
+  if(cfg.treeKind==='pine'){
+    [[1.5,2.4,1.6],[1.15,2.0,2.7],[0.75,1.6,3.6]].forEach(function(L){
+      var cone = new THREE.InstancedMesh(new THREE.ConeGeometry(L[0],L[1],7), new THREE.MeshLambertMaterial({color:'#ffffff'}), n);
+      list.forEach(function(t,i){ d.position.set(t.x,t.y+L[2]*t.s,t.z); d.rotation.set(0,t.r*6,0); d.scale.set(t.s,t.s,t.s); d.updateMatrix(); cone.setMatrixAt(i,d.matrix);
+        cone.setColorAt(i, c.set(cfg.id==='busan'?'#1f3a2c':'#2f5a36').convertSRGBToLinear().multiplyScalar(0.8+t.r*0.4)); });
+      cone.castShadow = true; group.add(cone);
+    });
+  } else {
+    var pal = cfg.treeKind==='autumn' ? ['#d9873a','#e8b84a','#b5533a','#c9a03a','#7e8f4a'] : ['#4f7d34','#5f8f3c','#3f6a2e'];
+    var crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.5,1), new THREE.MeshLambertMaterial({color:'#ffffff'}), n);
+    list.forEach(function(t,i){ d.position.set(t.x,t.y+2.6*t.s,t.z); d.rotation.set(t.r,t.r*5,0); d.scale.set(t.s*1.1,t.s*0.95,t.s*1.1); d.updateMatrix(); crown.setMatrixAt(i,d.matrix);
+      crown.setColorAt(i, c.set(pal[Math.floor(t.r*pal.length)]).convertSRGBToLinear()); });
+    crown.castShadow = true; group.add(crown);
+  }
+}
+
+function makeMotes(){
+  var N = 160, pos = new Float32Array(N*3), seed = new Float32Array(N), R = rng(5);
+  for(var i=0;i<N;i++){ var r=2+R()*22, a=R()*Math.PI*2; pos[i*3]=Math.cos(a)*r; pos[i*3+2]=Math.sin(a)*r; pos[i*3+1]=0.4+R()*2.8; seed[i]=R()*100; }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('aS', new THREE.BufferAttribute(seed,1));
+  var fire = cfg.motes==='firefly';
+  var u = { t:{value:0}, c:{value:col(fire?'#ffd36b':'#ffffff').multiplyScalar(fire?3:1.2)}, a:{value:fire?1.0:0.5}, sz:{value:fire?0.16:0.07} };
+  uniformsList.push(u);
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader:'attribute float aS; uniform float t; uniform float sz; varying float vA; void main(){ vec3 p=position; p.x+=sin(t*.3+aS)*1.2; p.y+=sin(t*.5+aS*1.7)*.5; p.z+=cos(t*.25+aS*.6)*1.2; vec4 mv=modelViewMatrix*vec4(p,1.); vA=.5+.5*sin(t*1.7+aS*3.); gl_PointSize=sz*600./-mv.z; gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'uniform vec3 c; uniform float a; varying float vA; void main(){ float d=length(gl_PointCoord-.5); float g=smoothstep(.5,0.,d); gl_FragColor=vec4(c, g*g*a*vA);\n'+OUT+'}' });
+  var pts = new THREE.Points(g, m); pts.frustumCulled = false; return pts;
+}
+
+function box(w,h,d,color,x,y,z,rough){
+  var mat = new THREE.MeshStandardMaterial({color:col(color), roughness:rough||0.75, metalness:0});
+  mat.userData.pbr = 0.6;
+  var m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m;
+}
+
+function frameBox(w,h,d,x,y,z){
+  var fm = frameMat(); if(!fm) return box(w,h,d,'#4a3729',x,y,z,0.55);
+  var g = new THREE.BoxGeometry(w,h,d); tileBox(g,w,h,d);
+  var m = new THREE.Mesh(g, fm); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m;
+}
+function makeWindow(group){
+  var wood = '#4a3729', dark = '#33261d';
+  group.add(box(6.4,0.15,4.6,'#8a6a4c',0,0.075,0.6,0.85));
+  var W=4, y0=0.5, y1=3.0;
+  [-2,-0.667,0.667,2].forEach(function(x,i){ var tk=i===0||i===3?0.16:0.1; group.add(frameBox(tk, y1-y0+0.16, 0.14, x, (y0+y1)/2, 0)); });
+  [y0,1.75,y1].forEach(function(y,i){ group.add(frameBox(W+0.16, i===1?0.1:0.16, 0.14, 0, y, 0)); });
+  group.add(box(0.12,0.36,0.12,dark,-1.9,0.33,0)); group.add(box(0.12,0.36,0.12,dark,1.9,0.33,0));
+  group.add(frameBox(W+0.3,0.06,0.34,0,y0-0.09,0.12));
+  var gm = new THREE.MeshPhysicalMaterial({color:col('#eef6ff'), metalness:0, roughness:0.04, transmission:1, transparent:true, side:THREE.DoubleSide, depthWrite:false});
+  gm.userData.pbr = 0.45;
+  glassMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, y1-y0), gm); glassMesh.position.set(0,(y0+y1)/2,0); group.add(glassMesh);
+  var cv = document.createElement('canvas'); cv.width=256; cv.height=128; var x = cv.getContext('2d');
+  var gr = x.createLinearGradient(0,0,256,128); gr.addColorStop(0,'rgba(255,255,255,0)'); gr.addColorStop(0.33,'rgba(255,255,255,0)'); gr.addColorStop(0.4,'rgba(255,255,255,.55)'); gr.addColorStop(0.47,'rgba(255,255,255,0)'); gr.addColorStop(0.6,'rgba(255,255,255,0)'); gr.addColorStop(0.63,'rgba(255,255,255,.3)'); gr.addColorStop(0.66,'rgba(255,255,255,0)');
+  x.fillStyle=gr; x.fillRect(0,0,256,128);
+  var stTex = new THREE.CanvasTexture(cv); stTex.encoding = THREE.sRGBEncoding;
+  var st = new THREE.Mesh(new THREE.PlaneGeometry(W,y1-y0), new THREE.MeshBasicMaterial({map:stTex, transparent:true, opacity:0.12, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false}));
+  st.position.set(0,(y0+y1)/2,0.002); group.add(st);
+  group.add(box(1.8,0.07,0.45,'#9a7654',BENCH.x,0.6,BENCH.z,0.6)); group.add(box(0.08,0.45,0.4,dark,-0.8,0.375,BENCH.z)); group.add(box(0.08,0.45,0.4,dark,0.8,0.375,BENCH.z));
+  if(cfg.lamp){
+    group.add(box(0.07,2.4,0.07,'#2b2b2b',2.9,1.35,1.9,0.4));
+    var bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11,12,8), new THREE.MeshBasicMaterial({color:col('#ffe2a8').multiplyScalar(6), fog:false})); bulb.position.set(2.9,2.6,1.9); group.add(bulb);
+    var pl = new THREE.PointLight(col('#ffc77a'), 2.2, 10, 2); pl.position.set(2.9,2.5,1.9); group.add(pl);
+  }
+}
+
+
+// ---------- 3D nature models (Quaternius Stylized Nature MegaKit, CC0) ----------
+var NAT = null, NTEX = {}, natGeo = {}, natReady = false;
+var WIND = { value: 0 };
+var H2F = null;
+function h2f(h){ var s=(h&0x8000)?-1:1, e=(h&0x7C00)>>10, f=h&0x03FF; if(e===0) return s*Math.pow(2,-14)*(f/1024); if(e===31) return f?0:s*65504; return s*Math.pow(2,e-15)*(1+f/1024); }
+function b64(str){ var b=atob(str), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u.buffer; }
+function geomFrom(part){
+  if(!H2F){ H2F=new Float32Array(65536); for(var k=0;k<65536;k++) H2F[k]=h2f(k); }
+  var ph=new Uint16Array(b64(part.p)), pos=new Float32Array(ph.length), i;
+  for(i=0;i<ph.length;i++) pos[i]=H2F[ph[i]];
+  var uh=new Uint16Array(b64(part.u)), uv=new Float32Array(uh.length);
+  for(i=0;i<uh.length;i++) uv[i]=H2F[uh[i]];
+  var g=new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(b64(part.n)),3,true));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv,2));
+  g.setIndex(new THREE.BufferAttribute(part.i32 ? new Uint32Array(b64(part.i)) : new Uint16Array(b64(part.i)),1));
+  g.computeBoundingSphere(); g.userData.keep = true;
+  return g;
+}
+var TEXLIST = { leaves_tree:'png', leaf_pine:'png', leaves_twisted:'png', leaves:'png', flowers:'png', grass:'png', bark_tree:'jpg', bark_twisted:'jpg', rocks:'jpg', frame_color:'jpg', frame_normal:'jpg', frame_rough:'jpg' };
+function loadNature(){
+  var tl = new THREE.TextureLoader(), keys = Object.keys(TEXLIST), left = keys.length + 1, failed = false;
+  function done(){ if(--left===0 && !failed){ natReady = true; build(); } }
+  keys.forEach(function(k){
+    tl.load('tex/'+k+'.'+TEXLIST[k], function(t){
+      t.flipY = k.indexOf('frame_')===0; if(k!=='frame_normal' && k!=='frame_rough') t.encoding = THREE.sRGBEncoding;
+      t.anisotropy = 4; t.__keep = true;
+      if(k.indexOf('frame_')===0){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+      NTEX[k]=t; done();
+    }, undefined, function(){ failed = true; });
+  });
+  fetch('models/nature.json').then(function(r){ return r.json(); }).then(function(j){ NAT=j; done(); }).catch(function(){ failed = true; });
+}
+function windify(m, amt){
+  m.onBeforeCompile = function(sh){
+    sh.uniforms.uT = WIND;
+    sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n float wph = 0.0;\n#ifdef USE_INSTANCING\n wph = instanceMatrix[3].x*0.31 + instanceMatrix[3].z*0.23;\n#endif\n float wk = max(position.y,0.0)*'+amt.toFixed(3)+';\n transformed.x += (sin(uT*1.3+wph)*0.7 + sin(uT*2.9+wph*2.1)*0.3)*wk;\n transformed.z += cos(uT*1.05+wph*1.4)*wk*0.6;');
+  };
+  m.customProgramCacheKey = function(){ return 'wind'+amt; };
+}
+var MATDEF = {
+  Leaves_NormalTree:['leaves_tree',1,0.02], Leaves_Pine:['leaf_pine',1,0.015], Leaves_TwistedTree:['leaves_twisted',1,0.012],
+  Bark_NormalTree:['bark_tree',0,0.004], Bark_TwistedTree:['bark_twisted',0,0.002], Grass:['grass',0,0.07],
+  Flowers:['flowers',1,0.05], Leaves:['leaves',1,0.035], Rocks:['rocks',0,0]
+};
+function natMat(name){
+  var d = MATDEF[name] || ['rocks',0,0];
+  var m = new THREE.MeshLambertMaterial({ map:NTEX[d[0]], alphaTest:d[1]?0.5:0, side:(d[1]||name==='Grass')?THREE.DoubleSide:THREE.FrontSide });
+  if(d[2]) windify(m, d[2]);
+  return m;
+}
+function scatter(R, n, rMin, rMax, opt){
+  opt = opt||{}; var out=[], tries=0;
+  while(out.length<n && tries<n*40){
+    tries++;
+    var r = rMin+Math.sqrt(R())*(rMax-rMin), a = R()*Math.PI*2, x=Math.cos(a)*r, z=Math.sin(a)*r;
+    if(Math.abs(x)<3.6 && z>-1.9 && z<3.4) continue;                       // deck
+    if(opt.view && z<0 && Math.abs(x)<5+(-z)*0.3) continue;                 // keep the view through the window open
+    var y = groundH(x,z); if(y<WATER+(opt.shore||0.35)) continue;
+    out.push({x:x,y:y,z:z,s:(opt.s0||0.8)+R()*((opt.s1||1.3)-(opt.s0||0.8)),a:R()*Math.PI*2,r:R()});
+  }
+  return out;
+}
+var _o = new THREE.Object3D(), _c = new THREE.Color();
+function plant(group, key, list, opt){
+  if(!NAT || !NAT[key] || !list.length) return;
+  opt = opt||{};
+  NAT[key].forEach(function(part){
+    var g = natGeo[key+'|'+part.m] || (natGeo[key+'|'+part.m] = geomFrom(part));
+    var m = natMat(part.m);
+    var im = new THREE.InstancedMesh(g, m, list.length);
+    var leafy = /Leaves|Grass|Flowers/.test(part.m);
+    list.forEach(function(t,i){
+      _o.position.set(t.x, t.y-0.05, t.z); _o.rotation.set(0, t.a, 0); _o.scale.setScalar(t.s); _o.updateMatrix();
+      im.setMatrixAt(i, _o.matrix);
+      var tint = (leafy && opt.tint) ? opt.tint : (!leafy && opt.tintOther) ? opt.tintOther : null;
+      if(tint){ var tc = Array.isArray(tint) ? tint[Math.floor(t.r*tint.length)] : tint; im.setColorAt(i, _c.set(tc).convertSRGBToLinear().multiplyScalar(0.92+t.r*0.16)); }
+    });
+    im.frustumCulled = false;
+    if(opt.shadow && hq){
+      im.castShadow = true;
+      if(m.alphaTest>0) im.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking, map:m.map, alphaTest:0.5 });
+    }
+    group.add(im);
+  });
+}
+function makeNature(group){
+  var f = cfg.flora||{}, R = rng(hashStr(cfg.id)+11), k = hq?1:0.6;
+  function pick(keys, list){ var buckets = keys.map(function(){ return []; }); list.forEach(function(t){ buckets[Math.floor(t.r*keys.length)%keys.length].push(t); }); keys.forEach(function(kk,i){ plant(group, kk, buckets[i], arguments[2]); }); return buckets; }
+  if(f.common){
+    var trees = scatter(R, Math.round(f.common*k), 9, 40, {view:true, s0:0.9, s1:1.45});
+    var all = trees, b=[[],[],[]];
+    all.forEach(function(t){ b[Math.floor(t.r*3)%3].push(t); });
+    ['tree_c1','tree_c2','tree_c4'].forEach(function(kk,i){ plant(group, kk, b[i], {tint:f.tint, shadow:true}); });
+  }
+  if(f.pine){
+    var pines = scatter(R, Math.round(f.pine*k), 9, 40, {view:cfg.id!=='gangneung', s0:0.85, s1:1.35});
+    var pa = pines, pb=[[],[],[]];
+    pa.forEach(function(t){ pb[Math.floor(t.r*3)%3].push(t); });
+    ['pine1','pine3','pine5'].forEach(function(kk,i){ plant(group, kk, pb[i], {shadow:true, tint:cfg.id==='busan'?'#9fb3a8':null}); });
+  }
+  if(f.hero){ plant(group, 'twisted', [{x:-10.5, y:groundH(-10.5,1.5), z:1.5, s:0.75, a:Math.PI*0.95, r:0.5}], {shadow:true}); }
+  if(f.bush) plant(group, 'bush', scatter(R, f.bush, 5, 40, {view:true, s0:0.6, s1:1.1}), {tint:f.tint ? f.tint.slice(0,3) : null, shadow:true});
+  if(f.bushf) plant(group, 'bushf', scatter(R, f.bushf, 4.5, 35, {view:true, s0:0.55, s1:1.0}), {shadow:true});
+  if(f.rocks) plant(group, 'rock'+(1+Math.floor(R()*2)), scatter(R, f.rocks, 5, 45, {shore:-0.4, s0:0.3, s1:0.9}), {tintOther:f.rockTint||null, shadow:true});
+  if(f.flowers){ var fl = scatter(R, f.flowers, 3.8, 30, {s0:0.35, s1:0.6}); plant(group, 'flower3', fl.filter(function(t){return t.r<0.5;})); plant(group, 'flower4', fl.filter(function(t){return t.r>=0.5;})); }
+  if(f.plants) plant(group, 'plant', scatter(R, f.plants, 4, 30, {s0:0.35, s1:0.6}));
+  if(f.ferns) plant(group, 'fern', scatter(R, f.ferns, 4, 35, {s0:0.18, s1:0.3}));
+  if(f.clumps){
+    var gl = scatter(R, Math.round(1500*f.clumps*k), 3.6, 34, {shore:0.25, s0:0.32, s1:0.62});
+    plant(group, 'grass1', gl.filter(function(t){ return t.r<0.78; }), {tint:f.grassTint});
+    plant(group, 'grass2', gl.filter(function(t){ return t.r>=0.78; }), {tint:f.grassTint});
+  }
+}
+// rustic frame: tile the bark texture by real size, grain running along each bar
+function frameMat(){
+  if(!natReady) return null;
+  var m = new THREE.MeshStandardMaterial({ map:NTEX.frame_color, normalMap:NTEX.frame_normal, roughnessMap:NTEX.frame_rough, color:col('#b39a84'), roughness:1, metalness:0 });
+  m.normalScale.set(0.9,0.9); m.userData.pbr = 0.5; return m;
+}
+function tileBox(g, w, h, d){
+  var uv = g.attributes.uv, T = 0.55;
+  var dims = [[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  for(var f=0; f<6; f++){
+    var du = dims[f][0], dv = dims[f][1], swap = du > dv;
+    for(var j=0;j<4;j++){
+      var i = f*4+j, u = uv.getX(i), v = uv.getY(i);
+      if(swap) uv.setXY(i, v*dv/T, u*du/T); else uv.setXY(i, u*du/T, v*dv/T);
+    }
+  }
+  uv.needsUpdate = true;
+}
+
+// ---------- post-it rendering (shared by 3D, reader, editor) ----------
+function wrap(ctx, text, maxW){
+  var lines=[], line='';
+  text.split(' ').forEach(function(word){
+    var test = line? line+' '+word : word;
+    if(ctx.measureText(test).width<=maxW){ line=test; return; }
+    if(line){ lines.push(line); line=''; }
+    var cur='';
+    Array.from(word).forEach(function(ch){ if(ctx.measureText(cur+ch).width>maxW && cur){ lines.push(cur); cur=ch; } else cur+=ch; });
+    line=cur;
+  });
+  if(line) lines.push(line);
+  return lines;
+}
+function drawItems(x, n, S, sel){
+  (n.strokes||[]).forEach(function(st){
+    var p = st.p; if(!p||p.length<2) return;
+    x.strokeStyle = st.c; x.fillStyle = st.c; x.lineWidth = st.w*S; x.lineCap='round'; x.lineJoin='round';
+    if(p.length===2){ x.beginPath(); x.arc(p[0]*S,p[1]*S,st.w*S/2,0,Math.PI*2); x.fill(); return; }
+    x.beginPath(); x.moveTo(p[0]*S,p[1]*S);
+    for(var i=2;i<p.length-2;i+=2){ var mx=(p[i]+p[i+2])/2, my=(p[i+1]+p[i+3])/2; x.quadraticCurveTo(p[i]*S,p[i+1]*S,mx*S,my*S); }
+    x.lineTo(p[p.length-2]*S,p[p.length-1]*S); x.stroke();
+  });
+  (n.texts||[]).forEach(function(tx,i){
+    if(n.hide===i) return;
+    x.save(); x.translate(tx.x*S, tx.y*S); x.rotate(tx.rot||0);
+    x.font = fontCss(tx, S); x.fillStyle = tx.c; x.textAlign='center'; x.textBaseline='middle';
+    x.fillText(tx.t, 0, 0);
+    if(tx.bad){ var bw=x.measureText(tx.t).width, by=tx.s*S*0.42; x.strokeStyle='#D7263D'; x.lineWidth=2.5; x.beginPath(); for(var wx=-bw/2; wx<=bw/2; wx+=6){ x.lineTo(wx, by+((Math.round((wx+bw/2)/6))%2?3:-3)); } x.stroke(); }
+    if(sel===i){
+      var w=x.measureText(tx.t).width, h=tx.s*S*1.25, hw=w/2+10, hh=h/2;
+      x.setLineDash([6,5]); x.strokeStyle='rgba(42,36,32,.6)'; x.lineWidth=2; x.strokeRect(-hw,-hh,hw*2,hh*2); x.setLineDash([]);
+      x.beginPath(); x.moveTo(0,-hh); x.lineTo(0,-hh-22); x.stroke();
+      x.fillStyle='#ffffff'; x.beginPath(); x.arc(0,-hh-30,11,0,Math.PI*2); x.fill(); x.stroke();
+      x.strokeStyle='#2A2420'; x.lineWidth=1.8; x.beginPath(); x.arc(0,-hh-30,5.5,-2.6,1.4); x.stroke();
+    }
+    x.restore();
+  });
+}
+function renderNote(x, n, S, opt){
+  opt = opt||{};
+  x.clearRect(0,0,S,S);
+  x.fillStyle = CHEX[n.c]; x.fillRect(0,0,S,S);
+  var g = x.createLinearGradient(0,0,0,S*0.15); g.addColorStop(0,'rgba(0,0,0,.09)'); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(0,0,S,S*0.15);
+  if(n.strokes||n.texts){ drawItems(x, n, S, opt.sel); }
+  else if(n.t){
+    var k=S/256, fs=58, lines;
+    do { x.font=(fs*k)+'px "Nanum Pen Script", cursive'; lines=wrap(x,n.t,S-40*k); fs-=4; } while(lines.length*fs*k*1.05>S-60*k && fs>26);
+    fs+=4; x.fillStyle='rgba(42,36,32,.92)'; x.textBaseline='top'; x.textAlign='left';
+    lines.forEach(function(l,i){ x.fillText(l,20*k,22*k+i*fs*k*1.05); });
+  }
+  if(opt.deco){
+    if(n.age>0.6){ x.fillStyle='rgba(255,255,255,'+(0.25+0.3*(n.age-0.6)/0.4)+')'; x.fillRect(0,0,S,S); }
+    var k2=S/256;
+    if(n.h>=10){ x.fillStyle='rgba(255,255,255,.55)'; x.save(); x.translate(S/2,4*k2); x.rotate(-0.05); x.fillRect(-46*k2,-10*k2,92*k2,26*k2); x.restore(); }
+    if(n.h>0){ x.font='bold '+(18*k2)+'px "Noto Sans KR", sans-serif'; x.fillStyle='rgba(107,46,62,.85)'; x.textAlign='right'; x.textBaseline='alphabetic'; x.fillText('♥ '+n.h, S-14*k2, S-14*k2); }
+    if(n.age>0.6){ x.fillStyle='rgba(255,255,255,.5)'; x.beginPath(); x.moveTo(S,S-46*k2); x.lineTo(S-46*k2,S); x.lineTo(S,S); x.fill(); }
+  }
+}
+function noteTexture(n){
+  var S=384, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+  renderNote(cv.getContext('2d'), n, S, {deco:true});
+  var tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4; return tex;
+}
+function addNoteMesh(n, idx){
+  var tx = noteTexture(n);
+  var m = new THREE.Mesh(new THREE.PlaneGeometry(0.21,0.21), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
+  m.position.set(n.x, n.y, 0.007+idx*0.0004); m.rotation.z = n.r;
+  m.userData.note = n; world.add(m); noteMeshes.push(m);
+}
+function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); var tx=noteTexture(n); mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
+function slotsFor(seed){
+  var R = rng(seed), out = [];
+  [[-1.93,-0.74],[-0.6,0.6],[0.74,1.93]].forEach(function(cx){ [[0.62,1.66],[1.84,2.9]].forEach(function(cy){
+    for(var i=0;i<3;i++) for(var j=0;j<3;j++){ out.push({ x: cx[0]+0.13+(cx[1]-cx[0]-0.26)*(i/2)+(R()-0.5)*0.08, y: cy[0]+0.13+(cy[1]-cy[0]-0.26)*(j/2)+(R()-0.5)*0.08 }); }
+  }); });
+  for(var k=out.length-1;k>0;k--){ var q=Math.floor(R()*(k+1)); var t=out[k]; out[k]=out[q]; out[q]=t; }
+  return out;
+}
+function mineKey(){ return 'yurichang2:'+cfg.id; }
+function regionNotes(){
+  var R = rng(hashStr(cfg.id)+3), slots = slotsFor(hashStr(cfg.id));
+  var seeded = cfg.notes.map(function(a,i){ return {t:a[0], c:a[1], age:a[2], h:a[3], x:slots[i].x, y:slots[i].y, r:(R()-0.5)*0.24, id:cfg.id+'-s'+i}; });
+  var mine = (store.get(mineKey()) || []).map(function(n){ n.mine=true; return n; });
+  var hearts = store.get('yurichang-h:'+cfg.id) || {};
+  var hid = store.get(hiddenKey()) || {};
+  return seeded.concat(mine).filter(function(n){ return !hid[n.id]; }).map(function(n){ if(hearts[n.id]){ n.h=(n.h||0)+1; n.liked=true; } return n; });
+}
+function saveMine(){
+  var list = noteMeshes.map(function(m){ return m.userData.note; }).filter(function(n){ return n.mine; })
+    .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts}; });
+  store.set(mineKey(), list);
+}
+
+// ---------- build ----------
+var hemi, sun;
+function build(){
+  if(world){ scene.remove(world); world.traverse(function(o){ if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if(o.material){ if(o.material.map && !o.material.map.__keep && !(envCache[cfg.id] && o.material.map===envCache[cfg.id].tex)) o.material.map.dispose(); o.material.dispose(); } }); }
+  uniformsList = []; noteMeshes = [];
+  renderer.shadowMap.enabled = hq;
+  world = new THREE.Group(); scene.add(world);
+  renderer.toneMappingExposure = cfg.exp||0.6;
+  scene.fog = new THREE.Fog(fogColor(), cfg.fogN2, cfg.fogF2);
+  hemi = new THREE.HemisphereLight(lin(cfg.up, cfg.skyI*0.9), lin(cfg.low, cfg.skyI*0.9), 1.0); world.add(hemi);
+  sun = new THREE.DirectionalLight(lin(cfg.lightCol), cfg.lightI); sun.position.copy(lightDir()).multiplyScalar(60);
+  if(hq){
+    sun.castShadow = true; sun.shadow.mapSize.set(2048,2048);
+    var sc = sun.shadow.camera; sc.left=-16; sc.right=16; sc.top=16; sc.bottom=-16; sc.near=1; sc.far=140;
+    sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
+  }
+  world.add(sun); world.add(sun.target);
+  world.add(makeSky());
+  world.add(makeGround());
+  var w = makeWater(); if(w) world.add(w);
+  world.add(makeGrass());
+  if(natReady) makeNature(world); else makeTrees(world);
+  makeWindow(world);
+  world.add(makeMotes());
+  regionNotes().forEach(addNoteMesh);
+  loadEnv();
+  if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
+  $('locName').textContent = cfg.name+' 창';
+  $('locSub').textContent = cfg.scene+' · 반경 3km 안에서만 열려요';
+}
+
+// ---------- movement: jump / crouch / sit ----------
+var keys = {}, joy = {x:0,y:0,id:null}, look = {id:null,lx:0,ly:0,sx:0,sy:0,t:0};
+var placing = false, modal = false, pending = null;
+function grounded(){ return player.jy<=0.0001 && player.vy<=0; }
+function jump(){
+  if(player.sit){ standUp(); return; }
+  if(player.crouch){ player.crouch=false; updateSitLabel(); }
+  if(grounded()) player.vy = 4.6;
+}
+function standUp(){ player.sit=false; player.crouch=false; player.z = Math.max(player.z, BENCH.z+0.45); updateSitLabel(); }
+function sitOrCrouch(){
+  if(player.sit||player.crouch){ standUp(); return; }
+  var d = Math.hypot(player.x-BENCH.x, player.z-BENCH.z);
+  if(d<1.9 && grounded()){ player.sit=true; player.vx=player.vz=0; toast('벤치에 앉았어요. 움직이면 일어나요'); }
+  else player.crouch=true;
+  updateSitLabel();
+}
+function updateSitLabel(){
+  var on = player.sit||player.crouch;
+  $('sitLabel').textContent = on ? '일어서기' : '앉기';
+  $('sitBtn').classList.toggle('on', on);
+}
+window.addEventListener('keydown', function(e){
+  if(modal) return;
+  var k = e.key.toLowerCase();
+  if(k===' '||e.code==='Space'){ e.preventDefault(); if(!e.repeat) jump(); return; }
+  if(k==='c'||e.code==='KeyC'){ if(!e.repeat) sitOrCrouch(); return; }
+  keys[k] = true;
+});
+window.addEventListener('keyup', function(e){ keys[e.key.toLowerCase()] = false; });
+$('jumpBtn').addEventListener('click', function(){ hideHint(); jump(); });
+$('sitBtn').addEventListener('click', function(){ hideHint(); sitOrCrouch(); });
+
+canvas.addEventListener('pointerdown', function(e){
+  if(look.id!==null) return;
+  look.id=e.pointerId; look.lx=look.sx=e.clientX; look.ly=look.sy=e.clientY; look.t=performance.now();
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+});
+canvas.addEventListener('pointermove', function(e){
+  if(e.pointerId!==look.id) return;
+  var k = e.pointerType==='touch' ? 0.0055 : 0.0042;
+  player.yaw -= (e.clientX-look.lx)*k; player.pitch -= (e.clientY-look.ly)*k;
+  player.pitch = Math.max(-1.1, Math.min(1.1, player.pitch));
+  look.lx=e.clientX; look.ly=e.clientY;
+});
+function endLook(e){
+  if(e.pointerId!==look.id) return;
+  var moved = Math.hypot(e.clientX-look.sx, e.clientY-look.sy), dt = performance.now()-look.t;
+  look.id=null;
+  if(moved<10 && dt<400) tap(e.clientX, e.clientY);
+}
+canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', function(e){ if(e.pointerId===look.id) look.id=null; });
+
+var joyEl = $('joy'), knob = $('knob');
+function joyMove(e){
+  var r = joyEl.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  var dx=e.clientX-cx, dy=e.clientY-cy, d=Math.hypot(dx,dy), mx=46;
+  if(d>mx){ dx*=mx/d; dy*=mx/d; }
+  joy.x=dx/mx; joy.y=dy/mx; knob.style.transform='translate('+dx+'px,'+dy+'px)';
+}
+joyEl.addEventListener('pointerdown', function(e){ joy.id=e.pointerId; try{ joyEl.setPointerCapture(e.pointerId); }catch(_){} joyMove(e); hideHint(); });
+joyEl.addEventListener('pointermove', function(e){ if(e.pointerId===joy.id) joyMove(e); });
+function joyEnd(e){ if(e.pointerId!==joy.id) return; joy.id=null; joy.x=joy.y=0; knob.style.transform=''; }
+joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
+
+var ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+function tap(cx,cy){
+  hideHint();
+  v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1);
+  ray.setFromCamera(v2, camera);
+  if(placing){
+    var hit = ray.intersectObject(glassMesh)[0];
+    if(hit && hit.distance<9){
+      pending = { x: Math.max(-1.88,Math.min(1.88,hit.point.x)), y: Math.max(0.62,Math.min(2.88,hit.point.y)) };
+      setPlacing(false); openComposer(null);
+    } else toast('유리창을 눌러주세요');
+    return;
+  }
+  var hits = ray.intersectObjects(noteMeshes);
+  if(hits.length && hits[0].distance<10) openReader(hits[0].object);
+}
+
+function blocked(x,z){
+  if(Math.hypot(x,z)>58) return true;
+  if(Math.abs(x)<2.25 && Math.abs(z)<0.32) return true;
+  if(groundH(x,z)<WATER+0.05) return true;
+  return false;
+}
+function baseY(x,z){ return (Math.abs(x)<3.2 && z>-1.7 && z<2.9) ? 0.15 : Math.max(groundH(x,z),0); }
+
+// ---------- UI ----------
+function hideHint(){ $('hint').style.opacity=0; }
+var toastT;
+function toast(msg){ var t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(function(){ t.style.opacity=0; },2000); }
+function setPlacing(on){ placing=on; $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display=on?'block':'none'; }
+$('add').addEventListener('click', function(){ hideHint(); if(leftToday()<=0){ toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; } setPlacing(true); });
+$('placeCancel').addEventListener('click', function(){ setPlacing(false); });
+function openModal(id){ modal=true; keys={}; $(id).classList.add('on'); }
+function closeModal(id){ if(id==='composeScrim' && ed && ed.inl){ ed.inl=null; inl.style.display='none'; } $(id).classList.remove('on'); modal = !!document.querySelector('.scrim.on'); }
+Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function(b){ b.addEventListener('click', function(){ closeModal(b.getAttribute('data-close')); }); });
+
+// ---------- safety: word filter, reports, daily limit ----------
+// NOTE: this runs in the browser only. The real service must repeat these checks on the server.
+var BAD_WORDS = ['시발','씨발','씨바','씨빨','시빨','씌발','씨팔','시팔','ㅅㅂ','ㅆㅂ','ㅅㅂㄹㅁ','병신','븅신','빙신','ㅂㅅ','좆','존나','졸라','ㅈㄴ','개새','개색','개세끼','개쉐','쌔끼','새끼야',
+  '미친놈','미친년','미친새','지랄','ㅈㄹ','엿먹','닥쳐','꺼져','니애미','니미럴','느금','애미뒤','애비뒤','섹스','보지','자지','썅','쌍년','창녀','걸레년','등신','뒤져','디져라',
+  '한남충','김치녀','틀딱','급식충','짱깨','쪽바리','fuck','shit','bitch','asshole','sex'];
+var BAD_ALLOW = ['시바견','시바이누','강아지새끼','고양이새끼'];
+function normText(t){ return t.toLowerCase().replace(/[\s\d_.,!?~^*\-+=/\\|'"`:;()\[\]{}<>@#$%&♥♡★☆]/g,''); }
+function checkText(t){
+  var raw = t||'', n = normText(raw);
+  BAD_ALLOW.forEach(function(w){ n = n.split(w).join(''); });
+  for(var i=0;i<BAD_WORDS.length;i++) if(n.indexOf(BAD_WORDS[i])>=0) return {ok:false, why:'욕설이나 비하하는 말은 붙일 수 없어요'};
+  if(/(https?:\/\/|www\.|\.com\b|\.kr\b|\.net\b|open\.kakao|오픈채팅|오픈톡|카톡\s*(아이디|id)|텔레그램|t\.me\/|인스타\s*@)/i.test(raw)) return {ok:false, why:'링크나 홍보는 붙일 수 없어요'};
+  if(/01[016789][\s.\-]?\d{3,4}[\s.\-]?\d{4}/.test(raw) || /\d{9,}/.test(raw.replace(/[\s.\-]/g,''))) return {ok:false, why:'전화번호 같은 개인정보는 붙일 수 없어요'};
+  return {ok:true};
+}
+var DAILY = 3;
+function today(){ var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function usedToday(){ var u = store.get('yurichang-day'); return (u && u.d===today()) ? u.n : 0; }
+function useOne(){ store.set('yurichang-day', {d:today(), n:usedToday()+1}); }
+function leftToday(){ return Math.max(0, DAILY-usedToday()); }
+function hiddenKey(){ return 'yurichang-hidden:'+cfg.id; }
+
+// ---------- free-form editor ----------
+var ed = { c:'y', strokes:[], texts:[], hist:[], tool:'pen', ink:INKS[0].hex, size:'m', font:'pen', sel:null, drag:null, rot:null, cur:null, editing:null, inl:null, down:null };
+var edC = $('ed'), edX = edC.getContext('2d'), edS = 360, inl = $('inl');
+function edResize(){
+  var r = $('edWrap').getBoundingClientRect(); edS = Math.max(200, Math.round(r.width));
+  edC.width = edS*DPR; edC.height = edS*DPR; edX.setTransform(DPR,0,0,DPR,0,0); edDraw();
+}
+function edDraw(){ renderNote(edX, {c:ed.c, strokes:ed.strokes, texts:ed.texts, hide: ed.inl && ed.inl.i!==null ? ed.inl.i : null}, edS, {sel: ed.inl ? null : ed.sel}); edState(); }
+function edState(){
+  $('stick').disabled = !(ed.strokes.length||ed.texts.length);
+  $('undo').disabled = !ed.hist.length;
+  $('delSel').style.display = ed.sel!==null && !ed.inl ? '' : 'none';
+}
+function edPt(e){ var r=edC.getBoundingClientRect(); return {x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))}; }
+function local(t, p){ var dx=(p.x-t.x)*edS, dy=(p.y-t.y)*edS, c=Math.cos(-(t.rot||0)), s2=Math.sin(-(t.rot||0)); return {x:dx*c-dy*s2, y:dx*s2+dy*c}; }
+function textBox(t){ edX.font=fontCss(t, edS); return {hw:edX.measureText(t.t).width/2+10, hh:t.s*edS*1.25/2}; }
+function hitText(p){
+  for(var i=ed.texts.length-1;i>=0;i--){ var t=ed.texts[i], q=local(t,p), b=textBox(t); if(Math.abs(q.x)<b.hw && Math.abs(q.y)<b.hh) return i; }
+  return null;
+}
+function hitHandle(p){
+  if(ed.sel===null) return false; var t=ed.texts[ed.sel], q=local(t,p), b=textBox(t);
+  return Math.hypot(q.x, q.y+b.hh+30) < 22;
+}
+// inline text box placed right on the note
+function openInline(x, y, i){
+  var t = i!==null ? ed.texts[i] : {t:'', x:x, y:y, s:TSIZE[ed.size], c:ed.ink, f:ed.font, rot:0};
+  ed.inl = {i:i, x:t.x, y:t.y, s:t.s, c:t.c, f:t.f||'pen', rot:t.rot||0};
+  inl.value = t.t; styleInline(); inl.style.display='block';
+  edDraw();
+  try{ inl.focus({preventScroll:true}); }catch(_){ inl.focus(); }
+  try{ inl.setSelectionRange(inl.value.length, inl.value.length); }catch(_){}
+}
+function styleInline(){
+  var o = ed.inl; if(!o) return;
+  var probe = {t:inl.value||'가나다', s:o.s, f:o.f};
+  edX.font = fontCss(probe, edS);
+  var w = Math.max(90, edX.measureText(inl.value||'글자 입력').width + 30);
+  inl.style.font = fontCss(probe, edS); inl.style.color = o.c; inl.style.width = w+'px';
+  inl.style.left = (o.x*edS)+'px'; inl.style.top = (o.y*edS)+'px';
+  inl.style.transform = 'translate(-50%,-50%) rotate('+o.rot+'rad)';
+}
+function commitInline(){
+  var o = ed.inl; if(!o) return;
+  ed.inl = null; inl.style.display='none';
+  var v = inl.value.trim();
+  if(o.i!==null){
+    if(v){ var t=ed.texts[o.i]; t.t=v; t.f=o.f; t.s=o.s; t.c=o.c; t.bad=!checkText(v).ok; ed.sel=o.i; if(t.bad) toast(checkText(v).why); }
+    else { ed.texts.splice(o.i,1); ed.sel=null; }
+  } else if(v){
+    var ck = checkText(v);
+    ed.texts.push({t:v, x:+o.x.toFixed(3), y:+o.y.toFixed(3), s:o.s, c:o.c, f:o.f, rot:0, bad:!ck.ok}); ed.hist.push('t'); ed.sel=ed.texts.length-1;
+    if(!ck.ok) toast(ck.why+' · 빨간 줄 글자를 고쳐주세요');
+  }
+  edDraw();
+}
+inl.addEventListener('input', styleInline);
+inl.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); inl.blur(); } e.stopPropagation(); });
+inl.addEventListener('blur', function(){ setTimeout(commitInline, 0); });
+
+edC.addEventListener('pointerdown', function(e){
+  e.preventDefault(); try{ edC.setPointerCapture(e.pointerId); }catch(_){}
+  var p = edPt(e);
+  if(ed.inl){ inl.blur(); commitInline(); ed.down=null; return; }
+  if(ed.tool==='pen'){
+    ed.sel=null;
+    ed.cur = {c:ed.ink, w:0.016, p:[+p.x.toFixed(3), +p.y.toFixed(3)]};
+    ed.strokes.push(ed.cur); ed.hist.push('s'); edDraw(); return;
+  }
+  ed.down = {x:p.x, y:p.y, moved:false, wasSel:ed.sel};
+  if(hitHandle(p)){ ed.rot = {i:ed.sel}; return; }
+  var hi = hitText(p);
+  if(hi!==null){ ed.down.hit=hi; ed.sel=hi; ed.drag={i:hi, dx:ed.texts[hi].x-p.x, dy:ed.texts[hi].y-p.y}; edDraw(); return; }
+  ed.down.hit=null;
+});
+edC.addEventListener('pointermove', function(e){
+  var p=edPt(e);
+  if(ed.down && Math.hypot(p.x-ed.down.x, p.y-ed.down.y)>0.012) ed.down.moved=true;
+  if(ed.cur){ var a=ed.cur.p, lx=a[a.length-2], ly=a[a.length-1];
+    if(Math.hypot(p.x-lx,p.y-ly)>0.004){ a.push(+p.x.toFixed(3), +p.y.toFixed(3)); edDraw(); } }
+  else if(ed.rot){ var t=ed.texts[ed.rot.i]; var r=Math.atan2((p.y-t.y), (p.x-t.x)) + Math.PI/2;
+    var snap=Math.round(r/(Math.PI/2))*(Math.PI/2); if(Math.abs(r-snap)<0.07) r=snap; t.rot=+r.toFixed(3); edDraw(); }
+  else if(ed.drag && ed.down && ed.down.moved){ var t2=ed.texts[ed.drag.i]; t2.x=+Math.min(1,Math.max(0,p.x+ed.drag.dx)).toFixed(3); t2.y=+Math.min(1,Math.max(0,p.y+ed.drag.dy)).toFixed(3); edDraw(); }
+});
+function edUp(e){
+  var d = ed.down;
+  if(ed.tool==='text' && d && !d.moved && !ed.rot){
+    if(d.hit===null || d.hit===undefined){ if(ed.sel!==null && d.wasSel!==null){ ed.sel=null; edDraw(); } else openInline(d.x, d.y, null); }
+    else if(d.wasSel===d.hit) openInline(0,0,d.hit);       // tap a selected text again to rewrite it
+  }
+  ed.cur=null; ed.drag=null; ed.rot=null; ed.down=null;
+}
+edC.addEventListener('pointerup', edUp); edC.addEventListener('pointercancel', function(){ ed.cur=null; ed.drag=null; ed.rot=null; ed.down=null; });
+function setTool(t){
+  if(ed.inl){ inl.blur(); commitInline(); }
+  ed.tool=t; $('toolPen').classList.toggle('on',t==='pen'); $('toolText').classList.toggle('on',t==='text');
+  $('textRow').classList.toggle('on', t==='text');
+  $('edHelp').textContent = t==='pen' ? '손가락으로 아무 곳에나 자유롭게 써요' : '글자를 넣을 곳을 누르세요. 놓인 글자는 끌어서 옮기고, 위쪽 동그라미로 돌려요. 한 번 더 누르면 고쳐 써요';
+  if(t==='pen'){ ed.sel=null; edDraw(); }
+}
+$('toolPen').addEventListener('click', function(){ setTool('pen'); });
+$('toolText').addEventListener('click', function(){ setTool('text'); });
+function target(){ return ed.inl ? ed.inl : (ed.sel!==null ? ed.texts[ed.sel] : null); }
+Array.prototype.forEach.call(document.querySelectorAll('[data-size]'), function(b){
+  b.addEventListener('pointerdown', function(e){ e.preventDefault(); });   // keep the keyboard open
+  b.addEventListener('click', function(){ ed.size=b.getAttribute('data-size');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-size]'), function(x){ x.classList.toggle('on', x===b); });
+    var t=target(); if(t){ t.s=TSIZE[ed.size]; styleInline(); edDraw(); } });
+});
+var fontEl = $('fonts');
+FONTS.forEach(function(f){
+  var b=document.createElement('button'); b.textContent=f.name; b.style.fontFamily=f.css; b.dataset.f=f.id; if(f.id===ed.font) b.className='on';
+  b.addEventListener('pointerdown', function(e){ e.preventDefault(); });
+  b.addEventListener('click', function(){ ed.font=f.id; markFont(); var t=target(); if(t){ t.f=f.id; styleInline(); edDraw(); } });
+  fontEl.appendChild(b);
+});
+function markFont(){ Array.prototype.forEach.call(fontEl.children,function(x){ x.classList.toggle('on', x.dataset.f===ed.font); }); }
+$('undo').addEventListener('click', function(){ var h=ed.hist.pop(); if(h==='s') ed.strokes.pop(); else if(h==='t') ed.texts.pop(); ed.sel=null; edDraw(); });
+$('clear').addEventListener('click', function(){ ed.strokes=[]; ed.texts=[]; ed.hist=[]; ed.sel=null; edDraw(); });
+$('delSel').addEventListener('click', function(){
+  if(ed.sel===null) return; ed.texts.splice(ed.sel,1);
+  var idx=-1; for(var i=ed.hist.length-1;i>=0;i--){ if(ed.hist[i]==='t'){ idx=i; break; } } if(idx>=0) ed.hist.splice(idx,1);
+  ed.sel=null; edDraw();
+});
+var swEl = $('swatches');
+COLORS.forEach(function(c){
+  var b=document.createElement('button'); b.className='sw'; b.style.background=c.hex; b.setAttribute('aria-label',c.name+' 포스트잇'); b.dataset.c=c.id;
+  b.addEventListener('click', function(){ ed.c=c.id; markSw(); edDraw(); });
+  swEl.appendChild(b);
+});
+function markSw(){ Array.prototype.forEach.call(swEl.children,function(x){ x.classList.toggle('on', x.dataset.c===ed.c); }); }
+var inkEl = $('inks');
+INKS.forEach(function(k){
+  var b=document.createElement('button'); b.className='ink'+(k.hex===ed.ink?' on':''); b.style.background=k.hex; b.setAttribute('aria-label',k.name+' 잉크');
+  b.addEventListener('pointerdown', function(e){ e.preventDefault(); });
+  b.addEventListener('click', function(){ ed.ink=k.hex; Array.prototype.forEach.call(inkEl.children,function(x){ x.classList.toggle('on', x===b); }); var t=target(); if(t){ t.c=k.hex; styleInline(); edDraw(); } });
+  inkEl.appendChild(b);
+});
+function openComposer(mesh){
+  ed.editing = mesh;
+  if(mesh){ var n=mesh.userData.note; ed.c=n.c; ed.strokes=JSON.parse(JSON.stringify(n.strokes||[])); ed.texts=JSON.parse(JSON.stringify(n.texts||[])); }
+  else { ed.strokes=[]; ed.texts=[]; }
+  ed.hist=[]; ed.sel=null; ed.cur=null; ed.drag=null;
+  $('composeTitle').textContent = mesh ? '내 포스트잇 수정' : '포스트잇 쓰기';
+  $('quota').textContent = mesh ? '' : '오늘 붙일 수 있는 포스트잇 '+leftToday()+'장 남았어요 (하루 '+DAILY+'장)';
+  $('stick').textContent = mesh ? '수정 완료' : '창문에 붙이기';
+  inl.style.display='none'; ed.inl=null; setTool('pen'); markSw(); markFont();
+  openModal('composeScrim');
+  requestAnimationFrame(edResize);
+}
+window.addEventListener('resize', function(){ if($('composeScrim').classList.contains('on')) edResize(); });
+$('stick').addEventListener('pointerdown', function(){ if(ed.inl){ inl.blur(); commitInline(); } });
+$('stick').addEventListener('click', function(){
+  if(ed.inl){ inl.blur(); commitInline(); }
+  if(!(ed.strokes.length||ed.texts.length)) return;
+  for(var bi=0; bi<ed.texts.length; bi++){ var ck=checkText(ed.texts[bi].t); ed.texts[bi].bad=!ck.ok; if(!ck.ok){ ed.sel=bi; edDraw(); toast(ck.why+' · 빨간 줄 글자를 고쳐주세요'); return; } }
+  ed.sel=null;
+  ed.texts.forEach(function(t){ delete t.bad; });
+  if(ed.editing){
+    var n = ed.editing.userData.note; n.c=ed.c; n.strokes=ed.strokes; n.texts=ed.texts; refreshNote(ed.editing); saveMine();
+    closeModal('composeScrim'); toast('포스트잇을 고쳤어요'); return;
+  }
+  if(!pending) return;
+  if(leftToday()<=0){ closeModal('composeScrim'); toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; }
+  useOne();
+  var nn = {id:cfg.id+'-u'+Date.now(), c:ed.c, age:0, h:0, x:pending.x, y:pending.y, r:(Math.random()-0.5)*0.24, strokes:ed.strokes, texts:ed.texts, mine:true};
+  addNoteMesh(nn, noteMeshes.length); saveMine();
+  closeModal('composeScrim'); toast(cfg.name+' 창에 붙였어요 · 오늘 '+leftToday()+'장 남았어요');
+});
+
+// ---------- reader ----------
+var reading = null, rC = $('readerCanvas');
+function drawReader(){
+  var n = reading.userData.note, S = Math.round($('readerNote').getBoundingClientRect().width)||300;
+  rC.width=S*DPR; rC.height=S*DPR; var x=rC.getContext('2d'); x.setTransform(DPR,0,0,DPR,0,0);
+  renderNote(x, n, S, {deco:false});
+  if(n.age>0.6){ x.fillStyle='rgba(255,255,255,.3)'; x.fillRect(0,0,S,S); }
+}
+function openReader(mesh){
+  reading = mesh; var n = mesh.userData.note;
+  openModal('readerScrim');
+  requestAnimationFrame(drawReader);
+  $('readerMeta').textContent = (n.mine?'내가 붙인 포스트잇 · ':'')+(n.age>0.6?'오래전에 붙은 포스트잇 · ':'')+'♥ '+(n.h||0);
+  $('heartBtn').textContent = n.liked ? '♥ 공감했어요' : '♥ 공감';
+  $('heartBtn').style.display = n.mine ? 'none' : '';
+  $('editBtn').style.display = n.mine ? '' : 'none';
+  $('delBtn').style.display = n.mine ? '' : 'none';
+  $('reportBtn').style.display = n.mine ? 'none' : '';
+}
+$('heartBtn').addEventListener('click', function(){
+  if(!reading) return; var n = reading.userData.note; if(n.liked) return;
+  n.liked=true; n.h=(n.h||0)+1;
+  var hs = store.get('yurichang-h:'+cfg.id)||{}; hs[n.id]=1; store.set('yurichang-h:'+cfg.id, hs);
+  refreshNote(reading);
+  $('heartBtn').textContent='♥ 공감했어요'; $('readerMeta').textContent='♥ '+n.h;
+});
+$('editBtn').addEventListener('click', function(){ var m=reading; closeModal('readerScrim'); openComposer(m); });
+var delArm = false;
+$('delBtn').addEventListener('click', function(){
+  if(!delArm){ delArm=true; $('delBtn').textContent='한 번 더 누르면 떼어내요'; setTimeout(function(){ delArm=false; $('delBtn').textContent='떼어내기'; },2500); return; }
+  delArm=false; $('delBtn').textContent='떼어내기';
+  var m=reading; world.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose();
+  noteMeshes.splice(noteMeshes.indexOf(m),1); saveMine(); closeModal('readerScrim'); toast('포스트잇을 떼어냈어요');
+});
+
+$('reportBtn').addEventListener('click', function(){ closeModal('readerScrim'); openModal('reportScrim'); });
+Array.prototype.forEach.call(document.querySelectorAll('[data-reason]'), function(b){
+  b.addEventListener('click', function(){
+    var m = reading; if(!m) return;
+    var hid = store.get(hiddenKey())||{}; hid[m.userData.note.id] = b.getAttribute('data-reason'); store.set(hiddenKey(), hid);
+    world.remove(m); noteMeshes.splice(noteMeshes.indexOf(m),1);
+    closeModal('reportScrim'); toast('신고했어요. 이 포스트잇은 이제 안 보여요');
+  });
+});
+
+// ---------- regions ----------
+var regEl = $('regions');
+function renderRegions(){
+  regEl.innerHTML='';
+  REGIONS.forEach(function(r){
+    var b=document.createElement('button'); b.className='region'+(r.id===cfg.id?' on':'');
+    var i=document.createElement('i'); i.style.background='linear-gradient(180deg,'+r.sky[0]+','+r.sky[1]+' 70%,'+r.ground+' 70%)';
+    var s=document.createElement('div'); var bb=document.createElement('b'); bb.textContent=r.name+' 창'; var sp=document.createElement('span'); sp.textContent=r.scene+' · 포스트잇 '+(r.notes.length+((store.get('yurichang2:'+r.id)||[]).length))+'장';
+    s.appendChild(bb); s.appendChild(sp); b.appendChild(i); b.appendChild(s);
+    b.addEventListener('click', function(){ goRegion(r); closeModal('regionScrim'); });
+    regEl.appendChild(b);
+  });
+}
+$('loc').addEventListener('click', function(){ renderRegions(); openModal('regionScrim'); });
+function goRegion(r){ cfg=r; player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창으로 왔어요'); }
+
+// ---------- graphics quality ----------
+function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute('aria-label', hq?'고화질 끄기':'고화질 켜기'); }
+markHQ();
+$('hq').addEventListener('click', function(){ hq=!hq; store.set('yurichang-hq', hq); markHQ(); build(); toast(hq?'고화질: 그림자·빛 번짐 켜짐':'가벼운 화질로 바꿨어요'); });
+
+// ---------- ambience ----------
+var actx=null, gainN=null, lfo=null, soundOn=true, filt=null;
+function startSound(){
+  if(actx) return;
+  try{
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    var len = actx.sampleRate*4, buf = actx.createBuffer(1,len,actx.sampleRate), d = buf.getChannelData(0), last=0;
+    for(var i=0;i<len;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; }
+    var src = actx.createBufferSource(); src.buffer=buf; src.loop=true;
+    filt = actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=600;
+    gainN = actx.createGain(); gainN.gain.value=0.0;
+    lfo = actx.createOscillator(); var lg = actx.createGain(); lfo.frequency.value=0.09; lg.gain.value=0.12; lfo.connect(lg); lg.connect(gainN.gain);
+    src.connect(filt); filt.connect(gainN); gainN.connect(actx.destination); src.start(); lfo.start();
+    setAmbience();
+  }catch(e){ actx=null; }
+}
+function setAmbience(){
+  if(!actx||!gainN) return;
+  var sea = cfg.water==='sea'||cfg.water==='farsea';
+  filt.frequency.setTargetAtTime(sea?900:480, actx.currentTime, 0.5);
+  lfo.frequency.setTargetAtTime(sea?0.11:0.05, actx.currentTime, 0.5);
+  gainN.gain.setTargetAtTime(soundOn?(sea?0.22:0.16):0, actx.currentTime, 0.4);
+}
+$('snd').addEventListener('click', function(){
+  soundOn=!soundOn; startSound(); setAmbience();
+  $('sndOn').style.display=soundOn?'':'none'; $('sndOff').style.display=soundOn?'none':'';
+  $('snd').setAttribute('aria-label', soundOn?'소리 끄기':'소리 켜기');
+});
+
+// ---------- location ----------
+function nearest(lat,lng){ var best=REGIONS[0],bd=1e9; REGIONS.forEach(function(r){ var d=Math.hypot(r.lat-lat,(r.lng-lng)*Math.cos(lat*Math.PI/180)); if(d<bd){bd=d;best=r;} }); return best; }
+var located = false;
+function locFail(){ if(located) return; located=true; $('statusText').textContent='위치를 확인할 수 없어 서울 마포 창으로 안내할게요. 위쪽에서 바꿀 수 있어요.'; }
+try{
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(p){
+      if(located) return; located=true; var r=nearest(p.coords.latitude,p.coords.longitude);
+      if(r.id!==cfg.id){ cfg=r; build(); }
+      $('statusText').textContent='가까운 창을 찾았어요: '+r.name+' 창 (반경 3km)';
+    }, locFail, {timeout:4000, maximumAge:600000});
+    setTimeout(locFail, 4500);
+  } else locFail();
+}catch(e){ locFail(); }
+
+$('enter').addEventListener('click', function(){
+  var i=$('intro'); i.style.opacity=0; setTimeout(function(){ i.style.display='none'; },800);
+  startSound();
+  setTimeout(hideHint, 8000);
+});
+
+// ---------- loop ----------
+window.addEventListener('resize', function(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); if(composer) composer.setSize(window.innerWidth,window.innerHeight); });
+var clock = new THREE.Clock(), introYaw = 0, perf = {n:0, sum:0, checked:false};
+function frame(){
+  var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  var f = 0, s = 0;
+  if(!modal){
+    if(keys['w']||keys['arrowup']) f+=1; if(keys['s']||keys['arrowdown']) f-=1;
+    if(keys['d']||keys['arrowright']) s+=1; if(keys['a']||keys['arrowleft']) s-=1;
+  }
+  f += -joy.y; s += joy.x;
+  var len = Math.hypot(f,s); if(len>1){ f/=len; s/=len; }
+  if(player.sit && len>0.25){ standUp(); }
+  if(player.sit){ f=s=0; player.x += (BENCH.x-player.x)*Math.min(1,dt*6); player.z += (BENCH.z+0.05-player.z)*Math.min(1,dt*6); }
+  var sp = player.crouch ? 1.1 : 2.3, sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
+  var tvx = (-sy*f + cy*s)*sp, tvz = (-cy*f - sy*s)*sp;
+  var air = grounded() ? 8 : 2.5;
+  player.vx += (tvx-player.vx)*Math.min(1,dt*air); player.vz += (tvz-player.vz)*Math.min(1,dt*air);
+  if(!player.sit){
+    var nx = player.x+player.vx*dt, nz = player.z+player.vz*dt;
+    if(!blocked(nx,player.z)) player.x=nx; else player.vx=0;
+    if(!blocked(player.x,nz)) player.z=nz; else player.vz=0;
+  }
+  player.vy -= 13*dt; player.jy += player.vy*dt; if(player.jy<0){ player.jy=0; player.vy=0; }
+  var eyeT = player.sit ? 1.12 : player.crouch ? 0.95 : 1.6;
+  player.eye += (eyeT-player.eye)*Math.min(1,dt*7);
+  var spd = grounded() ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*3.2;
+  var intro = $('intro').style.display!=='none';
+  if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
+  camera.position.set(player.x, baseY(player.x,player.z)+player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd), player.z);
+  camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
+  for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
+  WIND.value = t;
+  if(hq && composer) composer.render(); else renderer.render(scene, camera);
+  // drop to light mode automatically if the phone struggles
+  if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
+  requestAnimationFrame(frame);
+}
+
+function boot(){ build(); frame(); loadNature(); }
+var fontWait = document.fonts && document.fonts.load ? Promise.race([Promise.all(FONTS.map(function(f){ return document.fonts.load('40px '+f.css.split(',')[0]); })), new Promise(function(r){ setTimeout(r,3000); })]) : Promise.resolve();
+fontWait.then(boot, boot);
+})();
+</script>
+</body>
+</html>
