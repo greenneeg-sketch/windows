@@ -119,6 +119,25 @@
   body:not(.intro) #loader{top:calc(env(safe-area-inset-top) + 70px)}
   #loader i{display:block;width:90px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
   #loader b{display:block;height:100%;width:0;background:#FFC94D;transition:width .3s}
+  #photoUI{position:fixed;inset:0;z-index:8;pointer-events:none;display:none}
+  body.photo #photoUI{display:block}
+  body.photo #top, body.photo #hint, body.photo #acts, body.photo #add, body.photo #place, body.photo #loader{display:none!important}
+  #photoFrame{position:absolute;box-shadow:0 0 0 9999px rgba(8,9,14,.55);border:1.5px solid rgba(255,255,255,.75);border-radius:4px;pointer-events:none}
+  #photoFrame:before,#photoFrame:after{content:'';position:absolute;inset:0;pointer-events:none}
+  #photoFrame:before{background:linear-gradient(90deg,transparent calc(33.33% - .5px),rgba(255,255,255,.22) calc(33.33% - .5px),rgba(255,255,255,.22) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.22) calc(66.66% - .5px),rgba(255,255,255,.22) calc(66.66% + .5px),transparent calc(66.66% + .5px))}
+  #photoFrame:after{background:linear-gradient(180deg,transparent calc(33.33% - .5px),rgba(255,255,255,.22) calc(33.33% - .5px),rgba(255,255,255,.22) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.66% - .5px),rgba(255,255,255,.22) calc(66.66% - .5px),rgba(255,255,255,.22) calc(66.66% + .5px),transparent calc(66.66% + .5px))}
+  body.photo.full #photoFrame:before, body.photo.full #photoFrame:after{display:none}
+  #photoTop{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 14px);padding:0 14px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+  #photoTop>*{pointer-events:auto}
+  #ratioSeg{border-radius:14px}
+  #ratioSeg button{color:#E6E1D6}
+  #ratioSeg button.on{color:#1A1712}
+  #markBtn.on{color:#FFC94D}
+  #photoTip{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 70px);margin:0;padding:8px 14px;border-radius:14px;font-size:13px;white-space:nowrap;transition:opacity .6s}
+  #shutter{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 30px);transform:translateX(-50%);width:76px;height:76px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.18);pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:0}
+  #shutter i{display:block;width:58px;height:58px;border-radius:50%;background:#fff;transition:transform .12s}
+  #shutter:active i{transform:scale(.9)}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9;transition:opacity .35s}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);padding:10px 16px;border-radius:18px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:30;white-space:nowrap}
 </style>
 </head>
@@ -131,6 +150,7 @@
     <span><b id="locName">수고했어 창</b><small id="locSub">노을 호숫가</small></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9C4B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:2px"><path d="M6 9l6 6 6-6"/></svg>
   </button>
   <div id="topR">
+    <button id="photoBtn" class="glass iconbtn" aria-label="사진 찍기"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></button>
     <button id="shareWin" class="glass iconbtn" aria-label="이 창 링크 공유하기"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></button>
     <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
     <button id="snd" class="glass iconbtn" aria-label="소리 끄기">
@@ -157,6 +177,17 @@
 </button>
 <div id="place" class="glass">유리창을 눌러 붙일 자리를 골라요 <button id="placeCancel">취소</button></div>
 <div id="toast" class="glass"></div>
+<div id="photoUI" aria-label="사진 모드">
+  <div id="photoFrame"></div>
+  <div id="photoTop">
+    <button id="photoClose" class="glass iconbtn" aria-label="사진 모드 닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>
+    <div class="seg glass" id="ratioSeg" role="group" aria-label="사진 비율"><button data-r="story" class="on">9:16</button><button data-r="square">1:1</button><button data-r="full">전체</button></div>
+    <button id="markBtn" class="glass iconbtn on" aria-label="로고 넣기" aria-pressed="true">로고</button>
+  </div>
+  <p id="photoTip" class="glass">끌어서 구도를 잡고, 조이스틱으로 움직여요</p>
+  <button id="shutter" aria-label="찍기"><i></i></button>
+</div>
+<div id="flash"></div>
 <div id="loader" class="glass" role="status" aria-live="polite"><span id="ldText">풍경을 그리는 중</span><i><b id="ldBar"></b></i></div>
 
 <div id="composeScrim" class="scrim">
@@ -939,6 +970,7 @@ joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercanc
 
 var ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
 function tap(cx,cy){
+  if(photo.on) return;
   hideHint();
   v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1);
   ray.setFromCamera(v2, camera);
@@ -1463,6 +1495,65 @@ function openCard(mesh){
   }, 'image/png');
 }
 $('cardBtn').addEventListener('click', function(){ if(reading) openCard(reading); });
+function showImage(b, name){
+  cardBlob = b; if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
+  $('cardImg').src = cardUrl;
+  var file = new File([b], name||'yurichang.jpg', {type:b.type});
+  var can = navigator.canShare && navigator.canShare({files:[file]});
+  $('cardShare').style.display = can ? '' : 'none';
+  $('cardHint').textContent = can ? '공유하기를 누르거나 이미지를 길게 눌러 저장해요' : '이미지를 길게 눌러 저장할 수 있어요';
+  openModal('cardScrim');
+}
+
+// ---------- photo mode: compose your own shot of the window ----------
+var photo = { on:false, ratio:'story', mark:true, want:false };
+function frameRect(){
+  var vw = window.innerWidth, vh = window.innerHeight, top = 120, bottom = 130, availH = vh - top - bottom, availW = vw - 24, w, h;
+  if(photo.ratio==='full'){ return {x:0, y:0, w:vw, h:vh}; }
+  var ar = photo.ratio==='story' ? 9/16 : 1;
+  w = availW; h = w/ar; if(h > availH){ h = availH; w = h*ar; }
+  return {x:(vw-w)/2, y:top+(availH-h)/2, w:w, h:h};
+}
+function layoutFrame(){
+  var r = frameRect(), f = $('photoFrame');
+  f.style.left = r.x+'px'; f.style.top = r.y+'px'; f.style.width = r.w+'px'; f.style.height = r.h+'px';
+  document.body.classList.toggle('full', photo.ratio==='full');
+  f.style.borderColor = photo.ratio==='full' ? 'transparent' : ''; f.style.boxShadow = photo.ratio==='full' ? 'none' : '';
+}
+function setPhoto(on){
+  photo.on = on; document.body.classList.toggle('photo', on);
+  if(placing) setPlacing(false);
+  if(on){ hideHint(); layoutFrame(); $('photoTip').style.opacity = 1; setTimeout(function(){ $('photoTip').style.opacity = 0; }, 3500); }
+}
+$('photoBtn').addEventListener('click', function(){ setPhoto(true); });
+$('photoClose').addEventListener('click', function(){ setPhoto(false); });
+window.addEventListener('resize', function(){ if(photo.on) layoutFrame(); });
+Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), function(b){
+  b.addEventListener('click', function(){ photo.ratio = b.getAttribute('data-r');
+    Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), function(x){ x.classList.toggle('on', x===b); }); layoutFrame(); });
+});
+$('markBtn').addEventListener('click', function(){ photo.mark = !photo.mark; this.classList.toggle('on', photo.mark); this.setAttribute('aria-pressed', photo.mark); });
+$('shutter').addEventListener('click', function(){ photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
+// runs right after the frame is drawn, so the picture is read before the browser clears it
+function capturePhoto(){
+  photo.want = false;
+  var src = renderer.domElement, r = frameRect(), sx = src.width/window.innerWidth, sy = src.height/window.innerHeight;
+  var W = photo.ratio==='square' ? 1080 : 1080, H = photo.ratio==='story' ? 1920 : photo.ratio==='square' ? 1080 : Math.round(1080*r.h/r.w);
+  var out = document.createElement('canvas'); out.width = W; out.height = H; var x = out.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(src, r.x*sx, r.y*sy, r.w*sx, r.h*sy, 0, 0, W, H);
+  if(photo.mark){
+    var gr = x.createLinearGradient(0, H*0.78, 0, H); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.35)'); x.fillStyle = gr; x.fillRect(0, H*0.78, W, H*0.22);
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 12;
+    x.fillStyle = 'rgba(255,255,255,.95)'; x.font = '64px "Nanum Pen Script", cursive'; x.fillText('유리창', 56, H-86);
+    x.fillStyle = 'rgba(255,255,255,.75)'; x.font = '500 24px "Noto Sans KR", sans-serif'; if('letterSpacing' in x) x.letterSpacing = '4px';
+    x.fillText(cfg.name+' 창', 58, H-48); if('letterSpacing' in x) x.letterSpacing = '0px';
+    x.textAlign = 'right'; x.fillStyle = 'rgba(255,255,255,.6)'; x.font = '400 22px "Noto Sans KR", sans-serif';
+    x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W-56, H-48);
+    x.shadowBlur = 0;
+  }
+  out.toBlob(function(b){ if(b) showImage(b, 'yurichang-photo.jpg'); }, 'image/jpeg', 0.92);
+}
 $('cardShare').addEventListener('click', function(){
   if(!cardBlob) return;
   var file = new File([cardBlob], 'yurichang.png', {type:'image/png'});
@@ -1562,6 +1653,7 @@ function frame(){
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
   if(hq && composer) composer.render(); else renderer.render(scene, camera);
+  if(photo.want) capturePhoto();
   // drop to light mode automatically if the phone struggles
   if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
   requestAnimationFrame(frame);
