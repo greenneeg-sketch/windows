@@ -162,3 +162,9 @@ drop function public.post_note(text, text, real, real, real, text, jsonb, jsonb)
 drop policy "visible notes are public" on public.notes;
 create policy "visible notes are public" on public.notes for select to anon, authenticated
   using (not hidden and created_at > now() - make_interval(days => least(180, 30 + hearts * 2)));
+
+-- migration "yurichang_launch_reset_ip_limit": launch reset + per-network daily limit
+-- delete from public.notes;   (all test notes removed before launch)
+-- notes.ip_day = sha256('yurichang|' || client_ip || '|' || seoul_date) — a per-day hash, never the raw address
+-- yc_client_ip() reads cf-connecting-ip / x-forwarded-for / x-real-ip from request.headers
+-- post_note: at most 3 per device and 10 per network per Seoul day
