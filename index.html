@@ -26,7 +26,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Jua&family=Gowun+Batang:wght@400;700&family=Gamja+Flower&family=Hi+Melody&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Dokdo&family=Gaegu:wght@400;700&family=Jua&family=Gowun+Batang:wght@400;700&family=Gamja+Flower&family=Hi+Melody&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:#0d0f16;font-family:'Noto Sans KR',system-ui,sans-serif;color:#F4F1EA;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -113,7 +113,10 @@
   .region span{font-size:12.5px;color:#C9C4B8}
   #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity .8s}
   #intro{overflow-y:auto}
-  #intro h1{margin:0 0 10px;font-family:'Nanum Pen Script',cursive;font-size:64px;font-weight:400;line-height:1}
+  #intro h1{align-self:flex-start;margin:0 0 6px;font-family:'Dokdo','Nanum Pen Script',cursive;font-size:76px;font-weight:400;line-height:1;position:relative;display:inline-block;padding:0 6px 14px 0;letter-spacing:-2px}
+  #intro h1 .m1{display:inline-block;transform:translateY(-8px) rotate(-7deg)}
+  #intro h1 .m2{display:inline-block;transform:translateY(8px) rotate(6deg)}
+  #intro h1 svg{position:absolute;left:-4px;right:0;bottom:0;width:calc(100% + 6px);height:16px;overflow:visible}
   #intro p.tag{margin:-2px 0 14px;font-size:13px;letter-spacing:.12em;color:#CFC8BA;opacity:.85}
   #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
   .news{margin-top:16px;padding:14px;border-radius:16px;background:rgba(255,201,77,.14);border:1px solid rgba(255,201,77,.45);display:flex;flex-direction:column;gap:8px}
@@ -333,7 +336,7 @@
 </div>
 
 <div id="intro">
-  <h1>숨글</h1>
+  <h1 aria-label="숨글"><span class="m1">숨</span><span class="m2">글</span><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q50 1 98 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg></h1>
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
   <div id="news" class="news" hidden></div>
@@ -1958,6 +1961,15 @@ function getPlace(done){
   setTimeout(function(){ end(null); }, 6500);
 }
 
+// 숨글 wordmark: 숨 lifts like a breath in, 글 settles like a breath out, one brush line under both
+function drawMark(x, cx, cy, s, col){
+  x.save(); x.fillStyle = col; x.strokeStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = s+'px "Dokdo", "Nanum Pen Script", cursive';
+  x.save(); x.translate(cx-0.29*s, cy-0.12*s); x.rotate(-0.12); x.fillText('숨', 0, 0); x.restore();
+  x.save(); x.translate(cx+0.29*s, cy+0.08*s); x.rotate(0.1); x.fillText('글', 0, 0); x.restore();
+  x.shadowColor = 'transparent'; x.lineWidth = Math.max(1.5, 0.028*s); x.lineCap = 'round';
+  x.beginPath(); x.moveTo(cx-0.62*s, cy+0.6*s); x.quadraticCurveTo(cx, cy+0.5*s, cx+0.64*s, cy+0.64*s); x.stroke();
+  x.restore();
+}
 // ---------- window links (#sugo #talk #vow #wish) ----------
 function regionBySlug(sl){ for(var i=0;i<REGIONS.length;i++) if(REGIONS[i].slug===sl) return REGIONS[i]; return null; }
 function setHash(){ try{ history.replaceState(null, '', '#'+cfg.slug); }catch(e){} }
@@ -2008,7 +2020,7 @@ function makeCard(n){
   if(cfg.id==='newyear'){ var SR=rng(7); for(var si=0; si<160; si++){ var sx=SR()*W, sy=SR()*H, sr=1+SR()*3.5; x.fillStyle='rgba(255,255,255,'+(0.25+SR()*0.55)+')'; x.beginPath(); x.arc(sx,sy,sr,0,Math.PI*2); x.fill(); } }
   x.textAlign='center'; x.textBaseline='alphabetic';
   // small wordmark + window name, quiet and spaced
-  x.fillStyle='rgba(255,255,255,.96)'; x.font='88px "Nanum Pen Script", cursive'; x.fillText('숨글', W/2, 210);
+  drawMark(x, W/2, 152, 120, 'rgba(255,255,255,.96)'); x.textAlign='center'; x.textBaseline='alphabetic';
   x.fillStyle = cfg.id==='newyear' ? 'rgba(255,224,143,.95)' : 'rgba(255,255,255,.72)'; x.font='500 28px "Noto Sans KR", sans-serif';
   if('letterSpacing' in x) x.letterSpacing='6px';
   x.fillText(cfg.name+' 창', W/2, 266);
@@ -2163,7 +2175,7 @@ function capturePhoto(){
   if(photo.mark){
     var gr = x.createLinearGradient(0, H*0.78, 0, H); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.35)'); x.fillStyle = gr; x.fillRect(0, H*0.78, W, H*0.22);
     x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 12;
-    x.fillStyle = 'rgba(255,255,255,.95)'; x.font = '64px "Nanum Pen Script", cursive'; x.fillText('숨글', 56, H-86);
+    drawMark(x, 56+0.66*86, H-138, 84, 'rgba(255,255,255,.95)'); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
     x.fillStyle = 'rgba(255,255,255,.75)'; x.font = '500 24px "Noto Sans KR", sans-serif'; if('letterSpacing' in x) x.letterSpacing = '4px';
     x.fillText(cfg.name+' 창', 58, H-48); if('letterSpacing' in x) x.letterSpacing = '0px';
     x.textAlign = 'right'; x.fillStyle = 'rgba(255,255,255,.6)'; x.font = '400 22px "Noto Sans KR", sans-serif';
@@ -2299,7 +2311,7 @@ if('serviceWorker' in navigator && /github\.io$|localhost$/.test(location.hostna
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
 function boot(){ build(); frame(); loadNature(); if(linked) enterWorld(); fetchNews(); }
-var fontWait = document.fonts && document.fonts.load ? Promise.race([Promise.all(FONTS.map(function(f){ return document.fonts.load('40px '+f.css.split(',')[0]); })), new Promise(function(r){ setTimeout(r,3000); })]) : Promise.resolve();
+var fontWait = document.fonts && document.fonts.load ? Promise.race([Promise.all(FONTS.map(function(f){ return document.fonts.load('40px '+f.css.split(',')[0]); }).concat([document.fonts.load('40px Dokdo','숨글')])), new Promise(function(r){ setTimeout(r,3000); })]) : Promise.resolve();
 fontWait.then(boot, boot);
 })();
 </script>
