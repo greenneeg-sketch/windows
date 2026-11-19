@@ -13,15 +13,29 @@
 정적 파일만으로 동작합니다. GitHub Pages에서 `main` 브랜치의 루트(`/`)를 배포하면 됩니다.
 로컬에서는 `python3 -m http.server` 후 `http://localhost:8000` 으로 열어주세요.
 
-## 현재 한계 (서버 연결 전)
+## 서버 (Supabase)
 
-- 포스트잇, 공감, 신고, 하루 제한은 지금은 각자 기기(localStorage)에만 저장됩니다.
-- 실제 서비스에서는 서버(예: Supabase)에서 저장, 욕설 필터, 신고 누적 숨김, 하루 제한을 다시 검사해야 합니다.
+포스트잇은 Supabase(`yurichang` 프로젝트, 서울 리전)에 저장되어 모두에게 보입니다. 30초마다 새 포스트잇을 불러옵니다.
+
+- 누구나 숨겨지지 않은 포스트잇만 읽을 수 있고, 기기 ID와 수정 키는 읽을 수 없습니다.
+- 쓰기·수정·삭제·공감·신고는 모두 서버 함수(`post_note`, `edit_note`, `delete_note`, `heart_note`, `report_note`)를 통해서만 됩니다.
+- 서버에서 다시 검사: 욕설·링크·전화번호 필터, 기기당 하루 3장, 내용 크기 제한, 서버 전체 분당 60장 제한
+- 수정·삭제는 글을 붙인 기기에 저장된 비밀 키가 있어야만 됩니다.
+- 서로 다른 기기 3곳에서 신고하면 모두에게서 내려갑니다. 공감은 기기당 1번입니다.
+- 서버에 연결이 안 되면 그 기기에만 저장합니다.
+
+스키마는 `supabase/schema.sql` 에 있습니다.
+
+### 알려진 한계
+
+- 기기 ID는 브라우저에 저장되므로, 저장공간을 지우면 하루 제한이 초기화됩니다. 더 강하게 막으려면 Supabase 익명 로그인이나 IP 기반 제한(Edge Function)을 추가해야 합니다.
+- 손글씨·그림은 글자 필터로 걸러지지 않으므로 신고로 관리합니다.
+- 화면의 예시 포스트잇(지역별 몇 장)은 페이지에 들어 있는 샘플입니다.
 
 ## 사용한 에셋 (모두 CC0)
 
 - 3D 모델: [Quaternius — Stylized Nature MegaKit](https://quaternius.com/packs/stylizednaturemegakit.html)
-- 하늘 HDRI: [Poly Haven](https://polyhaven.com) (venice_sunset, dikhololo_night, kiara_1_dawn, rooitou_park)
+- 하늘 HDRI: [Poly Haven](https://polyhaven.com) (blouberg_sunrise_2, dikhololo_night, kiara_1_dawn, rooitou_park) — 지평선 아래 건물·나무·땅은 지우고 하늘만 남겨 PNG(RGBE)로 변환
 - 창틀 텍스처: [ambientCG — Bark014](https://ambientcg.com/view?id=Bark014)
 - 3D 엔진: [three.js](https://threejs.org) r128 (MIT)
 - 글씨체: Google Fonts (나눔펜, 개구, 감자꽃, 하이멜로디, 주아, 고운바탕 — OFL)

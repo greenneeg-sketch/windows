@@ -161,7 +161,7 @@
   <div class="sheet" role="dialog" aria-labelledby="reportTitle">
     <div class="row"><h2 id="reportTitle">이 포스트잇 신고하기</h2>
       <button class="close" data-close="reportScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
-    <p class="muted">신고한 포스트잇은 바로 내 화면에서 사라져요.</p>
+    <p class="muted">신고한 포스트잇은 바로 내 화면에서 사라지고, 세 명이 신고하면 모두에게서 내려가요.</p>
     <div class="regions" id="reasons">
       <button class="region" data-reason="abuse"><div><b>욕설·비하·혐오</b><span>기분 나쁜 말이나 그림이 있어요</span></div></button>
       <button class="region" data-reason="spam"><div><b>광고·도배</b><span>홍보, 링크, 같은 내용 반복</span></div></button>
@@ -219,33 +219,33 @@ var FONT = {}; FONTS.forEach(function(f){ FONT[f.id]=f; });
 function fontCss(tx, S){ var f = FONT[tx.f||'pen']||FONTS[0]; return (tx.s*S*f.k)+'px '+f.css; }
 
 var REGIONS = [
-  {id:'mapo', name:'서울 마포', scene:'한강 노을 호숫가', lat:37.556, lng:126.91,
+  {id:'mapo', name:'서울 마포', scene:'한강 가을 호숫가', lat:37.556, lng:126.91,
    sky:['#33416f','#f0a06a','#b8826a'], sun:[0.15,0.07,-1], sunCol:'#ffc98a', sunI:0.95, hemi:['#ffd0a0','#3d4a33'],
    fog:'#e2a985', fogN:28, fogF:240, ground:'#6a8549', grassBase:'#3f5a2c', grassTip:'#b7b45a', flower:'#f7e6a0', flowerP:0.05,
    water:'lake', deep:'#3f5a80', shallow:'#f1b98c', trees:46, treeKind:'autumn', motes:'firefly', lamp:true, bloom:0.55,
-   cut:13, flora:{common:52, tint:['#e8a03a','#f2c84b','#d9622e','#c4503a','#a8b44e','#e9b23f'], bush:22, bushf:10, rocks:8, flowers:14, plants:6, grassTint:'#efe2a8', clumps:1}, 
-   hdri:'venice_sunset_1k', rot:0.0764, elev:3.3, az:0.15, skyI:1.0, hor:[0.652,0.676,0.777], up:[0.384,0.565,0.991], low:[0.30,0.24,0.18], lightI:2.2, lightCol:[1,0.62,0.38], lightElev:12, exp:0.55, fogN2:30, fogF2:230,
+   cut:1.5, flora:{common:52, tint:['#e8a03a','#f2c84b','#d9622e','#c4503a','#a8b44e','#e9b23f'], bush:22, bushf:10, rocks:8, flowers:14, plants:6, grassTint:'#efe2a8', clumps:1}, 
+   hdri:'blouberg_sunrise_2_1k', rot:0.5325, elev:8.3, az:0.15, skyI:1.0, hor:[1.113,1.143,1.065], up:[0.488,0.562,0.767], low:[0.562,0.53,0.485], lightI:2.2, lightCol:[1,0.84,0.62], lightElev:14, exp:0.55, fogN2:30, fogF2:230,
    notes:[['한강 노을 보러 왔다가 들렀어요','y',0.1,4],['망원시장 떡볶이 최고','o',0.2,12],['오늘 퇴사했어요 후련하다','p',0.05,31],['다들 오늘도 수고했어','m',0.3,18],['연남동 산책 중','b',0.85,1],['내년엔 꼭 독립한다','y',0.4,7],['여기 앉아 있으니 좋다','m',0.15,9],['여름에 왔다 감','o',0.95,2]]},
   {id:'busan', name:'부산 해운대', scene:'해운대 밤바다', lat:35.163, lng:129.163,
    sky:['#0d1736','#3b4c86','#161d38'], sun:[-0.35,0.22,-1], sunCol:'#dfe6ff', sunI:0.35, hemi:['#6a7ab8','#1a1f2c'],
    fog:'#26315a', fogN:30, fogF:260, ground:'#3b5040', sand:'#b8a27c', grassBase:'#24352a', grassTip:'#55704e', flower:'#e8eaf6', flowerP:0.02,
    water:'sea', deep:'#0f2244', shallow:'#5b6ea6', trees:22, treeKind:'pine', motes:'firefly', lamp:true, bloom:0.9,
-   cut:13, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
-   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, hor:[0.222,0.173,0.124], up:[0.063,0.069,0.073], low:[0.03,0.02,0.015], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
+   cut:1.5, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
+   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, hor:[0.221,0.199,0.179], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
    notes:[['바다 소리 듣고 싶을 때 와요','b',0.1,22],['광안대교 불빛 보고 감','y',0.25,8],['부산 사람 손!','p',0.2,40],['서울에서 여행 왔어요','m',0.05,5],['파도멍 최고','o',0.5,14],['내년에 또 올게','y',0.9,3],['잠이 안 와서 나왔어요','b',0.15,11]]},
   {id:'gangneung', name:'강원 강릉', scene:'솔숲 새벽 안개', lat:37.751, lng:128.876,
    sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
    fog:'#dde6e2', fogN:12, fogF:130, ground:'#56773f', grassBase:'#34502a', grassTip:'#8fae5c', flower:'#ffffff', flowerP:0.03,
    water:'none', trees:150, treeKind:'pine', motes:'pollen', lamp:false, bloom:0.25,
-   cut:13, flora:{pine:70, hero:1, bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
-   hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[0.95,0.78,1.3], up:[0.575,0.619,1.498], low:[0.25,0.22,0.2], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
+   cut:1.5, flora:{pine:70, hero:1, bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
+   hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[1.706,1.252,2.081], up:[0.598,0.637,1.528], low:[0.932,0.642,1.022], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
    notes:[['솔향 맡으면서 쉬어가요','m',0.1,16],['커피거리 다녀왔어요','o',0.2,6],['경포 일출 보러 새벽에 옴','y',0.3,25],['숲멍 중입니다','m',0.05,9],['다음엔 엄마랑 올래','p',0.6,13],['조용해서 좋다','b',0.2,4]]},
   {id:'jeju', name:'제주', scene:'유채꽃 들판과 바다', lat:33.45, lng:126.57,
    sky:['#4f97da','#cde4f4','#9fc3d6'], sun:[0.45,0.6,-0.6], sunCol:'#fff6dc', sunI:1.0, hemi:['#dcefff','#5d7a3a'],
    fog:'#cfe1ec', fogN:40, fogF:300, ground:'#76994a', sand:'#d8c79c', grassBase:'#4d6e2e', grassTip:'#9cbc55', flower:'#ffd93a', flowerP:0.55,
    water:'farsea', deep:'#1f5f9a', shallow:'#8fc9e6', trees:14, treeKind:'round', motes:'pollen', lamp:false, bloom:0.3,
-   cut:13, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
-   hdri:'rooitou_park_1k', rot:0.0328, elev:10.4, az:0.45, skyI:2.6, hor:[0.391,0.553,0.801], up:[0.26,0.42,0.88], low:[0.15,0.2,0.06], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
+   cut:1.5, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
+   hdri:'rooitou_park_1k', rot:0.0328, elev:10.4, az:0.45, skyI:2.6, hor:[0.31,0.481,0.848], up:[0.26,0.42,0.88], low:[0.15,0.222,0.378], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
    notes:[['유채꽃 냄새 나는 것 같아','y',0.05,19],['한 달 살기 3주차','m',0.2,8],['귤 먹고 힘내세요','o',0.1,33],['오름 올라갔다 왔어요','b',0.3,6],['바람 많이 부는 날','m',0.7,2],['제주 또 오고 싶다','p',0.15,15],['혼자 여행 첫날','y',0.4,10]]}
 ];
 
@@ -416,7 +416,7 @@ function makeWater(){
   uniformsList.push(u);
   var m = new THREE.ShaderMaterial({ uniforms:u,
     vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp; void main(){ vec3 v=normalize(cameraPosition-wp); float w=sin(wp.x*1.3+t*1.1)*.5+sin(wp.z*1.7-t*.8)*.5+sin((wp.x+wp.z)*3.3+t*1.9)*.25+sin(wp.x*7.+wp.z*5.-t*3.)*.1; vec3 n=normalize(vec3(w*.045,1.,w*.035)); float fr=0.04+0.96*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.24); vec3 refl = hasEnv>.5 ? envAt(r) : mix(shallow,deep,.3); vec3 c=mix(deep*0.35, refl, clamp(fr*1.6+0.12,0.,1.)); c+=sunCol*pow(max(dot(r,sunDir),0.),220.)*2.; float f=smoothstep(fogN,fogF,length(wp-cameraPosition)); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp; void main(){ vec3 v=normalize(cameraPosition-wp); float w=sin(wp.x*1.3+t*1.1)*.5+sin(wp.z*1.7-t*.8)*.5+sin((wp.x+wp.z)*3.3+t*1.9)*.25+sin(wp.x*7.+wp.z*5.-t*3.)*.1; vec3 n=normalize(vec3(w*.045,1.,w*.035)); float fr=0.04+0.96*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.04); vec3 refl = hasEnv>.5 ? envAt(r) : mix(shallow,deep,.3); vec3 c=mix(deep*0.35, refl, clamp(fr*1.6+0.12,0.,1.)); c+=sunCol*pow(max(dot(r,sunDir),0.),220.)*2.; float f=smoothstep(fogN,fogF,length(wp-cameraPosition)); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
   m.userData.water = true;
   var w = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,1,1), m);
   w.rotation.x = -Math.PI/2; w.position.y = WATER;
@@ -761,7 +761,7 @@ function regionNotes(){
   return seeded.concat(mine).filter(function(n){ return !hid[n.id]; }).map(function(n){ if(hearts[n.id]){ n.h=(n.h||0)+1; n.liked=true; } return n; });
 }
 function saveMine(){
-  var list = noteMeshes.map(function(m){ return m.userData.note; }).filter(function(n){ return n.mine; })
+  var list = noteMeshes.map(function(m){ return m.userData.note; }).filter(function(n){ return n.mine && !n.server; })
     .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts}; });
   store.set(mineKey(), list);
 }
@@ -791,6 +791,7 @@ function build(){
   makeWindow(world);
   world.add(makeMotes());
   regionNotes().forEach(addNoteMesh);
+  syncSig = ''; syncRegion(true);
   loadEnv();
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
@@ -919,6 +920,62 @@ function usedToday(){ var u = store.get('yurichang-day'); return (u && u.d===tod
 function useOne(){ store.set('yurichang-day', {d:today(), n:usedToday()+1}); }
 function leftToday(){ return Math.max(0, DAILY-usedToday()); }
 function hiddenKey(){ return 'yurichang-hidden:'+cfg.id; }
+
+
+// ---------- server (Supabase) ----------
+// Notes are shared through Supabase. The publishable key is meant to be public; the database only
+// allows reading visible notes, and every write goes through checked server functions.
+var SB_URL = 'https://dhdmynqrbtiqbvmrvflz.supabase.co', SB_KEY = 'sb_publishable_ioOTpxXCCmi9dN83WMlKJw_8kjCJ8_t';
+var online = null;   // null = not tried yet, true/false after the first request
+function deviceId(){
+  var d = store.get('yurichang-device');
+  if(!d){ d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('d'+Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)); store.set('yurichang-device', d); }
+  return d;
+}
+function tokens(){ return store.get('yurichang-tokens') || {}; }
+function setToken(id, t){ var all = tokens(); if(t) all[id]=t; else delete all[id]; store.set('yurichang-tokens', all); }
+function sbFetch(path, opt){
+  opt = opt || {}; opt.headers = Object.assign({ apikey:SB_KEY, 'Content-Type':'application/json' }, opt.headers||{});
+  return fetch(SB_URL+path, opt).then(function(r){
+    return r.text().then(function(txt){
+      var j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(_){}
+      if(!r.ok){ var e = new Error((j && j.message) || ('http_'+r.status)); e.server = true; throw e; }
+      online = true; return j;
+    });
+  }, function(err){ online = false; err.network = true; throw err; });
+}
+function sbRpc(fn, args){ return sbFetch('/rest/v1/rpc/'+fn, {method:'POST', body:JSON.stringify(args)}); }
+var SERVER_MSG = { daily_limit:'오늘은 '+3+'장을 다 붙였어요. 내일 또 와요', filtered_abuse:'욕설이나 비하하는 말은 붙일 수 없어요', filtered_link:'링크나 홍보는 붙일 수 없어요',
+  filtered_phone:'전화번호 같은 개인정보는 붙일 수 없어요', busy:'지금 사람이 많아요. 잠시 후 다시 붙여주세요', too_big:'그림이 너무 커요. 조금 줄여주세요', not_owner:'내가 붙인 포스트잇만 고칠 수 있어요' };
+function serverMsg(e){ for(var k in SERVER_MSG){ if(e && e.message && e.message.indexOf(k)>=0) return SERVER_MSG[k]; } return '잠시 문제가 생겼어요. 다시 시도해 주세요'; }
+function fromServer(row){
+  var days = (Date.now() - new Date(row.created_at).getTime())/86400000;
+  return { id:row.id, server:true, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
+           age:Math.min(1, Math.max(0, days/30)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
+}
+var syncSig = '', syncing = false;
+function syncRegion(force){
+  if(syncing || !world) return; syncing = true;
+  var region = cfg.id;
+  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
+  .then(function(rows){
+    syncing = false;
+    if(region !== cfg.id || !rows) return;
+    var hid = store.get(hiddenKey()) || {}, hs = store.get('yurichang-h:'+cfg.id) || {};
+    rows = rows.filter(function(r){ return !hid[r.id]; });
+    var sig = rows.map(function(r){ return r.id+r.updated_at+r.hearts; }).join(',');
+    if(sig === syncSig && !force) return;
+    syncSig = sig;
+    noteMeshes.filter(function(m){ return m.userData.note.server; }).forEach(function(m){
+      if(reading===m) return; world.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); noteMeshes.splice(noteMeshes.indexOf(m),1);
+    });
+    rows.forEach(function(r){
+      if(reading && reading.userData.note.id===r.id) return;
+      var n = fromServer(r); if(hs[n.id]) n.liked = true; addNoteMesh(n, noteMeshes.length);
+    });
+  }, function(){ syncing = false; });
+}
+setInterval(function(){ if(!document.hidden && !modal && online!==false) syncRegion(false); }, 30000);
 
 // ---------- free-form editor ----------
 var ed = { c:'y', strokes:[], texts:[], hist:[], tool:'pen', ink:INKS[0].hex, size:'m', font:'pen', sel:null, drag:null, rot:null, cur:null, editing:null, inl:null, down:null };
@@ -1078,16 +1135,34 @@ $('stick').addEventListener('click', function(){
   for(var bi=0; bi<ed.texts.length; bi++){ var ck=checkText(ed.texts[bi].t); ed.texts[bi].bad=!ck.ok; if(!ck.ok){ ed.sel=bi; edDraw(); toast(ck.why+' · 빨간 줄 글자를 고쳐주세요'); return; } }
   ed.sel=null;
   ed.texts.forEach(function(t){ delete t.bad; });
+  var btn = $('stick');
   if(ed.editing){
-    var n = ed.editing.userData.note; n.c=ed.c; n.strokes=ed.strokes; n.texts=ed.texts; refreshNote(ed.editing); saveMine();
+    var em = ed.editing, n = em.userData.note, strokes = ed.strokes, texts = ed.texts, c = ed.c;
+    if(n.server){
+      btn.disabled = true;
+      sbRpc('edit_note', {p_id:n.id, p_token:tokens()[n.id]||'', p_c:c, p_strokes:strokes, p_texts:texts}).then(function(){
+        n.c=c; n.strokes=strokes; n.texts=texts; refreshNote(em); closeModal('composeScrim'); toast('포스트잇을 고쳤어요');
+      }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }).then(function(){ btn.disabled=false; });
+      return;
+    }
+    n.c=c; n.strokes=strokes; n.texts=texts; refreshNote(em); saveMine();
     closeModal('composeScrim'); toast('포스트잇을 고쳤어요'); return;
   }
   if(!pending) return;
   if(leftToday()<=0){ closeModal('composeScrim'); toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; }
-  useOne();
-  var nn = {id:cfg.id+'-u'+Date.now(), c:ed.c, age:0, h:0, x:pending.x, y:pending.y, r:(Math.random()-0.5)*0.24, strokes:ed.strokes, texts:ed.texts, mine:true};
-  addNoteMesh(nn, noteMeshes.length); saveMine();
-  closeModal('composeScrim'); toast(cfg.name+' 창에 붙였어요 · 오늘 '+leftToday()+'장 남았어요');
+  var nn = {id:cfg.id+'-u'+Date.now(), c:ed.c, age:0, h:0, x:+pending.x.toFixed(3), y:+pending.y.toFixed(3), r:+((Math.random()-0.5)*0.24).toFixed(3), strokes:ed.strokes, texts:ed.texts, mine:true};
+  var region = cfg.id;
+  function keepLocal(msg){ useOne(); addNoteMesh(nn, noteMeshes.length); saveMine(); closeModal('composeScrim'); toast(msg); }
+  btn.disabled = true;
+  sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts}).then(function(res){
+    useOne(); setToken(res.id, res.token);
+    if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); }
+    if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
+    closeModal('composeScrim'); toast(cfg.name+' 창에 붙였어요 · 오늘 '+leftToday()+'장 남았어요');
+  }, function(e){
+    if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
+    else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
+  }).then(function(){ btn.disabled = false; edState(); });
 });
 
 // ---------- reader ----------
@@ -1113,6 +1188,8 @@ $('heartBtn').addEventListener('click', function(){
   if(!reading) return; var n = reading.userData.note; if(n.liked) return;
   n.liked=true; n.h=(n.h||0)+1;
   var hs = store.get('yurichang-h:'+cfg.id)||{}; hs[n.id]=1; store.set('yurichang-h:'+cfg.id, hs);
+  var hm = reading;
+  if(n.server) sbRpc('heart_note', {p_id:n.id, p_device:deviceId()}).then(function(cnt){ if(typeof cnt==='number'){ n.h=cnt; refreshNote(hm); } }, function(){});
   refreshNote(reading);
   $('heartBtn').textContent='♥ 공감했어요'; $('readerMeta').textContent='♥ '+n.h;
 });
@@ -1121,8 +1198,10 @@ var delArm = false;
 $('delBtn').addEventListener('click', function(){
   if(!delArm){ delArm=true; $('delBtn').textContent='한 번 더 누르면 떼어내요'; setTimeout(function(){ delArm=false; $('delBtn').textContent='떼어내기'; },2500); return; }
   delArm=false; $('delBtn').textContent='떼어내기';
-  var m=reading; world.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose();
-  noteMeshes.splice(noteMeshes.indexOf(m),1); saveMine(); closeModal('readerScrim'); toast('포스트잇을 떼어냈어요');
+  var m=reading, n=m.userData.note;
+  function drop(){ world.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); noteMeshes.splice(noteMeshes.indexOf(m),1); saveMine(); closeModal('readerScrim'); toast('포스트잇을 떼어냈어요'); }
+  if(n.server){ sbRpc('delete_note', {p_id:n.id, p_token:tokens()[n.id]||''}).then(function(){ setToken(n.id, null); drop(); }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }); return; }
+  drop();
 });
 
 $('reportBtn').addEventListener('click', function(){ closeModal('readerScrim'); openModal('reportScrim'); });
@@ -1130,6 +1209,7 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-reason]'), functio
   b.addEventListener('click', function(){
     var m = reading; if(!m) return;
     var hid = store.get(hiddenKey())||{}; hid[m.userData.note.id] = b.getAttribute('data-reason'); store.set(hiddenKey(), hid);
+    if(m.userData.note.server) sbRpc('report_note', {p_id:m.userData.note.id, p_device:deviceId(), p_reason:b.getAttribute('data-reason')}).catch(function(){});
     world.remove(m); noteMeshes.splice(noteMeshes.indexOf(m),1);
     closeModal('reportScrim'); toast('신고했어요. 이 포스트잇은 이제 안 보여요');
   });
