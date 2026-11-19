@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>유리창 — 포스트잇 한 장 붙이고 가요</title>
-<meta name="description" content="그날 마음에 맞는 유리창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요. 수고했어 · 털어놓는 · 다짐하는 · 소원 창.">
+<title>숨글 — 창에 남기는 따뜻한 한 줄</title>
+<meta name="description" content="입김 서린 창에 따뜻한 한 줄. 그날 마음에 맞는 창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요. 수고했어 · 털어놓는 · 다짐하는 · 소원 창.">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="유리창">
-<meta property="og:title" content="유리창 — 포스트잇 한 장 붙이고 가요">
+<meta property="og:site_name" content="숨글">
+<meta property="og:title" content="숨글 — 창에 남기는 따뜻한 한 줄">
 <meta property="og:description" content="그날 마음에 맞는 창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.">
 <meta property="og:url" content="https://greenneeg-sketch.github.io/windows/">
 <meta property="og:image" content="https://greenneeg-sketch.github.io/windows/og.jpg">
@@ -20,7 +20,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
-<meta name="apple-mobile-web-app-title" content="유리창">
+<meta name="apple-mobile-web-app-title" content="숨글">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -114,6 +114,7 @@
   #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity .8s}
   #intro{overflow-y:auto}
   #intro h1{margin:0 0 10px;font-family:'Nanum Pen Script',cursive;font-size:64px;font-weight:400;line-height:1}
+  #intro p.tag{margin:-2px 0 14px;font-size:13px;letter-spacing:.12em;color:#CFC8BA;opacity:.85}
   #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
   .news{margin-top:16px;padding:14px;border-radius:16px;background:rgba(255,201,77,.14);border:1px solid rgba(255,201,77,.45);display:flex;flex-direction:column;gap:8px}
   .news[hidden]{display:none}
@@ -183,7 +184,7 @@
 </style>
 </head>
 <body class="intro">
-<canvas id="c" aria-label="유리창 3D 공간"></canvas>
+<canvas id="c" aria-label="숨글 3D 공간"></canvas>
 
 <div id="top">
   <button id="loc" class="glass" aria-label="다른 창으로 가기">
@@ -332,7 +333,8 @@
 </div>
 
 <div id="intro">
-  <h1>유리창</h1>
+  <h1>숨글</h1>
+  <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
   <div id="news" class="news" hidden></div>
   <div id="themes" class="themes"></div>
@@ -1934,7 +1936,7 @@ function shareOrCopy(data, okMsg){
   else toast(text);
 }
 $('shareWin').addEventListener('click', function(){
-  shareOrCopy({ title:'유리창 · '+cfg.name+' 창', text:cfg.name+' 창에 포스트잇 한 장 붙이고 가요', url:pageUrl()+'#'+cfg.slug }, '링크를 복사했어요');
+  shareOrCopy({ title:'숨글 · '+cfg.name+' 창', text:cfg.name+' 창에 포스트잇 한 장 붙이고 가요', url:pageUrl()+'#'+cfg.slug }, '링크를 복사했어요');
 });
 
 // ---------- story image of one post-it (1080 x 1920) ----------
@@ -1962,7 +1964,7 @@ function makeCard(n){
   if(cfg.id==='newyear'){ var SR=rng(7); for(var si=0; si<160; si++){ var sx=SR()*W, sy=SR()*H, sr=1+SR()*3.5; x.fillStyle='rgba(255,255,255,'+(0.25+SR()*0.55)+')'; x.beginPath(); x.arc(sx,sy,sr,0,Math.PI*2); x.fill(); } }
   x.textAlign='center'; x.textBaseline='alphabetic';
   // small wordmark + window name, quiet and spaced
-  x.fillStyle='rgba(255,255,255,.96)'; x.font='88px "Nanum Pen Script", cursive'; x.fillText('유리창', W/2, 210);
+  x.fillStyle='rgba(255,255,255,.96)'; x.font='88px "Nanum Pen Script", cursive'; x.fillText('숨글', W/2, 210);
   x.fillStyle = cfg.id==='newyear' ? 'rgba(255,224,143,.95)' : 'rgba(255,255,255,.72)'; x.font='500 28px "Noto Sans KR", sans-serif';
   if('letterSpacing' in x) x.letterSpacing='6px';
   x.fillText(cfg.name+' 창', W/2, 266);
@@ -2117,7 +2119,7 @@ function capturePhoto(){
   if(photo.mark){
     var gr = x.createLinearGradient(0, H*0.78, 0, H); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.35)'); x.fillStyle = gr; x.fillRect(0, H*0.78, W, H*0.22);
     x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 12;
-    x.fillStyle = 'rgba(255,255,255,.95)'; x.font = '64px "Nanum Pen Script", cursive'; x.fillText('유리창', 56, H-86);
+    x.fillStyle = 'rgba(255,255,255,.95)'; x.font = '64px "Nanum Pen Script", cursive'; x.fillText('숨글', 56, H-86);
     x.fillStyle = 'rgba(255,255,255,.75)'; x.font = '500 24px "Noto Sans KR", sans-serif'; if('letterSpacing' in x) x.letterSpacing = '4px';
     x.fillText(cfg.name+' 창', 58, H-48); if('letterSpacing' in x) x.letterSpacing = '0px';
     x.textAlign = 'right'; x.fillStyle = 'rgba(255,255,255,.6)'; x.font = '400 22px "Noto Sans KR", sans-serif';
@@ -2129,7 +2131,7 @@ function capturePhoto(){
 $('cardShare').addEventListener('click', function(){
   if(!cardBlob) return;
   var file = new File([cardBlob], cardName, {type:cardBlob.type});
-  navigator.share({files:[file], title:'유리창', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
+  navigator.share({files:[file], title:'숨글', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
 });
 
 // ---------- "my post-its" news: hearts that arrived since the last visit ----------
