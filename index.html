@@ -369,15 +369,15 @@ var REGIONS = [
    sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
    fog:'#dde6e2', fogN:12, fogF:130, ground:'#56773f', grassBase:'#34502a', grassTip:'#8fae5c', flower:'#ffffff', flowerP:0.03,
    water:'none', trees:150, treeKind:'pine', motes:'pollen', lamp:false, bloom:0.25,
-   cut:1.5, flora:{pine:70, hero:1, bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
+   cut:1.5, flora:{pine:70, hero:1, heroTint:'#4a7a44', bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
    hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[1.706,1.252,2.081], up:[0.598,0.637,1.528], low:[0.932,0.642,1.022], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
    notes:[['내일부터 진짜 운동한다','m',0.1,16,'서울'],['올해 안에 자격증 딴다','y',0.2,21,'경기'],['엄마한테 전화 자주 하기','p',0.3,25,'경북'],['하루 한 페이지 읽기','b',0.05,9,'세종'],['미루지 말자 제발','o',0.6,13,'충북'],['다시 시작해 보자','m',0.2,6,'강원']]},
   {id:'jeju', slug:'wish', name:'소원', scene:'유채꽃 들판', about:'바라는 것, 설레는 일, 응원',
    sky:['#4f97da','#cde4f4','#9fc3d6'], sun:[0.45,0.6,-0.6], sunCol:'#fff6dc', sunI:1.0, hemi:['#dcefff','#5d7a3a'],
    fog:'#cfe1ec', fogN:40, fogF:300, ground:'#76994a', sand:'#d8c79c', grassBase:'#4d6e2e', grassTip:'#9cbc55', flower:'#ffd93a', flowerP:0.55,
    water:'farsea', deep:'#1f5f9a', shallow:'#8fc9e6', trees:14, treeKind:'round', motes:'pollen', lamp:false, bloom:0.3,
-   cut:1.5, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
-   hdri:'rooitou_park_1k', rot:0.0328, elev:10.4, az:0.45, skyI:2.6, hor:[0.31,0.481,0.848], up:[0.26,0.42,0.88], low:[0.15,0.222,0.378], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
+   cut:1.5, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, heroTint:'#7fb24a', bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
+   hdri:'quarry_01_1k', rot:0.0328, elev:10.0, az:0.45, skyI:2.4, hor:[0.561,0.668,0.662], up:[0.111,0.21,0.322], low:[0.296,0.326,0.311], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
    notes:[['가족 모두 건강하게','y',0.05,33,'경기'],['합격하게 해주세요','m',0.2,40,'서울'],['올해는 꼭 연애','p',0.1,19,'부산'],['좋아하는 일 하면서 살기','b',0.3,15,'전남'],['다 잘될 거야','o',0.7,8,'제주'],['제주 또 오고 싶다','y',0.15,6,'인천'],['로또 1등 가즈아','m',0.4,10,'대구']]}
 ];
 
@@ -793,7 +793,7 @@ function makeNature(group){
     pa.forEach(function(t){ pb[Math.floor(t.r*3)%3].push(t); });
     ['pine1','pine3','pine5'].forEach(function(kk,i){ plant(group, kk, pb[i], {shadow:true, tint:cfg.id==='busan'?'#9fb3a8':null}); });
   }
-  if(f.hero){ plant(group, 'twisted', [{x:-10.5, y:groundH(-10.5,1.5), z:1.5, s:0.75, a:Math.PI*0.95, r:0.5}], {shadow:true}); }
+  if(f.hero){ plant(group, 'twisted', [{x:-10.5, y:groundH(-10.5,1.5), z:1.5, s:0.75, a:Math.PI*0.95, r:0.5}], {shadow:true, tint:f.heroTint||'#5f8f3c'}); }
   if(f.bush) plant(group, 'bush', scatter(R, f.bush, 5, 40, {view:true, s0:0.6, s1:1.1}), {tint:f.tint ? f.tint.slice(0,3) : null, shadow:true});
   if(f.bushf) plant(group, 'bushf', scatter(R, f.bushf, 4.5, 35, {view:true, s0:0.55, s1:1.0}), {shadow:true});
   if(f.rocks) plant(group, 'rock'+(1+Math.floor(R()*2)), scatter(R, f.rocks, 5, 45, {shore:-0.4, s0:0.3, s1:0.9}), {tintOther:f.rockTint||null, shadow:true});

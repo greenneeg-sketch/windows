@@ -53,7 +53,7 @@
 ## 사용한 에셋 (모두 CC0)
 
 - 3D 모델: [Quaternius — Stylized Nature MegaKit](https://quaternius.com/packs/stylizednaturemegakit.html)
-- 하늘 HDRI: [Poly Haven](https://polyhaven.com) (blouberg_sunrise_2, dikhololo_night, kiara_1_dawn, rooitou_park) — 지평선 아래 건물·나무·땅은 지우고 하늘만 남겨 PNG(RGBE)로 변환
+- 하늘 HDRI: [Poly Haven](https://polyhaven.com) (blouberg_sunrise_2, dikhololo_night, kiara_1_dawn, quarry_01) — 지평선 아래 건물·나무·땅은 지우고 하늘만 남겨 PNG(RGBE)로 변환
 - 창틀 텍스처: [ambientCG — Bark014](https://ambientcg.com/view?id=Bark014)
 - 3D 엔진: [three.js](https://threejs.org) r128 (MIT)
 - 글씨체: Google Fonts (나눔펜, 개구, 감자꽃, 하이멜로디, 주아, 고운바탕 — OFL)
