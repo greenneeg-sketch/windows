@@ -888,7 +888,8 @@ function noteTexture(n){
 function addNoteMesh(n, idx){
   var tx = noteTexture(n);
   var m = new THREE.Mesh(new THREE.PlaneGeometry(0.21,0.21), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
-  m.position.set(n.x, n.y, 0.007+idx*0.0004); m.rotation.z = n.r;
+  var loose = Math.max(0, (n.age-0.8)/0.2);
+  m.position.set(n.x, n.y - loose*0.012, 0.007+idx*0.0004); m.rotation.z = n.r + loose*0.18*(n.r>=0?1:-1); m.rotation.x = -loose*0.12;
   m.userData.note = n; world.add(m); noteMeshes.push(m);
 }
 function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); var tx=noteTexture(n); mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
@@ -949,7 +950,7 @@ function build(){
 
 // ---------- movement: jump / crouch / sit ----------
 var keys = {}, joy = {x:0,y:0,id:null}, look = {id:null,lx:0,ly:0,sx:0,sy:0,t:0};
-var placing = false, modal = false, pending = null, glassGlow = null;
+var placing = false, modal = false, pending = null, glassGlow = null, nearK = 0;
 function grounded(){ return player.jy<=0.0001 && player.vy<=0; }
 function jump(){
   if(player.sit){ standUp(); return; }
@@ -1113,10 +1114,11 @@ function sbRpc(fn, args){ return sbFetch('/rest/v1/rpc/'+fn, {method:'POST', bod
 var SERVER_MSG = { daily_limit:'오늘은 '+3+'장을 다 붙였어요. 내일 또 와요', filtered_abuse:'욕설이나 비하하는 말은 붙일 수 없어요', filtered_link:'링크나 홍보는 붙일 수 없어요',
   filtered_phone:'전화번호 같은 개인정보는 붙일 수 없어요', busy:'지금 사람이 많아요. 잠시 후 다시 붙여주세요', too_big:'그림이 너무 커요. 조금 줄여주세요', not_owner:'내가 붙인 포스트잇만 고칠 수 있어요' };
 function serverMsg(e){ for(var k in SERVER_MSG){ if(e && e.message && e.message.indexOf(k)>=0) return SERVER_MSG[k]; } return '잠시 문제가 생겼어요. 다시 시도해 주세요'; }
+function lifeDays(h){ return Math.min(180, 30 + (h||0)*2); }
 function fromServer(row){
   var days = (Date.now() - new Date(row.created_at).getTime())/86400000;
   return { id:row.id, server:true, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
-           age:Math.min(1, Math.max(0, days/30)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
+           age:Math.min(1, Math.max(0, days/lifeDays(row.hearts))), left:Math.max(0, Math.ceil(lifeDays(row.hearts)-days)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
 }
 var syncSig = '', syncing = false;
 function syncRegion(force){
@@ -1358,7 +1360,8 @@ function openReader(mesh){
   reading = mesh; var n = mesh.userData.note;
   openModal('readerScrim');
   requestAnimationFrame(drawReader);
-  $('readerMeta').textContent = (n.mine?'내가 붙인 포스트잇 · ':'')+(n.place?n.place+'에서 · ':'')+(n.age>0.6?'오래전에 붙은 포스트잇 · ':'')+'♥ '+(n.h||0);
+  var life = n.left===undefined ? '' : (n.left<=3 ? '곧 떨어져요 · ' : n.left+'일 뒤에 떨어져요 · ');
+  $('readerMeta').textContent = (n.mine?'내가 붙인 포스트잇 · ':'')+(n.place?n.place+'에서 · ':'')+life+'♥ '+(n.h||0);
   $('heartBtn').textContent = n.liked ? '♥ 공감했어요' : '♥ 공감';
   $('heartBtn').style.display = n.mine ? 'none' : '';
   $('editBtn').style.display = n.mine ? '' : 'none';
@@ -1368,6 +1371,7 @@ function openReader(mesh){
 $('heartBtn').addEventListener('click', function(){
   if(!reading) return; var n = reading.userData.note; if(n.liked) return;
   n.liked=true; n.h=(n.h||0)+1;
+  if(n.left!==undefined){ n.left += 2; toast('공감했어요 · 이 포스트잇이 이틀 더 붙어 있어요'); }
   var hs = store.get('yurichang-h:'+cfg.id)||{}; hs[n.id]=1; store.set('yurichang-h:'+cfg.id, hs);
   var hm = reading;
   if(n.server) sbRpc('heart_note', {p_id:n.id, p_device:deviceId()}).then(function(cnt){ if(typeof cnt==='number'){ n.h=cnt; refreshNote(hm); } }, function(){});
@@ -1417,31 +1421,89 @@ function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute
 markHQ();
 $('hq').addEventListener('click', function(){ hq=!hq; store.set('yurichang-hq', hq); markHQ(); build(); toast(hq?'고화질: 그림자·빛 번짐 켜짐':'가벼운 화질로 바꿨어요'); });
 
-// ---------- ambience ----------
-var actx=null, gainN=null, lfo=null, soundOn=true, filt=null;
+// ---------- ambience: a soundscape per window, generated in code ----------
+var actx = null, master = null, soundOn = true, amb = { nodes:[], timers:[] }, NOISE = {};
+function noiseBuf(kind){
+  if(NOISE[kind]) return NOISE[kind];
+  var len = actx.sampleRate*4, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0), last = 0, b0=0,b1=0,b2=0;
+  for(var i=0;i<len;i++){
+    var w = Math.random()*2-1;
+    if(kind==='brown'){ last = (last+0.02*w)/1.02; d[i] = last*3.2; }
+    else if(kind==='pink'){ b0=0.997*b0+w*0.029591; b1=0.985*b1+w*0.032534; b2=0.95*b2+w*0.048056; d[i]=(b0+b1+b2+w*0.05)*1.4; }
+    else d[i] = w*0.5;
+  }
+  return (NOISE[kind] = buf);
+}
+function track(n){ amb.nodes.push(n); return n; }
+// a looping noise bed through a filter, gently swelling
+function bed(kind, type, freq, q, vol, rate, depth){
+  var src = track(actx.createBufferSource()); src.buffer = noiseBuf(kind); src.loop = true;
+  src.playbackRate.value = 0.9 + Math.random()*0.2;
+  var f = track(actx.createBiquadFilter()); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  var g = track(actx.createGain()); g.gain.value = vol;
+  if(rate){ var l = track(actx.createOscillator()), lg = track(actx.createGain()); l.frequency.value = rate; lg.gain.value = depth; l.connect(lg); lg.connect(g.gain); l.start(); }
+  src.connect(f); f.connect(g); g.connect(master); src.start();
+}
+// one short tone that glides: birds, crickets, water drops
+function chirp(f0, f1, dur, vol, at, type){
+  var t = actx.currentTime + (at||0), o = actx.createOscillator(), g = actx.createGain();
+  o.type = type||'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t+dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t+Math.min(0.02, dur*0.3)); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.05);
+}
+function every(min, max, fn){
+  var id = { t:0 }; amb.timers.push(id);
+  (function loop(){ id.t = setTimeout(function(){ if(soundOn && !document.hidden) fn(); loop(); }, (min + Math.random()*(max-min))*1000); })();
+}
+function bird(lo, hi, n){
+  var at = 0; for(var i=0;i<n;i++){ var f = lo + Math.random()*(hi-lo); chirp(f, f*(0.75+Math.random()*0.2), 0.05+Math.random()*0.07, 0.035, at); at += 0.07+Math.random()*0.08; }
+}
+var SCAPES = {
+  mapo: function(){                       // 노을 호숫가: lapping water, drops, distant birds
+    bed('brown','lowpass',520,0.7,0.20,0.13,0.10);
+    bed('pink','bandpass',1800,1.4,0.018,0.21,0.012);
+    every(1.2, 3.5, function(){ var f=700+Math.random()*500; chirp(f, f*1.9, 0.07, 0.03); });
+    every(6, 13, function(){ bird(2200, 3000, 2+Math.floor(Math.random()*2)); });
+  },
+  busan: function(){                      // 밤바다: slow waves, foam, crickets
+    bed('brown','lowpass',650,0.6,0.26,0.085,0.22);
+    bed('pink','highpass',1500,0.5,0.035,0.085,0.03);
+    every(0.4, 1.4, function(){ var f=4100+Math.random()*500; for(var i=0;i<3+Math.floor(Math.random()*3);i++) chirp(f, f*0.98, 0.028, 0.012, i*0.045, 'triangle'); });
+  },
+  gangneung: function(){                  // 새벽 안개 숲: soft wind, many morning birds
+    bed('pink','lowpass',800,0.6,0.09,0.05,0.05);
+    every(0.9, 3.0, function(){ bird(2600, 4300, 2+Math.floor(Math.random()*4)); });
+    every(7, 16, function(){ chirp(1200, 900, 0.35, 0.025); chirp(1000, 760, 0.4, 0.022, 0.45); });   // a cuckoo-ish call far away
+  },
+  jeju: function(){                       // 유채꽃 들판: gusts of wind, rustling grass, a lark now and then
+    bed('pink','bandpass',600,0.7,0.16,0.07,0.14);
+    bed('white','highpass',3200,0.4,0.015,0.19,0.012);
+    every(6, 14, function(){ bird(3000, 3900, 6+Math.floor(Math.random()*5)); });
+  }
+};
+function ambStop(){
+  amb.timers.forEach(function(id){ clearTimeout(id.t); });
+  amb.nodes.forEach(function(n){ try{ if(n.stop) n.stop(); }catch(e){} try{ n.disconnect(); }catch(e){} });
+  amb = { nodes:[], timers:[] };
+}
 function startSound(){
   if(actx) return;
   try{
     actx = new (window.AudioContext||window.webkitAudioContext)();
-    var len = actx.sampleRate*4, buf = actx.createBuffer(1,len,actx.sampleRate), d = buf.getChannelData(0), last=0;
-    for(var i=0;i<len;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; }
-    var src = actx.createBufferSource(); src.buffer=buf; src.loop=true;
-    filt = actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=600;
-    gainN = actx.createGain(); gainN.gain.value=0.0;
-    lfo = actx.createOscillator(); var lg = actx.createGain(); lfo.frequency.value=0.09; lg.gain.value=0.12; lfo.connect(lg); lg.connect(gainN.gain);
-    src.connect(filt); filt.connect(gainN); gainN.connect(actx.destination); src.start(); lfo.start();
+    master = actx.createGain(); master.gain.value = 0; master.connect(actx.destination);
     setAmbience();
-  }catch(e){ actx=null; }
+  }catch(e){ actx = null; }
 }
 function setAmbience(){
-  if(!actx||!gainN) return;
-  var sea = cfg.water==='sea'||cfg.water==='farsea';
-  filt.frequency.setTargetAtTime(sea?900:480, actx.currentTime, 0.5);
-  lfo.frequency.setTargetAtTime(sea?0.11:0.05, actx.currentTime, 0.5);
-  gainN.gain.setTargetAtTime(soundOn?(sea?0.22:0.16):0, actx.currentTime, 0.4);
+  if(!actx) return;
+  ambStop(); (SCAPES[cfg.id] || SCAPES.mapo)();
+  master.gain.cancelScheduledValues(actx.currentTime);
+  master.gain.setValueAtTime(0, actx.currentTime);
+  master.gain.linearRampToValueAtTime(soundOn ? 0.9 : 0, actx.currentTime + 1.5);   // fade in on arrival
 }
+document.addEventListener('visibilitychange', function(){ if(!actx) return; if(document.hidden) actx.suspend(); else actx.resume(); });
 $('snd').addEventListener('click', function(){
-  soundOn=!soundOn; startSound(); setAmbience();
+  soundOn=!soundOn; startSound(); if(actx){ master.gain.cancelScheduledValues(actx.currentTime); master.gain.setTargetAtTime(soundOn?0.9:0, actx.currentTime, 0.3); }
   $('sndOn').style.display=soundOn?'':'none'; $('sndOff').style.display=soundOn?'none':'';
   $('snd').setAttribute('aria-label', soundOn?'소리 끄기':'소리 켜기');
 });
@@ -1716,7 +1778,7 @@ REGIONS.forEach(function(r, i){
   b.appendChild(t); b.appendChild(d);
   b.addEventListener('click', function(){
     if(r.id!==cfg.id){ cfg = r; build(); }
-    enterWorld(); startSound();
+    enterWorld(); startSound(); setAmbience();
   });
   $('themes').appendChild(b);
 });
@@ -1756,7 +1818,13 @@ function frame(){
     if(glide.t>=1){ var gd=glide.done; glide=null; if(gd) gd(); }
   }
   if(glassGlow && glassGlow.visible) glassGlow.material.opacity = 0.08+0.07*(0.5+0.5*Math.sin(t*4));
-  for(var pi=0; pi<noteMeshes.length; pi++){ var pm=noteMeshes[pi]; if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; } }
+  var near = Math.abs(player.z) < 3.2 && Math.abs(player.x) < 3 && !photo.on ? 1 - sm(1.2, 3.2, Math.abs(player.z)) : 0;
+  nearK += (near - nearK) * Math.min(1, dt*4);
+  for(var pi=0; pi<noteMeshes.length; pi++){
+    var pm=noteMeshes[pi], base = 1 + 0.22*nearK;
+    if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(base*sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; }
+    else pm.scale.setScalar(base);
+  }
   var intro = $('intro').style.display!=='none';
   if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
   camera.position.set(player.x, baseY(player.x,player.z)+(photo.on ? photo.h : player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd)), player.z);

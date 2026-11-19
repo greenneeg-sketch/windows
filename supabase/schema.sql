@@ -157,3 +157,8 @@ drop function public.post_note(text, text, real, real, real, text, jsonb, jsonb)
 --   admin_set_hidden(p_key, p_id, p_hidden) -> restoring also clears that note's reports
 --   admin_delete(p_key, p_id)
 -- To rotate the key: insert the new sha256 hex into admin_keys and delete the old row (SQL editor).
+
+-- migration "yurichang_note_lifespan": a note stays up 30 days, +2 days per heart, at most 180 days
+drop policy "visible notes are public" on public.notes;
+create policy "visible notes are public" on public.notes for select to anon, authenticated
+  using (not hidden and created_at > now() - make_interval(days => least(180, 30 + hearts * 2)));
