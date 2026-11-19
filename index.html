@@ -415,7 +415,11 @@ var composer = null, bloom = null;
 function setupComposer(){
   if(!hasPost) return;
   try{
-    composer = new THREE.EffectComposer(renderer);
+    var msrt = null;
+    if(renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget){
+      try{ msrt = new THREE.WebGLMultisampleRenderTarget(window.innerWidth*DPR, window.innerHeight*DPR, {format:THREE.RGBAFormat}); msrt.samples = 4; }catch(e){ msrt = null; }
+    }
+    composer = msrt ? new THREE.EffectComposer(renderer, msrt) : new THREE.EffectComposer(renderer);
     composer.setPixelRatio && composer.setPixelRatio(DPR);
     composer.setSize(window.innerWidth, window.innerHeight);
     composer.addPass(new THREE.RenderPass(scene, camera));
@@ -821,6 +825,161 @@ function tileBox(g, w, h, d){
   uv.needsUpdate = true;
 }
 
+// ---------- little lives: birds, rabbits, squirrels, butterflies, dragonflies, crabs ----------
+// A handful of tiny low-poly animals per window. Each is a few simple meshes moved in script: cheap to draw.
+var critters = [];
+function lam(c){ return new THREE.MeshLambertMaterial({color:col(c)}); }
+function ball(r, c, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), lam(c)); m.scale.set(sx||1, sy||1, sz||1); return m; }
+function okSpot(x, z){ return !(Math.abs(x)<3.8 && z>-2.2 && z<3.6) && groundH(x,z) > WATER+0.25; }
+function pickSpot(R, rMin, rMax){
+  for(var i=0;i<40;i++){ var a=R()*Math.PI*2, r=rMin+R()*(rMax-rMin), x=Math.cos(a)*r, z=Math.sin(a)*r; if(okSpot(x,z)) return {x:x, z:z}; }
+  return {x:rMin, z:rMin};
+}
+function turnTo(o, dx, dz, dt, k){ var want = Math.atan2(dx, dz), d = ((want-o.rotation.y+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI; o.rotation.y += d*Math.min(1, dt*(k||6)); }
+
+function makeBird(dark){
+  var g = new THREE.Group(), c = dark ? '#2f3036' : '#5a4a3e';
+  g.add(ball(0.07, c, 0.8, 0.7, 1.6));
+  var head = ball(0.045, c); head.position.set(0, 0.03, 0.11); g.add(head);
+  var wg = new THREE.PlaneGeometry(0.26, 0.09); wg.translate(0.13, 0, 0);
+  var wm = new THREE.MeshLambertMaterial({color:col(c), side:THREE.DoubleSide});
+  var L = new THREE.Mesh(wg, wm), Rw = new THREE.Mesh(wg, wm); L.rotation.x = Rw.rotation.x = -Math.PI/2; Rw.scale.x = -1;
+  var lp = new THREE.Group(), rp = new THREE.Group(); lp.add(L); rp.add(Rw); g.add(lp); g.add(rp);
+  g.userData.wings = [lp, rp]; return g;
+}
+// a bird (or a small flock) crossing the sky; flaps, then glides
+function flyover(group, R, n){
+  var side = R()<0.5 ? -1 : 1, h = 7+R()*8, zc = -10 - R()*25, dur = 9+R()*6, dark = cfg.id!=='jeju';
+  for(var i=0;i<n;i++){
+    var b = makeBird(dark); b.scale.setScalar(1.6); var off = {x:-i*0.9*side, y:-i*0.25+(i%2)*0.4, z:(i%2?1:-1)*i*0.7};
+    group.add(b);
+    critters.push({ o:b, t:0, update:function(dt, T){
+      this.t += dt/this.dur; var k = this.t;
+      if(k>=1){ group.remove(this.o); return false; }
+      var x = this.side*(-60 + 120*k) + this.off.x, z = this.zc + Math.sin(k*Math.PI)*6 + this.off.z, y = this.h + Math.sin(k*Math.PI)*2 + this.off.y;
+      this.o.position.set(x, y, z); this.o.rotation.y = this.side>0 ? Math.PI/2 : -Math.PI/2;
+      var flap = (Math.sin(T*1.3+this.ph) > -0.2) ? Math.sin(T*13+this.ph)*0.7 : 0.05;
+      this.o.userData.wings[0].rotation.z = flap; this.o.userData.wings[1].rotation.z = -flap;
+      return true;
+    }, side:side, h:h, zc:zc, dur:dur, off:off, ph:R()*6 });
+  }
+}
+function makeRabbit(c){
+  var g = new THREE.Group();
+  var bd = ball(0.17, c, 1, 0.85, 1.3); bd.position.y = 0.16; g.add(bd);
+  var head = ball(0.1, c); head.position.set(0, 0.3, 0.2); g.add(head);
+  [-0.035, 0.035].forEach(function(dx){ var e = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.17, 6), lam(c)); e.position.set(dx, 0.44, 0.17); e.rotation.x = -0.25; e.rotation.z = dx*4; g.add(e); });
+  var tail = ball(0.045, '#f4f1ea'); tail.position.set(0, 0.2, -0.22); g.add(tail);
+  return g;
+}
+function addRabbit(group, R, c){
+  var o = makeRabbit(c), p = pickSpot(R, 7, 24); o.position.set(p.x, groundH(p.x,p.z), p.z); o.scale.setScalar(1.3+R()*0.3); group.add(o);
+  critters.push({ o:o, mode:'rest', wait:1+R()*3, hop:0, tx:p.x, tz:p.z, update:function(dt){
+    var o=this.o;
+    if(this.mode==='rest'){ this.wait -= dt; o.children[1].position.y = 0.3 + Math.max(0, Math.sin(performance.now()/180))*0.015; if(this.wait<0){ var q = pickSpot(R, 6, 26); this.tx=q.x; this.tz=q.z; this.mode='go'; } }
+    else {
+      var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz);
+      turnTo(o, dx, dz, dt);
+      if(d<0.3){ this.mode='rest'; this.wait=2+R()*5; o.position.y = groundH(o.position.x,o.position.z); return true; }
+      this.hop += dt*3.2; var step = Math.min(d, dt*1.6*(0.55+0.45*Math.abs(Math.sin(this.hop*Math.PI))));
+      var nx=o.position.x+dx/d*step, nz=o.position.z+dz/d*step;
+      if(!okSpot(nx,nz)){ this.mode='rest'; this.wait=0.5; return true; }
+      o.position.x=nx; o.position.z=nz; o.position.y = groundH(nx,nz) + Math.abs(Math.sin(this.hop*Math.PI))*0.22;
+    }
+    return true;
+  }});
+}
+function makeSquirrel(){
+  var g = new THREE.Group(), c = '#9a5a2e';
+  var bd = ball(0.07, c, 1, 1, 1.5); bd.position.y = 0.08; g.add(bd);
+  var head = ball(0.05, c); head.position.set(0, 0.14, 0.1); g.add(head);
+  var tail = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.035, 6, 12, Math.PI*1.25), lam('#b06a36')); tail.position.set(0, 0.16, -0.12); tail.rotation.y = Math.PI/2; tail.rotation.z = -0.4; g.add(tail);
+  g.userData.tail = tail; return g;
+}
+function addSquirrel(group, R){
+  var o = makeSquirrel(), p = pickSpot(R, 6, 18); o.position.set(p.x, groundH(p.x,p.z), p.z); o.scale.setScalar(1.8); group.add(o);
+  critters.push({ o:o, mode:'rest', wait:R()*2, tx:p.x, tz:p.z, update:function(dt, T){
+    var o=this.o; o.userData.tail.rotation.z = -0.4 + Math.sin(T*6)*(this.mode==='rest'?0.12:0.04);
+    if(this.mode==='rest'){ this.wait -= dt; if(this.wait<0){ var q=pickSpot(R, 5, 20); this.tx=q.x; this.tz=q.z; this.mode='go'; } }
+    else { var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz); turnTo(o, dx, dz, dt, 10);
+      if(d<0.2){ this.mode='rest'; this.wait=1+R()*4; return true; }
+      var st=Math.min(d, dt*3.4), nx=o.position.x+dx/d*st, nz=o.position.z+dz/d*st;
+      if(!okSpot(nx,nz)){ this.mode='rest'; this.wait=0.4; return true; }
+      o.position.set(nx, groundH(nx,nz)+Math.abs(Math.sin(T*16))*0.05, nz); }
+    return true;
+  }});
+}
+function addButterfly(group, R, c){
+  var g = new THREE.Group(), wm = new THREE.MeshBasicMaterial({color:col(c), side:THREE.DoubleSide});
+  var wg = new THREE.PlaneGeometry(0.07, 0.06); wg.translate(0.035, 0, 0);
+  var L = new THREE.Mesh(wg, wm), Rw = new THREE.Mesh(wg, wm); Rw.scale.x = -1;
+  var lp = new THREE.Group(), rp = new THREE.Group(); lp.add(L); rp.add(Rw); g.add(lp); g.add(rp);
+  var p = pickSpot(R, 3.5, 14); g.scale.setScalar(1.5); group.add(g);
+  critters.push({ o:g, ax:p.x, az:p.z, ph:R()*10, sp:0.3+R()*0.3, update:function(dt, T){
+    var t = T*this.sp+this.ph, x = this.ax+Math.sin(t*0.9)*2.2+Math.sin(t*2.3)*0.4, z = this.az+Math.cos(t*0.7)*2+Math.cos(t*1.9)*0.4;
+    var y = Math.max(groundH(x,z),0)+0.6+Math.sin(t*1.7)*0.35+Math.sin(T*9+this.ph)*0.04;
+    var o=this.o; turnTo(o, x-o.position.x, z-o.position.z, dt, 8); o.position.set(x, y, z);
+    var f = Math.sin(T*22+this.ph)*1.1; lp.rotation.y = f; rp.rotation.y = -f;
+    return true;
+  }});
+}
+function addDragonfly(group, R){
+  var g = new THREE.Group();
+  var body = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.006, 0.16, 5), lam('#2f6f8f')); body.rotation.x = Math.PI/2; g.add(body);
+  var wm = new THREE.MeshBasicMaterial({color:0xdfefff, transparent:true, opacity:0.45, side:THREE.DoubleSide, depthWrite:false});
+  [0.02, -0.01].forEach(function(z){ [1,-1].forEach(function(sd){ var w = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.025), wm); w.rotation.x = -Math.PI/2; w.position.set(sd*0.06, 0.005, z); g.add(w); }); });
+  group.add(g);
+  g.scale.setScalar(1.8); var home = {x:(R()-0.5)*16, z:-14-R()*10};
+  critters.push({ o:g, tx:home.x, tz:home.z, ty:0.6, wait:0, update:function(dt, T){
+    var o=this.o; this.wait -= dt;
+    if(this.wait<0){ this.tx = home.x+(R()-0.5)*8; this.tz = home.z+(R()-0.5)*6; this.ty = 0.35+R()*0.9; this.wait = 0.8+R()*2.2; }
+    var k = Math.min(1, dt*3.5); o.position.x += (this.tx-o.position.x)*k; o.position.z += (this.tz-o.position.z)*k;
+    o.position.y += (Math.max(WATER, groundH(o.position.x,o.position.z))+this.ty-o.position.y)*k + Math.sin(T*30)*0.002;
+    turnTo(o, this.tx-o.position.x, this.tz-o.position.z, dt, 12);
+    return true;
+  }});
+}
+function addCrab(group, R){
+  var g = new THREE.Group(), c = '#c4452f';
+  var bd = ball(0.07, c, 1.3, 0.5, 1); bd.position.y = 0.04; g.add(bd);
+  [-1,1].forEach(function(sd){ var cl = ball(0.025, c); cl.position.set(sd*0.08, 0.05, 0.06); g.add(cl);
+    for(var i=0;i<3;i++){ var l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.008), lam(c)); l.position.set(sd*0.09, 0.025, -0.03+i*0.03); l.rotation.z = sd*0.5; g.add(l); } });
+  var spot = null;
+  for(var i=0;i<80 && !spot;i++){ var x=(R()-0.5)*40, z=-8-R()*8, y=groundH(x,z); if(y>WATER+0.03 && y<WATER+0.7 && okSpot(x,z)) spot={x:x,z:z}; }
+  if(!spot) return;
+  g.position.set(spot.x, groundH(spot.x,spot.z), spot.z); g.scale.setScalar(1.7); group.add(g);
+  critters.push({ o:g, dir:R()<0.5?-1:1, t:R()*5, update:function(dt, T){
+    var o=this.o; this.t -= dt;
+    if(this.t<0){ this.dir = -this.dir; this.t = 1.5+R()*3; }
+    var moving = (this.t % 2) > 0.6, nx = o.position.x + (moving ? this.dir*dt*0.45 : 0), y = groundH(nx, o.position.z);
+    if(y>WATER+0.02 && y<WATER+0.8) o.position.x = nx; else this.dir = -this.dir;
+    o.position.y = groundH(o.position.x, o.position.z) + (moving ? Math.abs(Math.sin(T*24))*0.006 : 0);
+    o.rotation.y = 0; return true;
+  }});
+}
+var critterGroup = null, flyT = 0;
+var CRITTERS = {
+  mapo:      { birds:[14, 26, 3], butterflies:['#f7f3e8','#f2c14e'], dragonflies:3, squirrels:1 },
+  busan:     { crabs:4 },
+  gangneung: { birds:[8, 16, 2], squirrels:2, rabbits:['#8b7a66'] },
+  jeju:      { birds:[12, 22, 1], rabbits:['#d8cbb8', '#a8988a'], butterflies:['#fff6c8','#ffffff','#f6d84a','#f2a65a','#fff6c8','#ffffff'] }
+};
+function makeCritters(group){
+  critters = []; critterGroup = new THREE.Group(); group.add(critterGroup);
+  var cc = CRITTERS[cfg.id] || {}, R = rng(hashStr(cfg.id)+777);
+  (cc.rabbits||[]).forEach(function(c){ addRabbit(critterGroup, R, c); });
+  for(var i=0;i<(cc.squirrels||0);i++) addSquirrel(critterGroup, R);
+  (cc.butterflies||[]).forEach(function(c){ addButterfly(critterGroup, R, c); });
+  for(var j=0;j<(cc.dragonflies||0);j++) addDragonfly(critterGroup, R);
+  for(var k=0;k<(cc.crabs||0);k++) addCrab(critterGroup, R);
+  flyT = cc.birds ? 3 + Math.random()*5 : 0;
+}
+function updateCritters(dt, T){
+  var cc = CRITTERS[cfg.id] || {};
+  if(cc.birds && critterGroup){ flyT -= dt; if(flyT < 0){ flyover(critterGroup, Math.random, 1 + Math.floor(Math.random()*cc.birds[2])); flyT = cc.birds[0] + Math.random()*(cc.birds[1]-cc.birds[0]); } }
+  for(var i=critters.length-1;i>=0;i--){ if(critters[i].update(dt, T) === false) critters.splice(i,1); }
+}
+
 // ---------- post-it rendering (shared by 3D, reader, editor) ----------
 function wrap(ctx, text, maxW){
   var lines=[], line='';
@@ -940,6 +1099,7 @@ function build(){
   world.add(makeGrass());
   if(natReady) makeNature(world); else makeTrees(world);
   makeWindow(world);
+  makeCritters(world);
   world.add(makeMotes());
   regionNotes().forEach(addNoteMesh);
   syncSig = ''; syncRegion(true);
@@ -1566,11 +1726,13 @@ function makeCard(n){
   for(var i=0;i<d.length;i+=4){ var k=(Math.random()-0.5)*10; d[i]+=k; d[i+1]+=k; d[i+2]+=k; }
   x.putImageData(gr,0,0);
   // the post-it, large, with a soft lifted shadow and a strip of tape
-  var S=760, nc=document.createElement('canvas'); nc.width=S; nc.height=S; renderNote(nc.getContext('2d'), n, S, {deco:false});
+  var S=760, PAD=48, nc=document.createElement('canvas'); nc.width=S+PAD*2; nc.height=S+PAD*2;
+  var nx=nc.getContext('2d'); nx.translate(PAD,PAD); renderNote(nx, n, S, {deco:false});
+  nx.fillStyle='rgba(255,255,255,.55)'; nx.fillRect(S/2-80,-22,160,46);          // tape, drawn before tilting
   x.save(); x.translate(W/2, 900); x.rotate(-0.035);
-  x.shadowColor='rgba(0,0,0,.32)'; x.shadowBlur=80; x.shadowOffsetY=40; x.fillStyle='#000'; x.fillRect(-S/2+10,-S/2+20,S-20,S-20);
-  x.shadowColor='transparent'; x.drawImage(nc,-S/2,-S/2);
-  x.fillStyle='rgba(255,255,255,.5)'; x.fillRect(-80,-S/2-24,160,48);
+  x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  x.shadowColor='rgba(0,0,0,.30)'; x.shadowBlur=70; x.shadowOffsetY=36;
+  x.drawImage(nc,-S/2-PAD,-S/2-PAD);
   x.restore();
   x.textAlign='center'; x.textBaseline='alphabetic';
   // small wordmark + window name, quiet and spaced
@@ -1714,6 +1876,11 @@ Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), func
 $('markBtn').addEventListener('click', function(){ photo.mark = !photo.mark; this.classList.toggle('on', photo.mark); this.setAttribute('aria-pressed', photo.mark); });
 $('shutter').addEventListener('click', function(){ photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
 // runs right after the frame is drawn, so the picture is read before the browser clears it
+function setPR(r){
+  renderer.setPixelRatio(r);
+  if(composer){ composer.setPixelRatio ? composer.setPixelRatio(r) : composer.setSize(window.innerWidth, window.innerHeight); }
+  if(dofComposer){ dofComposer.setPixelRatio ? dofComposer.setPixelRatio(r) : dofComposer.setSize(window.innerWidth, window.innerHeight); }
+}
 function capturePhoto(){
   photo.want = false;
   var src = renderer.domElement, r = frameRect(), sx = src.width/window.innerWidth, sy = src.height/window.innerHeight;
@@ -1839,9 +2006,12 @@ function frame(){
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
+  updateCritters(dt, t);
+  var superPR = 0;
+  if(photo.want){ superPR = Math.min(3, DPR*1.75); if(superPR > DPR+0.05) setPR(superPR); else superPR = 0; }
   if(photo.on && photo.dof && dofComposer) dofComposer.render();
   else if(hq && composer) composer.render(); else renderer.render(scene, camera);
-  if(photo.want) capturePhoto();
+  if(photo.want){ capturePhoto(); if(superPR) setPR(DPR); }
   // drop to light mode automatically if the phone struggles
   if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
   requestAnimationFrame(frame);
