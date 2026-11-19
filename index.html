@@ -672,7 +672,7 @@ function makeTrees(group){
   var d = new THREE.Object3D();
   var trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12,0.2,1.6,6), new THREE.MeshLambertMaterial({color:col('#5a4232')}), n);
   list.forEach(function(t,i){ d.position.set(t.x,t.y+0.8*t.s,t.z); d.rotation.set(0,0,0); d.scale.set(t.s,t.s,t.s); d.updateMatrix(); trunk.setMatrixAt(i,d.matrix); });
-  trunk.castShadow = true; group.add(trunk);
+  trunk.castShadow = true; group.add(trunk); trunk.userData.stick='tree'; stickables.push(trunk);
   var c = new THREE.Color();
   if(cfg.treeKind==='pine'){
     [[1.5,2.4,1.6],[1.15,2.0,2.7],[0.75,1.6,3.6]].forEach(function(L){
@@ -821,6 +821,7 @@ function scatter(R, n, rMin, rMax, opt){
   return out;
 }
 var _o = new THREE.Object3D(), _c = new THREE.Color();
+var stickables = [], STICK = /^(tree_|pine|twisted|rock)/;
 function plant(group, key, list, opt){
   if(!NAT || !NAT[key] || !list.length) return;
   opt = opt||{};
@@ -836,6 +837,7 @@ function plant(group, key, list, opt){
       if(tint){ var tc = Array.isArray(tint) ? tint[Math.floor(t.r*tint.length)] : tint; im.setColorAt(i, _c.set(tc).convertSRGBToLinear().multiplyScalar(0.92+t.r*0.16)); }
     });
     im.frustumCulled = false;
+    if(STICK.test(key) && !leafy){ im.userData.stick = /^rock/.test(key) ? 'rock' : 'tree'; stickables.push(im); }
     if(opt.shadow && hq){
       im.castShadow = true;
       if(m.alphaTest>0) im.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking, map:m.map, alphaTest:0.5 });
@@ -1246,7 +1248,41 @@ function addNoteMesh(n, idx){
   var m = new THREE.Mesh(new THREE.PlaneGeometry(0.21,0.21), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
   var loose = Math.max(0, (n.age-0.8)/0.2);
   m.position.set(n.x, n.y - loose*0.012, 0.007+idx*0.0004); m.rotation.z = n.r + loose*0.18*(n.r>=0?1:-1); m.rotation.x = -loose*0.12;
+  if(n.spot){
+    var sp = n.spot;
+    m.position.set(sp[0]+sp[3]*0.012, sp[1]+sp[4]*0.012, sp[2]+sp[5]*0.012);
+    m.lookAt(sp[0]+sp[3], sp[1]+sp[4], sp[2]+sp[5]); m.rotateZ(n.r);
+    m.visible = spotOk(sp);
+  }
   m.userData.note = n; world.add(m); noteMeshes.push(m);
+}
+var _sr = new THREE.Raycaster(), _sv = new THREE.Vector3(), _sd = new THREE.Vector3();
+function spotOk(sp){
+  if(!stickables.length) return false;
+  world.updateMatrixWorld(true);
+  _sv.set(sp[0]+sp[3]*0.3, sp[1]+sp[4]*0.3, sp[2]+sp[5]*0.3); _sd.set(-sp[3], -sp[4], -sp[5]).normalize();
+  _sr.set(_sv, _sd); _sr.near = 0; _sr.far = 0.5;
+  return _sr.intersectObjects(stickables).length > 0;
+}
+function stickHit(cx, cy){
+  if(!stickables.length) return null;
+  v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1); ray.setFromCamera(v2, camera);
+  var h = ray.intersectObjects(stickables)[0]; if(!h) return null;
+  var g = ray.intersectObject(glassMesh)[0]; if(g && g.distance < h.distance) return null;
+  var nrm = h.face ? h.face.normal.clone() : new THREE.Vector3(0,0,1);
+  if(h.instanceId !== undefined){ var im = new THREE.Matrix4(); h.object.getMatrixAt(h.instanceId, im); nrm.applyMatrix3(new THREE.Matrix3().getNormalMatrix(im)); }
+  nrm.normalize(); if(nrm.dot(ray.ray.direction) > 0) nrm.negate();
+  var q = h.point;
+  return { d:h.distance, kind:h.object.userData.stick, spot:[q.x,q.y,q.z,nrm.x,nrm.y,nrm.z].map(function(v){ return +v.toFixed(3); }) };
+}
+function trySpot(cx, cy, quiet){
+  var h = stickHit(cx, cy);
+  if(!h){ return false; }
+  if(h.d > 3.2){ if(!quiet) toast(h.kind==='rock' ? '바위에 조금 더 가까이 가 볼까요' : '나무에 조금 더 가까이 가 볼까요'); return !quiet; }
+  if(leftToday()<=0){ toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return true; }
+  if(navigator.vibrate) try{ navigator.vibrate(18); }catch(_){}
+  pending = { x:0, y:1.5, spot:h.spot, kind:h.kind }; if(placing) setPlacing(false); openComposer(null);
+  return true;
 }
 function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); var tx=noteTexture(n); mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
 function slotsFor(seed){
@@ -1268,7 +1304,7 @@ function regionNotes(){
 }
 function saveMine(){
   var list = noteMeshes.map(function(m){ return m.userData.note; }).filter(function(n){ return n.mine && !n.server; })
-    .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts,place:n.place}; });
+    .map(function(n){ return {id:n.id,c:n.c,age:0,h:n.liked?Math.max(0,(n.h||0)-1):(n.h||0),x:n.x,y:n.y,r:n.r,strokes:n.strokes,texts:n.texts,place:n.place,spot:n.spot}; });
   store.set(mineKey(), list);
 }
 
@@ -1276,7 +1312,7 @@ function saveMine(){
 var hemi, sun;
 function build(){
   if(world){ scene.remove(world); world.traverse(function(o){ if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if(o.material){ if(o.material.map && !o.material.map.__keep && !(envCache[cfg.id] && o.material.map===envCache[cfg.id].tex)) o.material.map.dispose(); o.material.dispose(); } }); }
-  uniformsList = []; noteMeshes = [];
+  uniformsList = []; noteMeshes = []; stickables = [];
   renderer.shadowMap.enabled = hq;
   world = new THREE.Group(); scene.add(world);
   computeGrade();
@@ -1320,7 +1356,7 @@ function grounded(){ return player.jy<=0.0001 && player.vy<=0; }
 function jump(){
   if(player.sit){ standUp(); return; }
   if(player.crouch){ player.crouch=false; updateSitLabel(); }
-  if(grounded()) player.vy = 4.6;
+  if(grounded()) player.vy = 4.6; else player.jbuf = performance.now();
 }
 function standUp(){ player.sit=false; player.crouch=false; player.z = Math.max(player.z, BENCH.z+0.45); updateSitLabel(); }
 function sitOrCrouch(){
@@ -1343,7 +1379,8 @@ window.addEventListener('keydown', function(e){
   keys[k] = true;
 });
 window.addEventListener('keyup', function(e){ keys[e.key.toLowerCase()] = false; });
-$('jumpBtn').addEventListener('click', function(){ hideHint(); jump(); });
+$('jumpBtn').addEventListener('pointerdown', function(e){ e.preventDefault(); e.stopPropagation(); hideHint(); jump(); });
+$('jumpBtn').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); jump(); } });
 var sitDown = null;
 $('sitBtn').addEventListener('pointerdown', function(e){ sitDown = {y:e.clientY, t:performance.now()}; try{ this.setPointerCapture(e.pointerId); }catch(_){} });
 $('sitBtn').addEventListener('pointerup', function(e){
@@ -1357,6 +1394,11 @@ canvas.addEventListener('pointerdown', function(e){
   if(look.id!==null) return;
   look.id=e.pointerId; look.lx=look.sx=e.clientX; look.ly=look.sy=e.clientY; look.t=performance.now();
   try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+  clearTimeout(look.lp); var pid = e.pointerId;
+  look.lp = setTimeout(function(){
+    if(look.id!==pid || modal || photo.on || Math.hypot(look.lx-look.sx, look.ly-look.sy) > 10) return;
+    if(trySpot(look.sx, look.sy, false)) look.id = null;
+  }, 550);
 });
 canvas.addEventListener('pointermove', function(e){
   if(e.pointerId!==look.id) return;
@@ -1368,7 +1410,7 @@ canvas.addEventListener('pointermove', function(e){
 function endLook(e){
   if(e.pointerId!==look.id) return;
   var moved = Math.hypot(e.clientX-look.sx, e.clientY-look.sy), dt = performance.now()-look.t;
-  look.id=null;
+  look.id=null; clearTimeout(look.lp);
   if(moved<10 && dt<400) tap(e.clientX, e.clientY);
 }
 canvas.addEventListener('pointerup', endLook); canvas.addEventListener('pointercancel', function(e){ if(e.pointerId===look.id) look.id=null; });
@@ -1393,13 +1435,14 @@ function tap(cx,cy){
   ray.setFromCamera(v2, camera);
   if(placing){
     var hit = ray.intersectObject(glassMesh)[0];
+    if(!(hit && hit.distance<9) && trySpot(cx, cy, false)) return;
     if(hit && hit.distance<9){
       pending = { x: Math.max(-1.88,Math.min(1.88,hit.point.x)), y: Math.max(0.62,Math.min(2.88,hit.point.y)) };
       setPlacing(false); openComposer(null);
     } else toast('유리창을 눌러주세요');
     return;
   }
-  var hits = ray.intersectObjects(noteMeshes);
+  var hits = ray.intersectObjects(noteMeshes.filter(function(m){ return m.visible; }));
   if(hits.length && hits[0].distance<10) openReader(hits[0].object);
 }
 
@@ -1489,12 +1532,12 @@ function serverMsg(e){ for(var k in SERVER_MSG){ if(e && e.message && e.message.
 function lifeDays(h){ return Math.min(180, 30 + (h||0)*2); }
 function fromServer(row){
   var days = (Date.now() - new Date(row.created_at).getTime())/86400000;
-  return { id:row.id, server:true, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
+  return { id:row.id, server:true, spot:(row.spot&&row.spot.length===6)?row.spot:undefined, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
            age:Math.min(1, Math.max(0, days/lifeDays(row.hearts))), left:Math.max(0, Math.ceil(lifeDays(row.hearts)-days)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
 }
 var syncSig = '', syncing = false;
 function updateEmpty(){
-  var empty = noteMeshes.length===0 && !placing;
+  var empty = !noteMeshes.some(function(m){ return !m.userData.note.spot; }) && !placing;
   $('emptyHint').hidden = !empty;
   if(empty) $('acts').style.bottom = 'calc(env(safe-area-inset-bottom) + 176px)'; else $('acts').style.bottom = '';
 }
@@ -1502,7 +1545,7 @@ $('emptyHint').addEventListener('click', function(){ $('add').click(); });
 function syncRegion(force){
   if(syncing || !world) return; syncing = true;
   var region = cfg.id;
-  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,place,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
+  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,place,spot,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
   .then(function(rows){
     syncing = false;
     if(region !== cfg.id || !rows) return;
@@ -1680,7 +1723,7 @@ function openComposer(mesh){
   $('quota').textContent = mesh ? '' : '오늘 '+leftToday()+'장 남음';
   $('placeRow').style.display = mesh ? 'none' : 'flex';
   var pv = store.get('yurichang-showplace'); $('showPlace').checked = pv===null ? true : !!pv;
-  $('stick').textContent = mesh ? '수정 완료' : '창문에 붙이기';
+  $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='rock' ? '바위에 붙이기' : '나무에 붙이기') : '창문에 붙이기');
   inl.style.display='none'; ed.inl=null; setTool('pen'); markSw(); markFont();
   openModal('composeScrim');
   requestAnimationFrame(edResize);
@@ -1708,18 +1751,19 @@ $('stick').addEventListener('click', function(){
   }
   if(!pending) return;
   if(leftToday()<=0){ closeModal('composeScrim'); toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; }
-  var nn = {id:cfg.id+'-u'+Date.now(), c:ed.c, age:0, h:0, x:+pending.x.toFixed(3), y:+pending.y.toFixed(3), r:+((Math.random()-0.5)*0.24).toFixed(3), strokes:ed.strokes, texts:ed.texts, mine:true};
+  var nn = {id:cfg.id+'-u'+Date.now(), c:ed.c, age:0, h:0, x:+pending.x.toFixed(3), y:+pending.y.toFixed(3), r:+((Math.random()-0.5)*0.24).toFixed(3), strokes:ed.strokes, texts:ed.texts, mine:true, spot:pending.spot};
+  var spotKind = pending.kind;
   var region = cfg.id;
   function keepLocal(msg){ useOne(); addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; saveMine(); closeModal('composeScrim'); updateEmpty(); toast(msg); }
   btn.disabled = true;
   var wantPlace = $('showPlace').checked; store.set('yurichang-showplace', wantPlace);
   (wantPlace ? getPlace : function(cb){ cb(null); })(function(place){
   nn.place = place || undefined;
-  sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts, p_place:place||null}).then(function(res){
+  sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts, p_place:place||null, p_spot:nn.spot||null}).then(function(res){
     useOne(); setToken(res.id, res.token); markSeen(res.id, 0);
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
-    closeModal('composeScrim'); updateEmpty(); toast(cfg.name+' 창에 붙였어요 · 오늘 '+leftToday()+'장 남았어요');
+    closeModal('composeScrim'); updateEmpty(); toast((nn.spot ? (spotKind==='rock' ? '바위에 살짝 붙였어요' : '나무에 살짝 붙였어요') : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
   }, function(e){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
@@ -2208,6 +2252,7 @@ function frame(){
     if(!blocked(player.x,nz)) player.z=nz; else player.vz=0;
   }
   player.vy -= 13*dt; player.jy += player.vy*dt; if(player.jy<0){ player.jy=0; player.vy=0; }
+  if(player.jbuf && grounded()){ if(performance.now()-player.jbuf < 200) player.vy = 4.6; player.jbuf = 0; }
   var eyeT = player.sit ? 1.12 : player.crouch ? 0.95 : 1.6;
   player.eye += (eyeT-player.eye)*Math.min(1,dt*7);
   var spd = grounded() ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*3.2;
@@ -2222,7 +2267,7 @@ function frame(){
   var near = Math.abs(player.z) < 3.2 && Math.abs(player.x) < 3 && !photo.on ? 1 - sm(1.2, 3.2, Math.abs(player.z)) : 0;
   nearK += (near - nearK) * Math.min(1, dt*4);
   for(var pi=0; pi<noteMeshes.length; pi++){
-    var pm=noteMeshes[pi], base = 1 + 0.22*nearK;
+    var pm=noteMeshes[pi], base = pm.userData.note.spot ? 1 : 1 + 0.22*nearK;
     if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(base*sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; }
     else pm.scale.setScalar(base);
   }
