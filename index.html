@@ -134,6 +134,28 @@
   #ratioSeg button.on{color:#1A1712}
   #markBtn.on{color:#FFC94D}
   #photoTip{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 70px);margin:0;padding:8px 14px;border-radius:14px;font-size:13px;white-space:nowrap;transition:opacity .6s}
+  #heightBox{position:absolute;right:calc(env(safe-area-inset-right) + 10px);top:50%;transform:translateY(-50%);width:52px;height:260px;border-radius:26px;pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:10px 0;font-size:11px;color:#E6E1D6}
+  #heightBox b{font-size:11px;font-weight:700;color:#FFE08F}
+  #camH{-webkit-appearance:none;appearance:none;width:180px;height:28px;background:transparent;transform:rotate(-90deg);margin:0;touch-action:none}
+  #zoomBox{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 118px);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:22px;pointer-events:auto;width:min(320px,calc(100vw - 40px))}
+  #zoomBox button{width:32px;height:32px;border-radius:16px;border:0;background:rgba(255,255,255,.14);color:#F4F1EA;font-size:18px;line-height:1;flex-shrink:0}
+  #zoomBox b{font-size:12px;color:#FFE08F;min-width:36px;text-align:right}
+  #zoom{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:28px;background:transparent;touch-action:none}
+  #zoom::-webkit-slider-runnable-track, #camH::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+  #zoom::-webkit-slider-thumb, #camH::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;margin-top:-9px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  #zoom::-moz-range-track, #camH::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+  #zoom::-moz-range-thumb, #camH::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff}
+  #dofBtn.on{color:#FFC94D}
+  #blurBox{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 166px);display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:22px;pointer-events:auto;width:min(320px,calc(100vw - 40px));font-size:12px;color:#E6E1D6}
+  #blurBox[hidden]{display:none}
+  #blurBox b{font-size:12px;color:#FFE08F;min-width:36px;text-align:right}
+  #blurAmt{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:28px;background:transparent;touch-action:none}
+  #blurAmt::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+  #blurAmt::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;margin-top:-9px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  #blurAmt::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+  #blurAmt::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff}
+  #focusRing{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border:2px solid #FFC94D;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .4s, transform .25s}
+  #focusRing.show{opacity:1;transform:scale(.8)}
   #shutter{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 30px);transform:translateX(-50%);width:76px;height:76px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.18);pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:0}
   #shutter i{display:block;width:58px;height:58px;border-radius:50%;background:#fff;transition:transform .12s}
   #shutter:active i{transform:scale(.9)}
@@ -182,9 +204,29 @@
   <div id="photoTop">
     <button id="photoClose" class="glass iconbtn" aria-label="사진 모드 닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>
     <div class="seg glass" id="ratioSeg" role="group" aria-label="사진 비율"><button data-r="story" class="on">9:16</button><button data-r="square">1:1</button><button data-r="full">전체</button></div>
-    <button id="markBtn" class="glass iconbtn on" aria-label="로고 넣기" aria-pressed="true">로고</button>
+    <div style="display:flex;gap:8px">
+      <button id="dofBtn" class="glass iconbtn" aria-label="아웃포커스" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.3 3.3L9 12"/><path d="M20.4 8.5L10 8.5"/><path d="M18.7 18.2L13.3 9"/><path d="M9.7 20.7L15 12"/><path d="M3.6 15.5H14"/><path d="M5.3 5.8L10.7 15"/></svg></button>
+      <button id="markBtn" class="glass iconbtn on" aria-label="로고 넣기" aria-pressed="true">로고</button>
+    </div>
   </div>
-  <p id="photoTip" class="glass">끌어서 구도를 잡고, 조이스틱으로 움직여요</p>
+  <p id="photoTip" class="glass">두 손가락으로 확대하고, 오른쪽 막대로 카메라를 올려요</p>
+  <div id="heightBox" class="glass">
+    <span>높이</span>
+    <input id="camH" type="range" min="0.4" max="3.6" step="0.01" value="1.6" aria-label="카메라 높이">
+    <b id="camHv">1.6m</b>
+  </div>
+  <div id="zoomBox" class="glass">
+    <button id="zoomOut" aria-label="축소">−</button>
+    <input id="zoom" type="range" min="1" max="4" step="0.01" value="1" aria-label="줌">
+    <button id="zoomIn" aria-label="확대">+</button>
+    <b id="zoomV">1.0x</b>
+  </div>
+  <div id="blurBox" class="glass" hidden>
+    <span>흐림</span>
+    <input id="blurAmt" type="range" min="0.2" max="1" step="0.01" value="0.6" aria-label="배경 흐림 정도">
+    <b id="blurV">60%</b>
+  </div>
+  <div id="focusRing"></div>
   <button id="shutter" aria-label="찍기"><i></i></button>
 </div>
 <div id="flash"></div>
@@ -283,6 +325,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 <script>
 (function(){
 'use strict';
@@ -943,7 +987,7 @@ canvas.addEventListener('pointerdown', function(e){
 });
 canvas.addEventListener('pointermove', function(e){
   if(e.pointerId!==look.id) return;
-  var k = e.pointerType==='touch' ? 0.0055 : 0.0042;
+  var k = (e.pointerType==='touch' ? 0.0055 : 0.0042) / (photo && photo.on ? photo.zoom : 1);
   player.yaw -= (e.clientX-look.lx)*k; player.pitch -= (e.clientY-look.ly)*k;
   player.pitch = Math.max(-1.1, Math.min(1.1, player.pitch));
   look.lx=e.clientX; look.ly=e.clientY;
@@ -970,7 +1014,7 @@ joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercanc
 
 var ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
 function tap(cx,cy){
-  if(photo.on) return;
+  if(photo.on){ if(photo.dof) focusAt(cx, cy); return; }
   hideHint();
   v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1);
   ray.setFromCamera(v2, camera);
@@ -1506,7 +1550,7 @@ function showImage(b, name){
 }
 
 // ---------- photo mode: compose your own shot of the window ----------
-var photo = { on:false, ratio:'story', mark:true, want:false };
+var photo = { on:false, ratio:'story', mark:true, want:false, zoom:1, h:1.6 };
 function frameRect(){
   var vw = window.innerWidth, vh = window.innerHeight, top = 120, bottom = 130, availH = vh - top - bottom, availW = vw - 24, w, h;
   if(photo.ratio==='full'){ return {x:0, y:0, w:vw, h:vh}; }
@@ -1520,8 +1564,75 @@ function layoutFrame(){
   document.body.classList.toggle('full', photo.ratio==='full');
   f.style.borderColor = photo.ratio==='full' ? 'transparent' : ''; f.style.boxShadow = photo.ratio==='full' ? 'none' : '';
 }
+function setZoom(z){ photo.zoom = Math.max(1, Math.min(4, z)); $('zoom').value = photo.zoom; $('zoomV').textContent = photo.zoom.toFixed(1)+'x'; }
+function setCamH(h){ photo.h = Math.max(0.4, Math.min(3.6, h)); $('camH').value = photo.h; $('camHv').textContent = photo.h.toFixed(1)+'m'; }
+$('zoom').addEventListener('input', function(){ setZoom(+this.value); });
+$('zoomIn').addEventListener('click', function(){ setZoom(photo.zoom*1.25); });
+$('zoomOut').addEventListener('click', function(){ setZoom(photo.zoom/1.25); });
+$('camH').addEventListener('input', function(){ setCamH(+this.value); });
+// two-finger pinch zooms in photo mode
+var pinch = null;
+canvas.addEventListener('touchstart', function(e){
+  if(!photo.on || e.touches.length!==2) return;
+  var a=e.touches[0], b=e.touches[1]; pinch = {d:Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY), z:photo.zoom}; look.id = null;
+}, {passive:true});
+canvas.addEventListener('touchmove', function(e){
+  if(!pinch || e.touches.length!==2) return;
+  var a=e.touches[0], b=e.touches[1]; setZoom(pinch.z * Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY)/pinch.d); look.id = null;
+}, {passive:true});
+canvas.addEventListener('touchend', function(e){ if(e.touches.length<2) pinch = null; }, {passive:true});
+canvas.addEventListener('wheel', function(e){ if(!photo.on) return; e.preventDefault(); setZoom(photo.zoom*Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+// ---------- 아웃포커스 (depth of field) ----------
+photo.dof = false; photo.focus = 3; photo.blur = 0.6;
+var dofComposer = null, dofPass = null;
+function setupDof(){
+  if(dofComposer || !THREE.BokehPass || !THREE.EffectComposer) return !!dofComposer;
+  try{
+    dofComposer = new THREE.EffectComposer(renderer);
+    dofComposer.setPixelRatio && dofComposer.setPixelRatio(DPR);
+    dofComposer.setSize(window.innerWidth, window.innerHeight);
+    dofComposer.addPass(new THREE.RenderPass(scene, camera));
+    dofPass = new THREE.BokehPass(scene, camera, {focus:3, aperture:0.002, maxblur:0.01, width:window.innerWidth, height:window.innerHeight});
+    // the glass and floating effects must not count as "near": hide them while depth is drawn
+    var baseRender = dofPass.render.bind(dofPass);
+    dofPass.render = function(r, w, rb, dt, mask){
+      var hidden = [];
+      world.traverse(function(o){ if(o.visible && o.material && (o.material.transparent && !o.userData.note || o.isPoints)){ hidden.push(o); o.visible = false; } });
+      baseRender(r, w, rb, dt, mask);
+      hidden.forEach(function(o){ o.visible = true; });
+    };
+    dofPass.needsSwap = true;   // hand the blurred image on to the colour pass that follows
+    dofComposer.addPass(dofPass);
+    if(THREE.GammaCorrectionShader) dofComposer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+  }catch(e){ dofComposer = null; }
+  return !!dofComposer;
+}
+window.addEventListener('resize', function(){ if(dofComposer){ dofComposer.setSize(window.innerWidth, window.innerHeight); } });
+function applyDof(){
+  if(!dofPass) return;
+  var u = dofPass.uniforms;
+  u.focus.value = photo.focus;
+  u.aperture.value = 0.0006 + 0.0034*photo.blur*photo.blur;   // zooming in makes the background melt more, like a real lens
+  u.maxblur.value = 0.004 + 0.012*photo.blur;
+}
+function focusAt(cx, cy){
+  v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1); ray.setFromCamera(v2, camera);
+  var targets = []; world.traverse(function(o){ if(o.isMesh && o.visible && o!==glassMesh && o!==glassGlow && !(o.material && o.material.transparent && !o.userData.note) && !(o.geometry && o.geometry.type==='SphereGeometry' && o.geometry.parameters.radius>100)) targets.push(o); });
+  var hit = ray.intersectObjects(targets, false)[0];
+  photo.focus = hit ? Math.max(0.3, hit.distance) : 40; applyDof();
+  var fr = $('focusRing'); fr.style.left = cx+'px'; fr.style.top = cy+'px'; fr.classList.remove('show'); void fr.offsetWidth; fr.classList.add('show');
+  clearTimeout(focusAt.t); focusAt.t = setTimeout(function(){ fr.classList.remove('show'); }, 900);
+}
+$('dofBtn').addEventListener('click', function(){
+  if(!photo.dof && !setupDof()){ toast('이 기기에서는 아웃포커스를 쓸 수 없어요'); return; }
+  photo.dof = !photo.dof; this.classList.toggle('on', photo.dof); this.setAttribute('aria-pressed', photo.dof);
+  $('blurBox').hidden = !photo.dof;
+  if(photo.dof){ focusAt(window.innerWidth/2, window.innerHeight/2); toast('초점 맞출 곳을 눌러요'); }
+});
+$('blurAmt').addEventListener('input', function(){ photo.blur = +this.value; $('blurV').textContent = Math.round(photo.blur*100)+'%'; applyDof(); });
 function setPhoto(on){
   photo.on = on; document.body.classList.toggle('photo', on);
+  if(on){ setZoom(1); setCamH(player.eye); }
   if(placing) setPlacing(false);
   if(on){ hideHint(); layoutFrame(); $('photoTip').style.opacity = 1; setTimeout(function(){ $('photoTip').style.opacity = 0; }, 3500); }
 }
@@ -1648,11 +1759,14 @@ function frame(){
   for(var pi=0; pi<noteMeshes.length; pi++){ var pm=noteMeshes[pi]; if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; } }
   var intro = $('intro').style.display!=='none';
   if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
-  camera.position.set(player.x, baseY(player.x,player.z)+player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd), player.z);
+  camera.position.set(player.x, baseY(player.x,player.z)+(photo.on ? photo.h : player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd)), player.z);
+  var fovT = photo.on ? 68/photo.zoom : 68;
+  if(Math.abs(camera.fov-fovT)>0.01){ camera.fov += (fovT-camera.fov)*Math.min(1,dt*12); if(Math.abs(camera.fov-fovT)<0.05) camera.fov=fovT; camera.updateProjectionMatrix(); }
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
-  if(hq && composer) composer.render(); else renderer.render(scene, camera);
+  if(photo.on && photo.dof && dofComposer) dofComposer.render();
+  else if(hq && composer) composer.render(); else renderer.render(scene, camera);
   if(photo.want) capturePhoto();
   // drop to light mode automatically if the phone struggles
   if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
