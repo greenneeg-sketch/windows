@@ -294,6 +294,7 @@
     <img id="cardImg" alt="공유할 포스트잇 이미지">
     <p class="muted" id="cardHint" style="text-align:center;margin:0">이미지를 길게 눌러 저장할 수 있어요</p>
     <div class="pillrow">
+      <button class="pill" id="cardSave" style="background:#F4F1EA;color:#1A1712">이미지 저장</button>
       <button class="pill" id="cardShare" style="background:#FFC94D;color:#1A1712">공유하기</button>
       <button class="pill" data-close="cardScrim" style="background:#2A2E3C;color:#F4F1EA">닫기</button>
     </div>
@@ -1589,27 +1590,32 @@ function makeCard(n){
   return cv;
 }
 function openCard(mesh){
-  var n = mesh.userData.note, cv = makeCard(n);
-  cv.toBlob(function(b){
-    cardBlob = b; if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
-    $('cardImg').src = cardUrl;
-    var file = new File([b], 'yurichang.png', {type:'image/png'});
-    var can = navigator.canShare && navigator.canShare({files:[file]});
-    $('cardShare').style.display = can ? '' : 'none';
-    $('cardHint').textContent = can ? '공유하기를 누르거나 이미지를 길게 눌러 저장해요' : '이미지를 길게 눌러 저장할 수 있어요';
-    closeModal('readerScrim'); openModal('cardScrim');
-  }, 'image/png');
+  var cv = makeCard(mesh.userData.note);
+  cv.toBlob(function(b){ if(!b) return; closeModal('readerScrim'); showImage(b, fileName('card','jpg')); }, 'image/jpeg', 0.93);
 }
 $('cardBtn').addEventListener('click', function(){ if(reading) openCard(reading); });
+var cardName = 'yurichang.png';
+function fileName(kind, ext){
+  var d = new Date(), p = function(n){ return (n<10?'0':'')+n; };
+  return 'yurichang-'+(cfg.slug||'window')+'-'+kind+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.'+ext;
+}
 function showImage(b, name){
-  cardBlob = b; if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
+  cardBlob = b; cardName = name || 'yurichang.jpg';
+  if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
-  var file = new File([b], name||'yurichang.jpg', {type:b.type});
-  var can = navigator.canShare && navigator.canShare({files:[file]});
+  var file = new File([b], cardName, {type:b.type});
+  var can = TOUCH && navigator.canShare && navigator.canShare({files:[file]});   // computers: save the file instead
   $('cardShare').style.display = can ? '' : 'none';
-  $('cardHint').textContent = can ? '공유하기를 누르거나 이미지를 길게 눌러 저장해요' : '이미지를 길게 눌러 저장할 수 있어요';
+  $('cardSave').style.background = can ? '#F4F1EA' : '#FFC94D';
+  $('cardHint').textContent = can ? '공유하기로 보내거나, 이미지 저장 또는 길게 눌러 저장해요' : (TOUCH ? '이미지 저장을 누르거나 이미지를 길게 눌러 저장해요' : '이미지 저장을 누르면 파일로 받아져요');
   openModal('cardScrim');
 }
+$('cardSave').addEventListener('click', function(){
+  if(!cardUrl) return;
+  var a = document.createElement('a'); a.href = cardUrl; a.download = cardName; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('이미지를 저장했어요');
+});
 
 // ---------- photo mode: compose your own shot of the window ----------
 var photo = { on:false, ratio:'story', mark:true, want:false, zoom:1, h:1.6 };
@@ -1725,11 +1731,11 @@ function capturePhoto(){
     x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W-56, H-48);
     x.shadowBlur = 0;
   }
-  out.toBlob(function(b){ if(b) showImage(b, 'yurichang-photo.jpg'); }, 'image/jpeg', 0.92);
+  out.toBlob(function(b){ if(b) showImage(b, fileName('photo','jpg')); }, 'image/jpeg', 0.92);
 }
 $('cardShare').addEventListener('click', function(){
   if(!cardBlob) return;
-  var file = new File([cardBlob], 'yurichang.png', {type:'image/png'});
+  var file = new File([cardBlob], cardName, {type:cardBlob.type});
   navigator.share({files:[file], title:'유리창', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
 });
 
