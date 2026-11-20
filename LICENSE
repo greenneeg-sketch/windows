@@ -19,6 +19,8 @@ copyright holder. No license is granted beyond what GitHub's Terms of Service al
 - 하늘 사진(HDRI): Poly Haven — CC0 1.0 (hdri/)
 - 나무껍질·잎·풀·바위 텍스처: Quaternius — CC0 1.0 (tex/)
 - 창틀 나무 텍스처: ambientCG — CC0 1.0 (tex/frame_*)
+- 동물 3D 모델(사슴, 수사슴, 여우, 말): Quaternius "Ultimate Animated Animals" — CC0 1.0 (models/animals/, 동작 일부만 남겨 압축)
+- 나비 날개 텍스처: Čestmír Dammer (Kelgar) "Butterfly" — CC0 1.0 (tex/butterfly.png, 색을 바꿔 노랑·흰나비로도 사용)
 - 3D 엔진: three.js r128 — MIT License (CDN에서 불러옴)
 - 글꼴: Nanum Pen Script, Dokdo, Gaegu, Jua, Gowun Batang, Gamja Flower, Hi Melody, Noto Sans KR
   — SIL Open Font License 1.1 (Google Fonts에서 불러옴)
