@@ -10,13 +10,14 @@
 <meta property="og:site_name" content="숨글">
 <meta property="og:title" content="숨글 — 창에 남기는 따뜻한 한 줄">
 <meta property="og:description" content="그날 마음에 맞는 창 앞에 서서, 사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.">
-<meta property="og:url" content="https://greenneeg-sketch.github.io/windows/">
-<meta property="og:image" content="https://greenneeg-sketch.github.io/windows/og.jpg">
+<meta property="og:url" content="https://sumgeul.com/">
+<link rel="canonical" href="https://sumgeul.com/">
+<meta property="og:image" content="https://sumgeul.com/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://greenneeg-sketch.github.io/windows/og.jpg">
+<meta name="twitter:image" content="https://sumgeul.com/og.jpg">
 <meta name="theme-color" content="#14161F">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -2329,7 +2330,7 @@ $('mineBtn').addEventListener('click', openMine);
 
 // ---------- heart push (home-screen app) ----------
 var VAPID = 'BG98GTvJWp528HKkKnSi4yw0DBi_BtGj8DvTpUA2FDFxhXbx3KyW1H7cDbi9EM1iHI5yN2I1BopjN8o9SJE2VV4';
-function pushable(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && /github\.io$/.test(location.hostname); }
+function pushable(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && /(^|\.)sumgeul\.com$|github\.io$/.test(location.hostname); }
 function standalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
 var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 function b64u(s){ var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')), a = new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i] = b.charCodeAt(i); return a; }
@@ -2478,7 +2479,7 @@ function frame(){
   requestAnimationFrame(frame);
 }
 
-if('serviceWorker' in navigator && /github\.io$|localhost$/.test(location.hostname)){
+if('serviceWorker' in navigator && /(^|\.)sumgeul\.com$|github\.io$|localhost$/.test(location.hostname)){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
 function boot(){ build(); frame(); loadNature(); if(linked) enterWorld(); fetchNews(); fetchToday(); }
