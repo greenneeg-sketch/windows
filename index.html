@@ -65,6 +65,10 @@
   #hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 74px);padding:9px 14px;border-radius:16px;font-size:13px;color:#F4F1EA;width:max-content;max-width:calc(100vw - 32px);text-align:center;line-height:1.4;transition:opacity .6s;pointer-events:none;opacity:0}
   #joy{position:fixed;left:calc(env(safe-area-inset-left) + 22px);bottom:calc(env(safe-area-inset-bottom) + 22px);width:124px;height:124px;border-radius:50%;touch-action:none}
   #acts{transition:bottom .4s}
+  .sns{display:flex;justify-content:space-between;gap:6px;width:100%;max-width:360px;margin:0 auto}
+  .sns button{flex:1;min-width:0;border:0;background:none;color:#E9E5DC;font-size:11.5px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0}
+  .sns i{width:50px;height:50px;border-radius:25px;display:flex;align-items:center;justify-content:center;font-style:normal;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  .sns button:active i{transform:scale(.93)}
   #petBtn{display:none;background:rgba(255,201,77,.92);color:#1A1712}
   #petBtn.on{display:flex}
   #bubble{position:fixed;left:0;top:0;z-index:6;pointer-events:none;max-width:210px;padding:10px 14px;border-radius:18px;background:rgba(255,253,247,.94);color:#2A2420;font-family:'Nanum Pen Script',cursive;font-size:22px;line-height:1.15;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .4s;transform:translate(-50%,-100%)}
@@ -313,7 +317,7 @@
     <div id="edWrap"><input id="inl" type="text" maxlength="20" enterkeyhint="done" aria-label="포스트잇에 넣을 글자" style="display:none"><canvas id="ed" aria-label="포스트잇 전체 면. 펜으로 아무 곳에나 쓰거나 글자를 원하는 위치에 놓을 수 있어요"></canvas></div>
     <div class="tools">
       <div class="seg" role="group" aria-label="도구">
-        <button id="toolPen" class="on">펜</button><button id="toolText">글자</button>
+        <button id="toolPen" class="on">펜</button><button id="toolErase">지우개</button><button id="toolText">글자</button>
       </div>
       <div id="inks" style="display:flex;gap:6px"></div>
       <div style="flex:1"></div>
@@ -383,6 +387,15 @@
     <img id="cardImg" alt="공유할 포스트잇 이미지">
     <p class="muted" id="cardHint" style="text-align:center;margin:0">이미지를 길게 눌러 저장할 수 있어요</p>
     <div class="pillrow">
+      <div class="sns" data-sns>
+      <button data-to="kakao"><i style="background:#FEE500;color:#3A1D1D"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4C7 4 3 7.1 3 11c0 2.4 1.6 4.5 4 5.8l-.9 3.2 3.6-2.4c.7.1 1.5.2 2.3.2 5 0 9-3.1 9-7S17 4 12 4z"/></svg></i>카카오톡</button>
+      <button data-to="insta"><i style="background:linear-gradient(45deg,#F9CE34,#EE2A7B 55%,#6228D7);color:#fff"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r=".9" fill="currentColor"/></svg></i>인스타</button>
+      <button data-to="threads"><i style="background:#101010;color:#fff;font:700 20px/1 'Noto Sans KR',sans-serif">@</i>스레드</button>
+      <button data-to="x"><i style="background:#101010;color:#fff;font:700 19px/1 'Noto Sans KR',sans-serif">X</i>X</button>
+      <button data-to="link"><i style="background:#3A3F50;color:#fff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></i>링크 복사</button>
+    </div>
+    </div>
+    <div class="pillrow">
       <button class="pill" id="cardSave" style="background:#F4F1EA;color:#1A1712">이미지 저장</button>
       <button class="pill" id="cardShare" style="background:#FFC94D;color:#1A1712">공유하기</button>
       <button class="pill" data-close="cardScrim" style="background:#2A2E3C;color:#F4F1EA">닫기</button>
@@ -398,6 +411,21 @@
     <div class="mine" id="mineList"></div>
     <p class="muted" id="mineEmpty" hidden>아직 붙인 포스트잇이 없어요. 마음에 드는 창 앞에서 한 장 붙여볼까요?</p>
     <p class="muted" style="margin:0;font-size:12px">이 기기에서 붙인 포스트잇만 보여요. 브라우저 데이터를 지우면 목록도 사라져요.</p>
+  </div>
+</div>
+
+<div id="shareScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="shareTitle">
+    <div class="row"><h2 id="shareTitle">이 창 공유하기</h2>
+      <button class="close" data-close="shareScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <p class="muted" id="shareLead">친구에게 이 창을 보내 보세요. 링크를 누르면 바로 이 창 앞에 서요.</p>
+    <div class="sns" data-sns>
+      <button data-to="kakao"><i style="background:#FEE500;color:#3A1D1D"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4C7 4 3 7.1 3 11c0 2.4 1.6 4.5 4 5.8l-.9 3.2 3.6-2.4c.7.1 1.5.2 2.3.2 5 0 9-3.1 9-7S17 4 12 4z"/></svg></i>카카오톡</button>
+      <button data-to="insta"><i style="background:linear-gradient(45deg,#F9CE34,#EE2A7B 55%,#6228D7);color:#fff"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17" cy="7" r=".9" fill="currentColor"/></svg></i>인스타</button>
+      <button data-to="threads"><i style="background:#101010;color:#fff;font:700 20px/1 'Noto Sans KR',sans-serif">@</i>스레드</button>
+      <button data-to="x"><i style="background:#101010;color:#fff;font:700 19px/1 'Noto Sans KR',sans-serif">X</i>X</button>
+      <button data-to="link"><i style="background:#3A3F50;color:#fff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></i>링크 복사</button>
+    </div>
   </div>
 </div>
 
@@ -2096,6 +2124,7 @@ function edDraw(){
     edX.fillText(ed.tool==='pen' ? '여기에 손가락으로 써보세요' : '글자를 넣을 곳을 눌러보세요', edS/2, edS/2);
     edX.restore();
   }
+  if(ed.tool==='erase' && ed.eraseP){ edX.save(); edX.strokeStyle='rgba(42,36,32,.55)'; edX.fillStyle='rgba(255,255,255,.35)'; edX.lineWidth=1.5; edX.setLineDash([4,3]); edX.beginPath(); edX.arc(ed.eraseP.x*edS, ed.eraseP.y*edS, ERASE_R*edS, 0, Math.PI*2); edX.fill(); edX.stroke(); edX.restore(); }
   edState();
 }
 function edState(){
@@ -2154,6 +2183,7 @@ edC.addEventListener('pointerdown', function(e){
   e.preventDefault(); try{ edC.setPointerCapture(e.pointerId); }catch(_){}
   var p = edPt(e);
   if(ed.inl){ inl.blur(); commitInline(); ed.down=null; return; }
+  if(ed.tool==='erase'){ ed.sel=null; ed.hist.push({erase:JSON.parse(JSON.stringify(ed.strokes))}); ed.erasing=true; eraseAt(p); return; }
   if(ed.tool==='pen'){
     ed.sel=null;
     ed.cur = {c:ed.ink, w:0.016, p:[+p.x.toFixed(3), +p.y.toFixed(3)]};
@@ -2167,6 +2197,7 @@ edC.addEventListener('pointerdown', function(e){
 });
 edC.addEventListener('pointermove', function(e){
   var p=edPt(e);
+  if(ed.tool==='erase'){ ed.eraseP = p; if(ed.erasing) eraseAt(p); else edDraw(); return; }
   if(ed.down && Math.hypot(p.x-ed.down.x, p.y-ed.down.y)>0.012) ed.down.moved=true;
   if(ed.cur){ var a=ed.cur.p, lx=a[a.length-2], ly=a[a.length-1];
     if(Math.hypot(p.x-lx,p.y-ly)>0.004){ a.push(+p.x.toFixed(3), +p.y.toFixed(3)); edDraw(); } }
@@ -2180,19 +2211,36 @@ function edUp(e){
     if(d.hit===null || d.hit===undefined){ if(ed.sel!==null && d.wasSel!==null){ ed.sel=null; edDraw(); } else openInline(d.x, d.y, null); }
     else if(d.wasSel===d.hit) openInline(0,0,d.hit);       // tap a selected text again to rewrite it
   }
+  if(ed.erasing){ ed.erasing=false; var top = ed.hist[ed.hist.length-1]; if(top && top.erase && JSON.stringify(top.erase)===JSON.stringify(ed.strokes)) ed.hist.pop(); ed.eraseP=null; edDraw(); }
   ed.cur=null; ed.drag=null; ed.rot=null; ed.down=null;
+}
+var ERASE_R = 0.034;
+function eraseAt(p){
+  ed.eraseP = p; var out = [], r2 = ERASE_R*ERASE_R, changed = false;
+  ed.strokes.forEach(function(st){
+    var a = st.p, seg = [];
+    function flush(){ if(seg.length >= 4 || (seg.length === 2 && a.length === 2)) out.push({c:st.c, w:st.w, p:seg}); seg = []; }
+    for(var i=0;i<a.length;i+=2){
+      var dx = a[i]-p.x, dy = a[i+1]-p.y;
+      if(dx*dx+dy*dy < r2){ changed = true; flush(); } else seg.push(a[i], a[i+1]);
+    }
+    flush();
+  });
+  if(changed) ed.strokes = out;
+  edDraw();
 }
 edC.addEventListener('pointerup', edUp); edC.addEventListener('pointercancel', function(){ ed.cur=null; ed.drag=null; ed.rot=null; ed.down=null; });
 function setTool(t){
   if(ed.inl){ inl.blur(); commitInline(); }
-  ed.tool=t; $('toolPen').classList.toggle('on',t==='pen'); $('toolText').classList.toggle('on',t==='text');
+  ed.tool=t; $('toolPen').classList.toggle('on',t==='pen'); $('toolText').classList.toggle('on',t==='text'); $('toolErase').classList.toggle('on',t==='erase'); ed.eraseP=null;
   $('textRow').classList.toggle('on', t==='text');
-  $('edHelp').textContent = t==='pen' ? '손가락으로 아무 곳에나 자유롭게 써요' : '글자를 넣을 곳을 누르세요. 놓인 글자는 끌어서 옮기고, 위쪽 동그라미로 돌려요. 한 번 더 누르면 고쳐 써요';
-  if(t==='pen') ed.sel=null;
+  $('edHelp').textContent = t==='erase' ? '지우고 싶은 손글씨 위를 문질러요' : t==='pen' ? '손가락으로 아무 곳에나 자유롭게 써요' : '글자를 넣을 곳을 누르세요. 놓인 글자는 끌어서 옮기고, 위쪽 동그라미로 돌려요. 한 번 더 누르면 고쳐 써요';
+  if(t==='pen' || t==='erase') ed.sel=null;
   edDraw();
 }
 $('toolPen').addEventListener('click', function(){ setTool('pen'); });
 $('toolText').addEventListener('click', function(){ setTool('text'); });
+$('toolErase').addEventListener('click', function(){ setTool('erase'); });
 function target(){ return ed.inl ? ed.inl : (ed.sel!==null ? ed.texts[ed.sel] : null); }
 Array.prototype.forEach.call(document.querySelectorAll('[data-size]'), function(b){
   b.addEventListener('pointerdown', function(e){ e.preventDefault(); });   // keep the keyboard open
@@ -2208,7 +2256,7 @@ FONTS.forEach(function(f){
   fontEl.appendChild(b);
 });
 function markFont(){ Array.prototype.forEach.call(fontEl.children,function(x){ x.classList.toggle('on', x.dataset.f===ed.font); }); }
-$('undo').addEventListener('click', function(){ var h=ed.hist.pop(); if(h==='s') ed.strokes.pop(); else if(h==='t') ed.texts.pop(); ed.sel=null; edDraw(); });
+$('undo').addEventListener('click', function(){ var h=ed.hist.pop(); if(h && h.erase) ed.strokes=h.erase; else if(h==='s') ed.strokes.pop(); else if(h==='t') ed.texts.pop(); ed.sel=null; edDraw(); });
 $('clear').addEventListener('click', function(){ ed.strokes=[]; ed.texts=[]; ed.hist=[]; ed.sel=null; edDraw(); });
 $('delSel').addEventListener('click', function(){
   if(ed.sel===null) return; ed.texts.splice(ed.sel,1);
@@ -2513,12 +2561,42 @@ function shareOrCopy(data, okMsg){
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){ toast(okMsg); }, function(){ toast(text); }); }
   else toast(text);
 }
+// ---------- share to SNS: 카카오톡 · 인스타그램 · 스레드 · X · 링크 ----------
+var shareCtx = { text:'', hash:'', blob:null, name:'sumgeul.jpg' }, ogBlob = null;
+function shareLink(kind){ return location.origin + location.pathname + '?from=' + kind + '#' + shareCtx.hash; }
+function copyText(t, msg){
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function(){ if(msg) toast(msg); }, function(){ toast(t); });
+  else toast(t);
+}
+function saveBlob(b, name){ var u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(u); }, 4000); }
+function shareTo(kind){
+  bump('share_'+kind); var link = shareLink(kind), text = shareCtx.text, enc = encodeURIComponent;
+  if(kind==='x'){ window.open('https://x.com/intent/tweet?text='+enc(text)+'&url='+enc(link), '_blank', 'noopener'); return; }
+  if(kind==='threads'){ window.open('https://www.threads.com/intent/post?text='+enc(text)+'&url='+enc(link), '_blank', 'noopener'); return; }
+  if(kind==='link'){ copyText(link, '링크를 복사했어요'); return; }
+  if(kind==='kakao'){
+    if(TOUCH && navigator.share){ navigator.share({title:'숨글', text:text, url:link}).catch(function(){}); return; }
+    copyText(link, '링크를 복사했어요. 카카오톡 대화창에 붙여 넣어 주세요'); return;
+  }
+  if(kind==='insta'){
+    // Instagram has no web share link: hand over the image, keep the link in the clipboard for a link sticker or the bio
+    var b = shareCtx.blob || ogBlob; copyText(shareLink('insta'), null);
+    if(b){ var f = new File([b], shareCtx.name, {type:b.type||'image/jpeg'});
+      if(TOUCH && navigator.canShare && navigator.canShare({files:[f]})){ navigator.share({files:[f]}).catch(function(){}); toast('인스타그램을 골라 주세요 · 링크는 복사해 뒀어요'); return; }
+      saveBlob(b, shareCtx.name); toast('이미지를 저장했어요. 인스타그램에 올리고 링크 스티커에 붙여 넣어 주세요'); return; }
+    toast('링크를 복사했어요. 인스타그램 스토리 링크 스티커에 붙여 넣어 주세요');
+  }
+}
+Array.prototype.forEach.call(document.querySelectorAll('[data-sns] [data-to]'), function(b){ b.addEventListener('click', function(){ shareTo(b.getAttribute('data-to')); }); });
 $('shareWin').addEventListener('click', function(){
-  shareOrCopy({ title:'숨글 · '+cfg.name+' 창', text:cfg.name+' 창에 포스트잇 한 장 붙이고 가요', url:pageUrl()+'#'+cfg.slug }, '링크를 복사했어요');
+  shareCtx = { text:cfg.name+' 창에 따뜻한 한 줄 붙이고 가요 🪟', hash:cfg.slug, blob:null, name:'sumgeul-'+cfg.slug+'.jpg' };
+  $('shareTitle').textContent = cfg.name+' 창 공유하기';
+  if(!ogBlob) fetch('og.jpg').then(function(r){ return r.ok ? r.blob() : null; }).then(function(b){ ogBlob = b; }, function(){});
+  openModal('shareScrim');
 });
 
 // ---------- story image of one post-it (1080 x 1920) ----------
-var cardBlob = null, cardUrl = null;
+var cardBlob = null, cardUrl = null, cardHash = '';
 function makeCard(n){
   var W=1080, H=1920, cv=document.createElement('canvas'); cv.width=W; cv.height=H; var x=cv.getContext('2d');
   // calm backdrop: the window's sky, softened and darkened toward the edges
@@ -2558,6 +2636,7 @@ function makeCard(n){
   return cv;
 }
 function openCard(mesh){
+  var nn = mesh.userData.note; cardHash = cfg.slug + (nn.server ? '/'+nn.id : '');
   var cv = makeCard(mesh.userData.note);
   cv.toBlob(function(b){ if(!b) return; closeModal('readerScrim'); showImage(b, fileName('card','jpg')); }, 'image/jpeg', 0.93);
 }
@@ -2565,10 +2644,11 @@ $('cardBtn').addEventListener('click', function(){ if(reading) openCard(reading)
 var cardName = 'yurichang.png';
 function fileName(kind, ext){
   var d = new Date(), p = function(n){ return (n<10?'0':'')+n; };
-  return 'yurichang-'+(cfg.slug||'window')+'-'+kind+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.'+ext;
+  return 'sumgeul-'+(cfg.slug||'window')+'-'+kind+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.'+ext;
 }
 function showImage(b, name){
   cardBlob = b; cardName = name || 'yurichang.jpg';
+  shareCtx = { text:'누군가 '+cfg.name+' 창에 남긴 한 줄 🪟', hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
   if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
   var file = new File([b], cardName, {type:b.type});
