@@ -1709,7 +1709,8 @@ function drawItems(x, n, S, sel){
     if(n.hide===i) return;
     x.save(); x.translate(tx.x*S, tx.y*S); x.rotate(tx.rot||0);
     x.font = fontCss(tx, S); x.fillStyle = tx.c; x.textAlign='center'; x.textBaseline='middle';
-    x.fillText(tx.t, 0, 0);
+    var tw = x.measureText(tx.t).width, room = S*0.94;
+    if(tw > room){ x.save(); x.scale(room/tw, 1); x.fillText(tx.t, 0, 0); x.restore(); } else x.fillText(tx.t, 0, 0);
     if(tx.bad){ var bw=x.measureText(tx.t).width, by=tx.s*S*0.42; x.strokeStyle='#D7263D'; x.lineWidth=2.5; x.beginPath(); for(var wx=-bw/2; wx<=bw/2; wx+=6){ x.lineTo(wx, by+((Math.round((wx+bw/2)/6))%2?3:-3)); } x.stroke(); }
     if(sel===i){
       var w=x.measureText(tx.t).width, h=tx.s*S*1.25, hw=w/2+10, hh=h/2;
@@ -1748,8 +1749,7 @@ function noteTexture(n){
   var tex = new THREE.CanvasTexture(cv);
   // Korean web fonts arrive in slices per character range: make sure the glyphs of this note are in, then redraw
   if(document.fonts && document.fonts.load && n.texts && n.texts.length){
-    var need = n.texts.filter(function(t){ try{ return !document.fonts.check(fontCss(t, S), t.t); }catch(_){ return false; } });
-    if(need.length) Promise.all(need.map(function(t){ return document.fonts.load(fontCss(t, S), t.t).catch(function(){}); })).then(function(){
+    Promise.all(n.texts.map(function(t){ return document.fonts.load(fontCss(t, S), t.t).catch(function(){}); })).then(function(){
       renderNote(cv.getContext('2d'), n, S, {deco:true}); tex.needsUpdate = true; });
   } tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4; return tex;
 }
@@ -1794,6 +1794,10 @@ function trySpot(cx, cy, quiet){
   pending = { x:0, y:1.5, spot:h.spot, kind:h.kind }; if(placing) setPlacing(false); openComposer(null);
   return true;
 }
+var refreshT = null;
+function refreshAllNotes(){ clearTimeout(refreshT); refreshT = setTimeout(function(){ noteMeshes.forEach(function(m){ try{ refreshNote(m); }catch(_){} }); }, 250); }
+if(document.fonts && document.fonts.addEventListener){ document.fonts.addEventListener('loadingdone', refreshAllNotes); }
+window.addEventListener('load', refreshAllNotes);
 function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); var tx=noteTexture(n); mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
 function slotsFor(seed){
   var R = rng(seed), out = [];
