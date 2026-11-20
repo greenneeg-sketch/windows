@@ -94,3 +94,6 @@
 - 상단 포스트잇 아이콘: 이 기기에서 붙인 포스트잇 모아보기(창·공감·남은 날), 누르면 그 창에서 바로 열림. 새 공감이 있으면 배지.
 - 링크 `#창/<포스트잇 id>` 로 특정 포스트잇 바로 열기.
 - 공감 웹 푸시(홈 화면 앱, iOS 16.4+): push_subs 테이블, save_push/delete_push, heart_note가 30분에 한 번 묶어서 Edge Function `push-heart` 호출(공유 비밀값). VAPID 키는 yc_settings.
+
+## 저작권
+© 2026 숨글. All rights reserved. 코드·디자인·로고의 무단 복제와 사용을 금지합니다. 자세한 내용과 제3자 자료 라이선스는 [LICENSE](LICENSE)를 보세요.
