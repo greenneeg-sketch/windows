@@ -84,6 +84,9 @@
       <div><div class="bars" id="bars"></div><div class="blab" id="blab"></div>
         <p class="muted" style="margin:6px 0 0;font-size:12px"><span style="color:#FFC94D">■</span> 처음 온 사람 <span style="color:#7FB4FF">■</span> 다시 온 사람 · 최근 14일</p></div>
       <div class="funnel" id="wins"></div>
+      <h3>어디서 왔나요 · 최근 7일</h3>
+      <div class="funnel" id="srcs"></div>
+      <p class="muted" style="margin:0;font-size:12px">링크 끝에 <code>?from=insta</code> 처럼 붙이면 그 이름으로 셉니다. 붙이지 않은 링크는 들어온 사이트로 짐작해요.</p>
     </section>
     <details class="alert" id="alertBox"><summary>📱 휴대폰으로 신고 알림 받기</summary>
       <ol style="margin:10px 0 0;padding-left:20px">
@@ -160,6 +163,9 @@ function loadUse(){
     rows($('funnel'), [['방문',V],['포스트잇 읽음',w.read||0,pct(w.read,V)],['쓰기 시작',w.composed||0,pct(w.composed,V)],['붙임',w.posted||0,pct(w.posted,V)]], V);
     var wins = Object.keys(m.windows||{}).map(function(k){ return [WINDOWS[k.slice(2)]||k.slice(2), m.windows[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
     rows($('wins'), wins, wins.length?wins[0][1]:0);
+    var SRCN = { insta:'인스타그램', threads:'스레드', x:'X', naver:'네이버', blog:'블로그', kakao:'카카오톡', daum:'다음', google:'구글', facebook:'페이스북', youtube:'유튜브', etc:'기타 사이트' };
+    var srcs = (m.sources||[]).map(function(x){ return [SRCN[x.s]||x.s, x.n, '붙임 '+x.posted]; });
+    rows($('srcs'), srcs.length ? srcs : [['아직 기록 없음',0]], srcs.length ? srcs[0][1] : 0);
     var mx = Math.max.apply(null, days.map(function(d){ return d.visitors; }).concat([1]));
     $('bars').innerHTML=''; $('blab').innerHTML='';
     days.forEach(function(d){ var c=document.createElement('div'); c.title=d.day+' · '+d.visitors+'명';

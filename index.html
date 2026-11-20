@@ -1672,6 +1672,20 @@ var use = (function(){
   var u = store.get(k); if(!u || u.d!==d) u = {d:d, c:{visits:1}}; return {k:k, u:u, dirty:true};
 })();
 function bump(key, n){ use.u.c[key] = Math.min(500, (use.u.c[key]||0) + (n||1)); use.dirty = true; store.set(use.k, use.u); }
+// where today's visit came from: ?from=insta links, or the referring site. Counted once per day.
+(function(){
+  function mark(src){ if(!src) return; use.u.c['src_'+src] = 1; use.dirty = true; store.set(use.k, use.u); }
+  try{
+    var q = new URLSearchParams(location.search), s = (q.get('from')||q.get('utm_source')||'').toLowerCase().replace(/[^a-z]/g,'').slice(0,12);
+    if(s){ mark(s); q.delete('from'); q.delete('utm_source'); q.delete('utm_medium'); q.delete('utm_campaign');
+      history.replaceState(null, '', location.pathname + (q.toString() ? '?'+q.toString() : '') + location.hash); return; }
+    if(!document.referrer) return;
+    var h = new URL(document.referrer).hostname; if(h === location.hostname) return;
+    var map = [['instagram','insta'],['threads','threads'],['t.co','x'],['twitter','x'],['x.com','x'],['naver','naver'],['kakao','kakao'],['daum','daum'],['google','google'],['facebook','facebook'],['youtube','youtube']], src = 'etc';
+    for(var i=0;i<map.length;i++) if(h.indexOf(map[i][0])>=0){ src = map[i][1]; break; }
+    mark(src);
+  }catch(_){}
+})();
 function flushUse(){
   if(!use.dirty || !SB_URL || /^(localhost|127\.)/.test(location.hostname)) return; use.dirty = false;
   var pwa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
