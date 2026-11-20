@@ -36,13 +36,21 @@
   button{font-family:inherit;cursor:pointer}
   button:focus-visible,input:focus-visible{outline:2px solid #FFC94D;outline-offset:2px}
   .glass{background:rgba(20,22,32,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12)}
-  #top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 14px) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
+  #top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 14px) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none;z-index:5}
   #top>*{pointer-events:auto}
   #topR{display:flex;gap:8px}
   #loc{min-width:0;flex-shrink:1}#loc span{min-width:0;overflow:hidden}#loc b,#loc small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #topR{flex-shrink:0}
   @media (max-width:400px){ #top{gap:6px;padding-left:10px;padding-right:10px} #topR{gap:5px} #topR .iconbtn{width:40px;height:40px} #loc{padding:8px 10px;gap:6px} #loc>svg:last-child{display:none} }
   #mineBtn{position:relative}
+  #topR{position:relative}
+  #menuPanel{position:absolute;right:0;top:54px;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:18px;min-width:190px;pointer-events:auto;z-index:8}
+  #menuPanel[hidden]{display:none}
+  #menuPanel .iconbtn{width:100%;height:46px;border-radius:12px;justify-content:flex-start;gap:12px;padding:0 12px;background:transparent;border:0;box-shadow:none;font-size:14.5px;font-weight:600}
+  #menuPanel .iconbtn:active{background:rgba(255,255,255,.1)}
+  #menuPanel .hdb{font-style:normal;font-size:11px;font-weight:800;border:1.5px solid currentColor;border-radius:5px;padding:1px 3px;min-width:22px;text-align:center}
+  #menuPanel .ml{white-space:nowrap}
+  .iconbtn .ml{display:none}#menuPanel .ml{display:inline}
   #mineBtn i{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#FF9EC4;color:#3A1424;font-size:10px;font-style:normal;line-height:16px;display:none}
   #mineBtn.dot i{display:block}
   .mine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -65,6 +73,11 @@
   #hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 74px);padding:9px 14px;border-radius:16px;font-size:13px;color:#F4F1EA;width:max-content;max-width:calc(100vw - 32px);text-align:center;line-height:1.4;transition:opacity .6s;pointer-events:none;opacity:0}
   #joy{position:fixed;left:calc(env(safe-area-inset-left) + 22px);bottom:calc(env(safe-area-inset-bottom) + 22px);width:124px;height:124px;border-radius:50%;touch-action:none}
   #acts{transition:bottom .4s}
+  /* 감상 모드: controls fade away until you touch the screen */
+  #joy,#jumpBtn,#sitBtn{transition:opacity .6s}
+  body.calm #joy{opacity:0}
+  body.calm #jumpBtn,body.calm #sitBtn{opacity:0;pointer-events:none}
+  @media (hover:hover) and (pointer:fine){ #joy{display:none} }
   .sns{display:flex;justify-content:space-between;gap:6px;width:100%;max-width:360px;margin:0 auto}
   .sns button{flex:1;min-width:0;border:0;background:none;color:#E9E5DC;font-size:11.5px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px;padding:0}
   .sns i{width:50px;height:50px;border-radius:25px;display:flex;align-items:center;justify-content:center;font-style:normal;box-shadow:0 4px 12px rgba(0,0,0,.25)}
@@ -137,6 +150,13 @@
   .primary{height:54px;border:0;border-radius:16px;background:#FFC94D;color:#1A1712;font-size:16px;font-weight:700;flex-shrink:0}
   .primary:disabled{opacity:.5}
   #readerScrim{align-items:center}
+  #readerWrap{position:relative;display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+  .rnav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;border:0;border-radius:14px;background:rgba(20,22,32,.55);color:#F4F1EA;font-size:34px;line-height:1;z-index:2}
+  #rPrev{left:-26px}#rNext{right:-26px}.rnav[hidden]{display:none}
+  #rCount{font-size:12.5px;color:#C9C3B6;margin-top:-8px}#rCount:empty{display:none}
+  #browse{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);z-index:4;display:none;align-items:center;gap:8px;padding:8px 16px;border-radius:999px;border:0;color:#F4F1EA;font-size:13.5px;font-weight:600;white-space:nowrap}
+  #browse.on{display:flex}#browse b{color:#FFC94D}
+  body.intro #browse,body.photo #browse{display:none!important}
   #readerCard{display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px}
   #readerNote{width:min(80vw,320px);aspect-ratio:1;box-shadow:0 18px 40px rgba(0,0,0,.45);transform:rotate(-2deg)}
   #readerNote canvas{width:100%;height:100%;display:block}
@@ -249,20 +269,25 @@
     <span><b id="locName">수고했어 창</b><small id="locSub">노을 호숫가</small></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9C4B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:2px"><path d="M6 9l6 6 6-6"/></svg>
   </button>
   <div id="topR">
-    <button id="photoBtn" class="glass iconbtn" aria-label="사진 찍기"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></button>
     <button id="mineBtn" class="glass iconbtn" aria-label="내가 붙인 포스트잇"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/></svg><i id="mineDot"></i></button>
     <button id="shareWin" class="glass iconbtn" aria-label="이 창 링크 공유하기"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></button>
-    <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
+    <button id="menuBtn" class="glass iconbtn" aria-label="메뉴" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+    <div id="menuPanel" class="glass" hidden>
+    <button id="photoBtn" class="glass iconbtn" aria-label="사진 찍기"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span class="ml">사진 찍기</span></button>
+    <button id="hq" class="glass iconbtn" aria-label="고화질 끄기"><em class="hdb">HD</em><span class="ml">고화질</span></button>
     <button id="snd" class="glass iconbtn" aria-label="소리 끄기">
       <svg id="sndOn" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
       <svg id="sndOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg>
-    </button>
+    <span class="ml">소리</span></button>
+      <button id="menuCare" class="iconbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="ml">도움이 필요할 때</span></button>
+    </div>
   </div>
 </div>
 
 <div id="hint" class="glass"></div>
 <div id="cross"></div>
 <div id="joy" class="glass" aria-hidden="true"><div id="knob"></div></div>
+<button id="browse" class="glass" aria-label="이 창의 포스트잇 넘겨보기"></button>
 <div id="bubble" aria-live="polite"></div>
 <div id="stam" aria-hidden="true"><i></i></div>
 <div id="acts">
@@ -370,7 +395,12 @@
 
 <div id="readerScrim" class="scrim">
   <div id="readerCard" role="dialog" aria-label="포스트잇 읽기">
-    <div id="readerNote"><canvas id="readerCanvas"></canvas></div>
+    <div id="readerWrap">
+      <button class="rnav" id="rPrev" aria-label="이전 포스트잇">‹</button>
+      <div id="readerNote"><canvas id="readerCanvas"></canvas></div>
+      <button class="rnav" id="rNext" aria-label="다음 포스트잇">›</button>
+    </div>
+    <div id="rCount"></div>
     <div id="readerMeta"></div>
     <div id="careLine" hidden>이 글이 마음에 걸린다면 하트로 곁에 있어 주세요.<button id="careFromReader">도움 안내</button></div>
     <div class="pillrow">
@@ -514,7 +544,7 @@ var REGIONS = [
    fog:'#26315a', fogN:30, fogF:260, ground:'#3b5040', sand:'#b8a27c', grassBase:'#24352a', grassTip:'#55704e', flower:'#e8eaf6', flowerP:0.02,
    water:'sea', deep:'#0f2244', shallow:'#5b6ea6', trees:22, treeKind:'pine', motes:'firefly', lamp:true, bloom:0.9,
    cut:1.5, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
-   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, hor:[0.221,0.199,0.179], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
+   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, skyTint:[0.7,0.78,1.05], hor:[0.06,0.08,0.15], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
    notes:[]},
   {id:'gangneung', slug:'vow', name:'다짐하는', scene:'새벽 안개 숲', about:'새 출발, 결심, 내일의 나에게',
    sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
@@ -535,7 +565,7 @@ var REGIONS = [
    fog:'#26315a', fogN:20, fogF:200, ground:'#dfe7f2', grassBase:'#cfd8e6', grassTip:'#ffffff', flower:'#ffffff', flowerP:0,
    water:'none', trees:30, treeKind:'pine', motes:'none', lamp:true, bloom:1.0, noGrass:true, snow:1600, lights:true,
    cut:1.5, flora:{pine:42, pineTint:'#dfe9f2', rocks:6, rockTint:'#e8eef6'},
-   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.25, hor:[0.221,0.199,0.179], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.45, lightCol:[0.75,0.82,1], lightElev:35, exp:0.95, grassI:1.4, fogN2:14, fogF2:120,
+   hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.1, skyTint:[0.62,0.72,1.08], hor:[0.07,0.09,0.17], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.45, lightCol:[0.75,0.82,1], lightElev:35, exp:0.9, grassI:1.4, fogN2:14, fogF2:120,
    notes:[]}
 ];
 
@@ -576,7 +606,7 @@ var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera(68, window.innerWidth/window.innerHeight, 0.05, 900);
 camera.rotation.order = 'YXZ';
 var BENCH = {x:0, z:2.35};
-var player = { x:0, z:5.2, yaw:0, pitch:0.04, vx:0, vz:0, bob:0, jy:0, vy:0, eye:1.6, crouch:false, sit:false };
+var player = { x:0, z:4.0, yaw:0, pitch:0.07, vx:0, vz:0, bob:0, jy:0, vy:0, eye:1.6, crouch:false, sit:false };
 
 var hasPost = !!(THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass);
 var hq = store.get('yurichang-hq'); if(hq===null) hq = true;
@@ -644,7 +674,8 @@ function computeGrade(){
   var fixedNight = cfg.id==='busan' || cfg.id==='newyear';          // these windows are night scenes by design
   var g = JSON.parse(JSON.stringify(fixedNight ? GRADES.day : GRADES[curPhase]));
   g.fixedNight = fixedNight;
-  if(wx()==='rain' || wx()==='snow'){                               // overcast: greyer sky, flatter light, closer fog
+  if(cfg.skyTint) g.sky = [g.sky[0]*cfg.skyTint[0], g.sky[1]*cfg.skyTint[1], g.sky[2]*cfg.skyTint[2]];
+  if(!fixedNight && (wx()==='rain' || wx()==='snow')){              // overcast: greyer sky, flatter light, closer fog
     var k = wx()==='rain' ? [0.52,0.56,0.62] : [0.72,0.76,0.84];
     g.sky = [g.sky[0]*k[0], g.sky[1]*k[1], g.sky[2]*k[2]]; g.light *= 0.4; g.hemi *= 0.85; g.fog = 0.6;
   }
@@ -766,7 +797,7 @@ function makeGrass(){
   uniformsList.push(u);
   var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.DoubleSide,
     vertexShader:'attribute float aF; uniform float t; varying float vH; varying float vF; varying float vD; void main(){ vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); float h=uv.y; float s=sin(t*1.5+w.x*.35+w.z*.27)*.55+sin(t*2.4+w.x*.9)*.2; w.x+=s*.13*h*h; w.z+=s*.07*h*h; vH=h; vF=aF; vD=length(w.xyz-cameraPosition); gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:'uniform vec3 base,tip,flower,lightC; '+fogPars+' varying float vH; varying float vF; varying float vD; void main(){ vec3 c=mix(base*0.55,tip,vH); if(vF>.5 && vH>.74) c=flower; c*=lightC; float f=smoothstep(fogN,fogF,vD); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+    fragmentShader:'uniform vec3 base,tip,flower,lightC; '+fogPars+' varying float vH; varying float vF; varying float vD; void main(){ vec3 c=mix(base*0.72,tip,vH); if(vF>.5 && vH>.74) c=flower; c*=lightC; float f=smoothstep(fogN,fogF,vD); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
   var mesh = new THREE.InstancedMesh(blade, m, N);
   var R = rng(hashStr(cfg.id)), d = new THREE.Object3D(), aF = new Float32Array(N), n = 0, tries = 0;
   while(n<N && tries<N*4){
@@ -775,7 +806,8 @@ function makeGrass(){
     if(Math.abs(x)<3.3 && z>-1.6 && z<3.2) continue;
     var y = groundH(x,z); if(y<WATER+0.2) continue;
     d.position.set(x,y,z); d.rotation.set(0,R()*Math.PI,0);
-    var s = 0.7+R()*0.7; var fl = R()<cfg.flowerP;
+    var near = r < 9 ? 0.45 + 0.55*(r-2)/7 : 1;          // shorter, softer blades right around the deck
+    var s = (0.7+R()*0.7)*near; var fl = R()<cfg.flowerP;
     d.scale.set(s, fl? s*1.25 : s, s); d.updateMatrix();
     mesh.setMatrixAt(n, d.matrix); aF[n] = fl?1:0; n++;
   }
@@ -1563,7 +1595,7 @@ function updatePet(dt){
   }
 }
 function updateCritters(dt, T){
-  updatePet(dt);
+  updatePet(dt); updateBrowse();
   var cc = CRITTERS[cfg.id] || {};
   if(cc.birds && critterGroup && curPhase!=='night'){ flyT -= dt; if(flyT < 0){ flyover(critterGroup, Math.random, 1 + Math.floor(Math.random()*cc.birds[2])); flyT = cc.birds[0] + Math.random()*(cc.birds[1]-cc.birds[0]); } }
   for(var i=critters.length-1;i>=0;i--){ if(critters[i].update(dt, T) === false) critters.splice(i,1); }
@@ -1813,7 +1845,7 @@ function noteTexture(n){
 }
 function addNoteMesh(n, idx){
   var tx = noteTexture(n);
-  var m = new THREE.Mesh(new THREE.PlaneGeometry(0.21,0.21), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
+  var m = new THREE.Mesh(new THREE.PlaneGeometry(0.25,0.25), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
   var loose = Math.max(0, (n.age-0.8)/0.2);
   m.position.set(n.x, n.y - loose*0.012, 0.007+idx*0.0004); m.rotation.z = n.r + loose*0.18*(n.r>=0?1:-1); m.rotation.x = -loose*0.12;
   if(n.spot){
@@ -2145,6 +2177,9 @@ function fromServer(row){
 var syncSig = '', syncing = false;
 function updateEmpty(){
   var empty = !noteMeshes.some(function(m){ return !m.userData.note.spot; }) && !placing;
+  var seenK = 'sumgeul-empty-'+cfg.id, seenN = store.get(seenK) || 0;
+  if(empty && $('emptyHint').hidden){ if(seenN >= 2) empty = false; else { store.set(seenK, seenN+1); clearTimeout(updateEmpty.t); updateEmpty.t = setTimeout(function(){ $('emptyHint').hidden = true; $('acts').style.bottom = ''; }, 9000); } }
+  else if(empty && seenN > 2) empty = false;
   $('emptyHint').hidden = !empty;
   if(empty) $('acts').style.bottom = 'calc(env(safe-area-inset-bottom) + 176px)'; else $('acts').style.bottom = '';
 }
@@ -2430,9 +2465,32 @@ function drawReader(){
   renderNote(x, n, S, {deco:false});
   if(n.age>0.6){ x.fillStyle='rgba(255,255,255,.3)'; x.fillRect(0,0,S,S); }
 }
+// ---------- browse: flip through this window's post-its without walking ----------
+function browseList(){ return noteMeshes.filter(function(m){ return m.visible; }).slice().reverse(); }
+function readerStep(d){
+  var L = browseList(), i = L.indexOf(reading); if(i < 0 || L.length < 2) return;
+  var j = (i + d + L.length) % L.length; bump('flips'); openReader(L[j]);
+  var rn = $('readerNote'); rn.style.transition = 'none'; rn.style.transform = 'translateX('+(d*40)+'px) rotate(-2deg)'; rn.style.opacity = 0.3;
+  requestAnimationFrame(function(){ rn.style.transition = 'transform .25s, opacity .25s'; rn.style.transform = 'rotate(-2deg)'; rn.style.opacity = 1; });
+}
+$('rPrev').addEventListener('click', function(){ readerStep(-1); });
+$('rNext').addEventListener('click', function(){ readerStep(1); });
+(function(){ var sx = null, sy = 0;
+  $('readerWrap').addEventListener('pointerdown', function(e){ sx = e.clientX; sy = e.clientY; });
+  $('readerWrap').addEventListener('pointerup', function(e){ if(sx===null) return; var dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)*1.3) readerStep(dx < 0 ? 1 : -1); });
+})();
+window.addEventListener('keydown', function(e){ if(!$('readerScrim').classList.contains('on')) return; if(e.key==='ArrowRight') readerStep(1); else if(e.key==='ArrowLeft') readerStep(-1); });
+function updateBrowse(){
+  var n = noteMeshes.filter(function(m){ return m.visible && !m.userData.note.spot; }).length, b = $('browse');
+  b.classList.toggle('on', n > 0 && !modal && !placing);
+  if(n > 0){ var t = '포스트잇 <b>'+n+'장</b> · 넘겨보기'; if(b.innerHTML !== t) b.innerHTML = t; }
+}
+$('browse').addEventListener('click', function(){ var L = browseList(); if(L.length){ bump('browse_open'); openReader(L[0]); } });
 function openReader(mesh){
   reading = mesh; var n = mesh.userData.note;
   openModal('readerScrim'); bump('reads');
+  var BL = browseList(), bi = BL.indexOf(mesh);
+  $('rPrev').hidden = $('rNext').hidden = BL.length < 2; $('rCount').textContent = BL.length > 1 && bi >= 0 ? (bi+1)+' / '+BL.length : '';
   requestAnimationFrame(drawReader);
   var life = n.left===undefined ? '' : (n.left<=3 ? '곧 떨어져요 · ' : n.left+'일 뒤에 떨어져요 · ');
   $('careLine').hidden = n.mine || !isCrisis(n.texts);
@@ -2493,7 +2551,7 @@ function renderRegions(){
   });
 }
 $('loc').addEventListener('click', function(){ renderRegions(); openModal('regionScrim'); });
-function goRegion(r){ bump('w_'+r.id); cfg=r; setHash(); player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창 앞에 섰어요'); }
+function goRegion(r){ bump('w_'+r.id); cfg=r; setHash(); player.x=0; player.z=4.0; player.yaw=0; player.pitch=0.07; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창 앞에 섰어요'); }
 
 // ---------- graphics quality ----------
 function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute('aria-label', hq?'고화질 끄기':'고화질 켜기'); }
@@ -2922,6 +2980,11 @@ function openMine(){
   }, function(){ $('mineEmpty').hidden = false; $('mineEmpty').textContent = '인터넷에 연결되면 볼 수 있어요'; });
 }
 $('mineBtn').addEventListener('click', openMine);
+function menuOpen(on){ $('menuPanel').hidden = !on; $('menuBtn').setAttribute('aria-expanded', on ? 'true' : 'false'); }
+$('menuBtn').addEventListener('click', function(e){ e.stopPropagation(); menuOpen($('menuPanel').hidden); });
+$('menuPanel').addEventListener('click', function(e){ if(e.target.closest('button') && e.target.closest('button').id !== 'snd' && e.target.closest('button').id !== 'hq') menuOpen(false); });
+document.addEventListener('pointerdown', function(e){ if(!$('menuPanel').hidden && !e.target.closest('#topR')) menuOpen(false); }, true);
+$('menuCare').addEventListener('click', function(){ openCare(); });
 
 // ---------- heart push (home-screen app) ----------
 var VAPID = 'BG98GTvJWp528HKkKnSi4yw0DBi_BtGj8DvTpUA2FDFxhXbx3KyW1H7cDbi9EM1iHI5yN2I1BopjN8o9SJE2VV4';
@@ -3010,6 +3073,10 @@ REGIONS.forEach(function(r, i){
 // ---------- loop ----------
 window.addEventListener('resize', function(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); if(composer) composer.setSize(window.innerWidth,window.innerHeight); });
 var runSt = { st:1, hold:0, rest:0, tired:false, dir:null };
+var calmAt = performance.now() + 4000;
+function wake(){ calmAt = performance.now() + 5000; document.body.classList.remove('calm'); }
+window.addEventListener('pointerdown', function(e){ if(!modal) wake(); }, true);
+window.addEventListener('keydown', function(){ wake(); }, true);
 var clock = new THREE.Clock(), introYaw = 0, perf = {n:0, sum:0, checked:false};
 function frame(){
   var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
@@ -3030,6 +3097,7 @@ function frame(){
   if(go){ runSt.st -= dt/3.2; runSt.rest = 0; if(runSt.st <= 0){ runSt.st = 0; runSt.tired = true; go = false; } }
   else { runSt.rest += dt; if(runSt.rest > 0.8) runSt.st = Math.min(1, runSt.st + dt/(len > 0.1 ? 6 : 3.5)); if(runSt.tired && runSt.st > 0.55) runSt.tired = false; }
   player.running = go;
+  if(!modal && joy.id===null && look.id===null && len < 0.05){ if(performance.now() > calmAt) document.body.classList.add('calm'); } else if(len >= 0.05) calmAt = performance.now() + 5000;
   var stEl = $('stam'); stEl.style.opacity = (go || runSt.st < 0.995) ? 1 : 0; stEl.firstChild.style.transform = 'scaleX('+runSt.st.toFixed(3)+')'; stEl.classList.toggle('tired', runSt.tired);
   var sp = player.crouch ? 1.1 : go ? 4.4 : runSt.tired ? 1.8 : 2.3, sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
   var tvx = (-sy*f + cy*s)*sp, tvz = (-cy*f - sy*s)*sp;
@@ -3056,7 +3124,7 @@ function frame(){
   var near = Math.abs(player.z) < 3.2 && Math.abs(player.x) < 3 && !photo.on ? 1 - sm(1.2, 3.2, Math.abs(player.z)) : 0;
   nearK += (near - nearK) * Math.min(1, dt*4);
   for(var pi=0; pi<noteMeshes.length; pi++){
-    var pm=noteMeshes[pi], base = pm.userData.note.spot ? 1 : 1 + 0.22*nearK;
+    var pm=noteMeshes[pi], base = pm.userData.note.spot ? 1 : 1 + 0.32*nearK;
     if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(base*sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; }
     else pm.scale.setScalar(base);
   }
