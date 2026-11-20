@@ -1656,7 +1656,7 @@ function addBand(gen){
         horse.back.getWorldPosition(v); fox.h.position.set(v.x, v.y + 0.3*horse.fit, v.z);
         fox.h.updateMatrixWorld(true); fox.back.getWorldPosition(v);
         rab.position.set(v.x, v.y + 0.22*fox.fit, v.z); poseRabbit(rab, null, T, dt);
-        hen.position.set(rab.position.x - Math.sin(ROT)*0.05, rab.position.y + rabH*0.62, rab.position.z - Math.cos(ROT)*0.05);
+        hen.position.set(rab.position.x - Math.sin(ROT)*0.09, rab.position.y + rabH*0.4, rab.position.z - Math.cos(ROT)*0.09);
         hen.userData.head.rotation.x = Math.sin(T*2.3)*0.12; hen.userData.head.rotation.y = Math.sin(T*0.7)*0.35;
         top = hen.position.y + 0.5 - horse.h.position.y; this.headY = top;
         if(this.calmT > 0) this.calmT -= dt;
