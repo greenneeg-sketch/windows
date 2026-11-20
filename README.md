@@ -97,3 +97,7 @@
 
 ## 저작권
 © 2026 숨글. All rights reserved. 코드·디자인·로고의 무단 복제와 사용을 금지합니다. 자세한 내용과 제3자 자료 라이선스는 [LICENSE](LICENSE)를 보세요.
+
+## 문의
+- 서비스: hello@sumgeul.com
+- 개인정보: privacy@sumgeul.com
