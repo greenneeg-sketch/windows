@@ -1011,27 +1011,127 @@ function flyover(group, R, n){
     }, side:side, h:h, zc:zc, dur:dur, off:off, ph:R()*6 });
   }
 }
+// Low-poly rabbit, built from faceted shapes. Faces +z, feet at y=0, size in metres.
+// Returns a group with userData.parts for animation: body, head, ears[2], front[2], hind[2], feet[2], nose, tail.
+function rabbitMesh(geo, color, jit, seed){
+  geo = geo.toNonIndexed ? geo : geo;
+  var p = geo.attributes.position, key = {}, R = rng(seed||7);
+  for(var i=0;i<p.count;i++){
+    var k = Math.round(p.getX(i)*1000)+','+Math.round(p.getY(i)*1000)+','+Math.round(p.getZ(i)*1000);
+    if(!key[k]) key[k] = [(R()-0.5)*jit, (R()-0.5)*jit, (R()-0.5)*jit];
+    p.setXYZ(i, p.getX(i)+key[k][0], p.getY(i)+key[k][1], p.getZ(i)+key[k][2]);
+  }
+  geo = geo.index ? geo.toNonIndexed() : geo; geo.computeVertexNormals();
+  var m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:col(color), roughness:0.95, metalness:0, flatShading:true}));
+  m.castShadow = true; return m;
+}
+function rPart(parent, color, sx, sy, sz, x, y, z, detail, jit, seed){
+  var g = new THREE.IcosahedronGeometry(1, detail===undefined?1:detail);
+  g.scale(sx, sy, sz);
+  var m = rabbitMesh(g, color, (jit===undefined?0.12:jit)*Math.min(sx,sy,sz), seed); m.position.set(x, y, z); parent.add(m); return m;
+}
 function makeRabbit(c){
-  var g = new THREE.Group();
-  var bd = ball(0.17, c, 1, 0.85, 1.3); bd.position.y = 0.16; g.add(bd);
-  var head = ball(0.1, c); head.position.set(0, 0.3, 0.2); g.add(head);
-  [-0.035, 0.035].forEach(function(dx){ var e = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.17, 6), lam(c)); e.position.set(dx, 0.44, 0.17); e.rotation.x = -0.25; e.rotation.z = dx*4; g.add(e); });
-  var tail = ball(0.045, '#f4f1ea'); tail.position.set(0, 0.2, -0.22); g.add(tail);
+  var fur = c || '#8f6f5a', cream = '#e6cdb1', inner = '#f1d6bd', S = 1;
+  var g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
+  var body = new THREE.Group(); body.position.set(0, 0, 0); rig.add(body);
+  // torso: round rump, narrower chest
+  rPart(body, fur, 0.105, 0.105, 0.135, 0, 0.12, -0.035, 1, 0.14, 11);
+  rPart(body, fur, 0.075, 0.085, 0.075, 0, 0.15, 0.055, 1, 0.14, 12);
+  rPart(body, cream, 0.05, 0.075, 0.045, 0, 0.135, 0.095, 1, 0.12, 13);
+  var tail = rPart(body, '#f3ede4', 0.034, 0.032, 0.03, 0, 0.12, -0.17, 1, 0.25, 14);
+  // hind legs: big haunch + long foot (pivot at hip)
+  var hind = [], feet = [];
+  [-1, 1].forEach(function(sd, i){
+    var hip = new THREE.Group(); hip.position.set(sd*0.06, 0.1, -0.06); body.add(hip);
+    rPart(hip, fur, 0.045, 0.072, 0.085, sd*0.012, -0.012, 0.0, 1, 0.14, 20+i);
+    var heel = new THREE.Group(); heel.position.set(sd*0.012, -0.075, -0.045); hip.add(heel);
+    rPart(heel, fur, 0.027, 0.02, 0.075, 0, -0.005, 0.06, 1, 0.12, 22+i);
+    rPart(heel, cream, 0.022, 0.012, 0.03, 0, -0.012, 0.115, 1, 0.12, 24+i);
+    hind.push(hip); feet.push(heel);
+  });
+  // front legs (pivot at shoulder)
+  var front = [];
+  [-1, 1].forEach(function(sd, i){
+    var sh = new THREE.Group(); sh.position.set(sd*0.035, 0.12, 0.085); body.add(sh);
+    rPart(sh, fur, 0.022, 0.055, 0.024, 0, -0.05, 0.012, 1, 0.12, 30+i);
+    rPart(sh, cream, 0.023, 0.014, 0.034, 0, -0.105, 0.03, 1, 0.12, 32+i);
+    front.push(sh);
+  });
+  // head (pivot at neck)
+  var head = new THREE.Group(); head.position.set(0, 0.2, 0.075); body.add(head);
+  rPart(head, fur, 0.078, 0.071, 0.088, 0, 0.038, 0.035, 1, 0.13, 40);
+  rPart(head, cream, 0.04, 0.028, 0.034, 0, 0.014, 0.1, 1, 0.12, 41);
+  var nose = rPart(head, '#e08f84', 0.013, 0.01, 0.01, 0, 0.034, 0.128, 0, 0.1, 42);
+  [-1, 1].forEach(function(sd){
+    var eye = rPart(head, '#1d1714', 0.013, 0.015, 0.011, sd*0.056, 0.052, 0.078, 1, 0.05, 43);
+    var hl = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 6, 4), new THREE.MeshBasicMaterial({color:0xffffff})); hl.position.set(sd*0.002, 0.006, 0.007); eye.add(hl);
+  });
+  // ears: long, slightly cupped, inner ear cream (pivot at base)
+  var ears = [];
+  [-1, 1].forEach(function(sd, i){
+    var e = new THREE.Group(); e.position.set(sd*0.027, 0.095, 0.01); head.add(e);
+    var og = new THREE.SphereGeometry(1, 6, 8); og.scale(0.027, 0.08, 0.013);
+    var o = rabbitMesh(og, fur, 0.002, 50+i); o.position.y = 0.072; e.add(o);
+    var ig = new THREE.SphereGeometry(1, 6, 8); ig.scale(0.016, 0.06, 0.006);
+    var inn = rabbitMesh(ig, inner, 0.001, 52+i); inn.position.set(0, 0.076, 0.009); e.add(inn);
+    e.rotation.set(-0.28, 0, sd*-0.2); e.userData.base = e.rotation.clone(); ears.push(e);
+  });
+  g.userData.parts = { rig:rig, body:body, head:head, ears:ears, front:front, hind:hind, feet:feet, nose:nose, tail:tail };
+  g.userData.ph = 0; g.userData.twitch = 0; g.userData.look = 0;
   return g;
 }
+// pose the rabbit. hop: 0..1 phase of a hop (null when sitting). t: time
+function poseRabbit(g, hop, t, dt){
+  var P = g.userData.parts, u = g.userData;
+  // breathing + nose
+  var br = 1 + Math.sin(t*5.5)*0.012; P.body.scale.set(br, 1+(br-1)*0.6, 1);
+  P.nose.scale.setScalar(1 + Math.max(0, Math.sin(t*14))*0.25);
+  // ear twitch now and then
+  u.twitch -= dt; if(u.twitch < -2.5 - Math.random()*4){ u.twitch = 0.35; u.twEar = Math.random()<0.5 ? 0 : 1; }
+  P.ears.forEach(function(e, i){
+    var b = e.userData.base, tw = (u.twitch > 0 && u.twEar === i) ? Math.sin(u.twitch*40)*0.25 : 0;
+    var sweep = hop !== null ? Math.sin(hop*Math.PI)*0.7 : 0;
+    e.rotation.set(b.x - sweep + tw*0.5, b.y, b.z + tw);
+  });
+  if(hop === null){
+    // sitting: legs tucked, occasional head turn
+    u.look += dt; var lk = Math.sin(u.look*0.6)*0.35*Math.max(0, Math.sin(u.look*0.21));
+    P.head.rotation.set(Math.sin(t*0.9)*0.05, lk, 0);
+    P.rig.position.y = 0; P.rig.rotation.x = 0;
+    P.hind.forEach(function(h){ h.rotation.x = 0; }); P.feet.forEach(function(f){ f.rotation.x = 0; }); P.front.forEach(function(f){ f.rotation.x = 0; });
+    return;
+  }
+  // hop: push off with the hind feet, reach with the front legs, land front first
+  var s = Math.sin(hop*Math.PI), up = s*0.11;
+  P.rig.position.y = up;
+  P.rig.rotation.x = hop < 0.5 ? -0.35*Math.sin(hop*2*Math.PI) : 0.3*Math.sin((hop-0.5)*2*Math.PI);
+  var push = hop < 0.45 ? Math.sin(hop/0.45*Math.PI) : 0;
+  P.hind.forEach(function(h){ h.rotation.x = 0.55*push - 0.25*Math.max(0, Math.sin((hop-0.45)/0.55*Math.PI)); });
+  P.feet.forEach(function(f){ f.rotation.x = -1.0*push; });
+  var reach = Math.sin(Math.min(1, hop/0.8)*Math.PI);
+  P.front.forEach(function(f, i){ f.rotation.x = -0.9*reach + (i?0.08:-0.08)*s; });
+  P.head.rotation.set(-0.15*s, 0, 0);
+}
 function addRabbit(group, R, c){
-  var o = makeRabbit(c), p = pickSpot(R, 7, 24); o.position.set(p.x, groundH(p.x,p.z), p.z); o.scale.setScalar(1.3+R()*0.3); group.add(o);
-  critters.push({ o:o, mode:'rest', wait:1+R()*3, hop:0, tx:p.x, tz:p.z, update:function(dt){
-    var o=this.o;
-    if(this.mode==='rest'){ this.wait -= dt; o.children[1].position.y = 0.3 + Math.max(0, Math.sin(performance.now()/180))*0.015; if(this.wait<0){ var q = pickSpot(R, 6, 26); this.tx=q.x; this.tz=q.z; this.mode='go'; } }
-    else {
+  var o = makeRabbit(c), p = pickSpot(R, 7, 24); o.position.set(p.x, groundH(p.x,p.z), p.z); o.rotation.y = R()*Math.PI*2; o.scale.setScalar(1.2+R()*0.15); group.add(o);
+  o.traverse(function(m){ if(m.isMesh) m.castShadow = hq; });
+  colliders.push({o:o, r:0.16});
+  critters.push({ o:o, mode:'rest', wait:1+R()*3, hop:0, hops:0, tx:p.x, tz:p.z, update:function(dt, T){
+    var o=this.o, pd = Math.hypot(player.x-o.position.x, player.z-o.position.z);
+    if(this.mode==='rest'){
+      poseRabbit(o, null, T, dt); this.wait -= dt;
+      if(pd < 2.2){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*3.5; this.tz = o.position.z+az/al*3.5; this.mode='go'; this.hop=0; this.hops=8; this.fast=true; }
+      else if(this.wait<0){ var q = pickSpot(R, 6, 26); var qx = q.x-o.position.x, qz = q.z-o.position.z, ql = Math.hypot(qx,qz)||1, dd = Math.min(ql, 1.5+R()*3); this.tx = o.position.x+qx/ql*dd; this.tz = o.position.z+qz/ql*dd; this.mode='go'; this.hop=0; this.hops=3+Math.floor(R()*6); this.fast=false; }
+    } else {
       var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz);
-      turnTo(o, dx, dz, dt);
-      if(d<0.3){ this.mode='rest'; this.wait=2+R()*5; o.position.y = groundH(o.position.x,o.position.z); return true; }
-      this.hop += dt*3.2; var step = Math.min(d, dt*1.6*(0.55+0.45*Math.abs(Math.sin(this.hop*Math.PI))));
-      var nx=o.position.x+dx/d*step, nz=o.position.z+dz/d*step;
-      if(!okSpot(nx,nz)){ this.mode='rest'; this.wait=0.5; return true; }
-      o.position.x=nx; o.position.z=nz; o.position.y = groundH(nx,nz) + Math.abs(Math.sin(this.hop*Math.PI))*0.22;
+      turnTo(o, dx, dz, dt, 7);
+      this.hop += dt*(this.fast ? 3.2 : 2.4);
+      if(this.hop >= 1){ this.hop -= 1; this.hops--; if(this.hops<=0 || d<0.25){ this.mode='rest'; this.wait=1.5+R()*5; this.hop=0; poseRabbit(o, null, T, dt); return true; } }
+      var h = this.hop, air = h>0.08 && h<0.92 ? 1 : 0, step = air*dt*(this.fast ? 1.25 : 0.85);
+      var nx=o.position.x+Math.sin(o.rotation.y)*step, nz=o.position.z+Math.cos(o.rotation.y)*step;
+      if(step>0 && (!okSpot(nx,nz) || hitsSolid(nx, nz, 0.1, o))){ this.mode='rest'; this.wait=0.8+R(); poseRabbit(o, null, T, dt); return true; }
+      o.position.x=nx; o.position.z=nz; o.position.y = groundH(nx,nz);
+      poseRabbit(o, h, T, dt);
     }
     return true;
   }});
@@ -1205,8 +1305,8 @@ var critterGroup = null, flyT = 0;
 var CRITTERS = {
   mapo:      { birds:[14, 26, 3], butterflies:['#f7f3e8','#f2a65a','#f2c14e'], dragonflies:3, squirrels:1, animals:[['Deer',9,15],['Deer',9,15],['Fox',7,12]] },
   busan:     { crabs:4 },
-  gangneung: { birds:[8, 16, 2], squirrels:2, rabbits:['#8b7a66'], animals:[['Stag',8,14],['Deer',8,14]] },
-  jeju:      { birds:[12, 22, 1], rabbits:['#d8cbb8', '#a8988a'], butterflies:['#fff6c8','#ffffff','#f6d84a','#f2a65a','#f6d84a','#ffffff','#f2a65a'], animals:[['Horse',10,18],['Horse_White',10,18]] },
+  gangneung: { birds:[8, 16, 2], squirrels:2, rabbits:['#8f6f5a', '#7d6a5c'], animals:[['Stag',8,14],['Deer',8,14]] },
+  jeju:      { birds:[12, 22, 1], rabbits:['#8f6f5a', '#c9b29b'], butterflies:['#fff6c8','#ffffff','#f6d84a','#f2a65a','#f6d84a','#ffffff','#f2a65a'], animals:[['Horse',10,18],['Horse_White',10,18]] },
   newyear:   { animals:[['Stag',8,13]] }
 };
 function makeCritters(group){
