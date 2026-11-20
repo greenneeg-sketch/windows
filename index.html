@@ -739,7 +739,7 @@ function makeTrees(group){
   var d = new THREE.Object3D();
   var trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12,0.2,1.6,6), new THREE.MeshLambertMaterial({color:col('#5a4232')}), n);
   list.forEach(function(t,i){ d.position.set(t.x,t.y+0.8*t.s,t.z); d.rotation.set(0,0,0); d.scale.set(t.s,t.s,t.s); d.updateMatrix(); trunk.setMatrixAt(i,d.matrix); });
-  trunk.castShadow = true; group.add(trunk); trunk.userData.stick='tree'; stickables.push(trunk);
+  trunk.castShadow = true; group.add(trunk); trunk.userData.stick='tree'; stickables.push(trunk); list.forEach(function(t){ colliders.push({x:t.x, z:t.z, r:0.22*t.s}); });
   var c = new THREE.Color();
   if(cfg.treeKind==='pine'){
     [[1.5,2.4,1.6],[1.15,2.0,2.7],[0.75,1.6,3.6]].forEach(function(L){
@@ -889,6 +889,14 @@ function scatter(R, n, rMin, rMax, opt){
 }
 var _o = new THREE.Object3D(), _c = new THREE.Color();
 var stickables = [], STICK = /^(tree_|pine|twisted|rock)/;
+// solid things you can't walk through: tree trunks, rocks, animals (circles on the ground)
+var colliders = [];
+function hitsSolid(x, z, pad, self){
+  for(var i=0;i<colliders.length;i++){ var c = colliders[i]; if(c.o === self) continue;
+    var cx = c.o ? c.o.position.x : c.x, cz = c.o ? c.o.position.z : c.z, rr = c.r + pad;
+    if((x-cx)*(x-cx) + (z-cz)*(z-cz) < rr*rr) return c; }
+  return null;
+}
 function plant(group, key, list, opt){
   if(!NAT || !NAT[key] || !list.length) return;
   opt = opt||{};
@@ -904,7 +912,12 @@ function plant(group, key, list, opt){
       if(tint){ var tc = Array.isArray(tint) ? tint[Math.floor(t.r*tint.length)] : tint; im.setColorAt(i, _c.set(tc).convertSRGBToLinear().multiplyScalar(0.92+t.r*0.16)); }
     });
     im.frustumCulled = false;
-    if(STICK.test(key) && !leafy){ im.userData.stick = /^rock/.test(key) ? 'rock' : 'tree'; stickables.push(im); }
+    if(STICK.test(key) && !leafy){ im.userData.stick = /^rock/.test(key) ? 'rock' : 'tree'; stickables.push(im);
+      if(!opt._solid){ opt._solid = true;
+        var rk = /^rock/.test(key), base = 0.3;
+        if(rk){ g.computeBoundingBox(); var bb = g.boundingBox; base = Math.max(bb.max.x-bb.min.x, bb.max.z-bb.min.z)*0.42; }
+        else if(key==='twisted') base = 0.55;
+        list.forEach(function(t){ colliders.push({x:t.x, z:t.z, r:base*t.s}); }); } }
     if(opt.shadow && hq){
       im.castShadow = true;
       if(m.alphaTest>0) im.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking, map:m.map, alphaTest:0.5 });
@@ -1121,7 +1134,8 @@ function addCrab(group, R){
   }});
 }
 // ---------- animals: CC0 Quaternius "Ultimate Animated Animals" (trimmed to idle/eat/look/walk) ----------
-var ANIMAL_LEN = { Deer:1.5, Stag:1.7, Fox:0.85, Horse:2.0, Horse_White:2.0 };
+var ANIMAL_LEN = { Deer:1.35, Stag:1.55, Fox:0.75, Horse:1.9, Horse_White:1.9 };
+var ANIMAL_R = { Deer:0.42, Stag:0.48, Fox:0.25, Horse:0.55, Horse_White:0.55 };
 var ANIMAL_SPEED = { Deer:0.55, Stag:0.5, Fox:0.6, Horse:0.7, Horse_White:0.7 };
 var animalCache = {};
 function loadAnimal(name){
@@ -1129,14 +1143,22 @@ function loadAnimal(name){
   return (animalCache[name] = new Promise(function(ok, no){
     if(!THREE.GLTFLoader) return no('no loader');
     new THREE.GLTFLoader().load('models/animals/'+name+'.glb', function(g){
-      var box = new THREE.Box3().setFromObject(g.scene), sz = box.getSize(new THREE.Vector3());
+      var sc = g.scene, mix = new THREE.AnimationMixer(sc), idle = g.animations.filter(function(a){ return a.name==='idle'; })[0] || g.animations[0];
+      if(idle){ mix.clipAction(idle).play(); mix.update(0); }
+      sc.updateMatrixWorld(true);
+      var box = new THREE.Box3(), v = new THREE.Vector3();
+      // bones of the posed skeleton: hooves to ears, nose to tail (vertex data is quantized, so skip it)
+      sc.traverse(function(m){ if(m.isBone){ v.setFromMatrixPosition(m.matrixWorld); box.expandByPoint(v); } });
+      if(box.isEmpty()) box.setFromObject(sc);
+      mix.stopAllAction(); mix.uncacheRoot(sc);
+      var sz = box.getSize(new THREE.Vector3());
       g.fit = ANIMAL_LEN[name] / Math.max(sz.x, sz.z); g.minY = box.min.y; ok(g);
     }, undefined, no);
   }));
 }
 // somewhere you can see through the window: in front, inside a cone that widens with distance
 function viewSpot(R, rMin, rMax){
-  for(var i=0;i<300;i++){ var z=-rMin-R()*(rMax-rMin), x=(R()-0.5)*2*(i<150 ? 1.5-z*0.22 : 2.5-z*0.45); if(okSpot(x,z) && groundH(x,z)>WATER+0.3) return {x:x, z:z}; }
+  for(var i=0;i<300;i++){ var z=-rMin-R()*(rMax-rMin), x=(R()-0.5)*2*(i<150 ? 1.5-z*0.22 : 2.5-z*0.45); if(okSpot(x,z) && groundH(x,z)>WATER+0.3 && !hitsSolid(x,z,0.7,null)) return {x:x, z:z}; }
   return null;
 }
 function addAnimal(group, R, name, home){
@@ -1152,20 +1174,26 @@ function addAnimal(group, R, name, home){
     function play(n, fade){ var a = acts[n] || acts.idle; if(!a || a===cur) return; a.reset().setEffectiveWeight(1).fadeIn(fade||0.6).play(); if(cur) cur.fadeOut(fade||0.6); cur = a; }
     holder.position.set(home.x, groundH(home.x, home.z), home.z); holder.rotation.y = R()*Math.PI*2;
     gen.add(holder); play(R()<0.5 ? 'eat' : 'idle', 0.01); mixer.update(R()*3);
-    var sp = ANIMAL_SPEED[name]||0.5;
-    critters.push({ o:holder, mode:'idle', t:2+R()*4, tx:home.x, tz:home.z, update:function(dt){
+    var sp = (ANIMAL_SPEED[name]||0.5)*(0.85+R()*0.3), rad = ANIMAL_R[name]||0.4;
+    colliders.push({o:holder, r:rad});
+    var acr = acts.walk; if(acr) acr.timeScale = 0.9 + (sp-0.5)*0.6;
+    function freeAt(x, z){ return okSpot(x,z) && groundH(x,z) > WATER+0.3 && !hitsSolid(x, z, rad, holder) && Math.hypot(x-player.x, z-player.z) > rad+0.7; }
+    critters.push({ o:holder, mode:'idle', t:1+R()*2, tx:home.x, tz:home.z, stuck:0, update:function(dt){
       var o = this.o; this.t -= dt;
       if(this.mode==='walk'){
         var dx = this.tx-o.position.x, dz = this.tz-o.position.z, d = Math.hypot(dx,dz);
-        turnTo(o, dx, dz, dt, 2.5);
+        turnTo(o, dx, dz, dt, 2.2);
         var nx = o.position.x + Math.sin(o.rotation.y)*sp*dt, nz = o.position.z + Math.cos(o.rotation.y)*sp*dt;
-        if(d < 0.3 || this.t < 0 || !okSpot(nx,nz) || groundH(nx,nz) < WATER+0.3){ this.mode = 'idle'; this.t = 4+R()*6; play(R()<0.55 ? 'eat' : (R()<0.5 ? 'look' : 'idle')); }
-        else { o.position.x = nx; o.position.z = nz; }
+        if(d < 0.4 || this.t < 0){ this.mode = 'idle'; this.t = 2+R()*4; play(R()<0.5 ? 'eat' : (R()<0.5 ? 'look' : 'idle')); }
+        else if(!freeAt(nx, nz)){ this.stuck += dt; o.rotation.y += dt*1.6; if(this.stuck > 1.2){ this.stuck = 0; this.mode = 'idle'; this.t = 1+R()*2; play('look'); } }
+        else { this.stuck = 0; o.position.x = nx; o.position.z = nz; }
       } else if(this.t < 0){
         var r = R();
-        if(r < 0.35){ var a = R()*Math.PI*2, dd = 1.5+R()*3.5, tx = home.x+Math.cos(a)*dd, tz = home.z+Math.sin(a)*dd;
-          if(okSpot(tx,tz) && groundH(tx,tz) > WATER+0.4){ this.tx = tx; this.tz = tz; this.mode = 'walk'; this.t = 14; play('walk', 0.5); } else this.t = 2; }
-        else { this.t = 4+R()*7; play(r < 0.7 ? 'eat' : (r < 0.85 ? 'idle2' : 'look')); }
+        if(r < 0.65){
+          for(var k=0;k<8;k++){ var a = R()*Math.PI*2, dd = 2+R()*6, tx = home.x+Math.cos(a)*dd, tz = home.z+Math.sin(a)*dd;
+            if(freeAt(tx,tz)){ this.tx = tx; this.tz = tz; this.mode = 'walk'; this.t = 20; play('walk', 0.5); break; } }
+          if(this.mode!=='walk') this.t = 1.5;
+        } else { this.t = 2+R()*4; play(r < 0.85 ? 'eat' : (r < 0.93 ? 'idle2' : 'look')); }
       }
       o.position.y += (groundH(o.position.x, o.position.z) - o.position.y)*Math.min(1, dt*6);
       mixer.update(dt);
@@ -1192,7 +1220,7 @@ function makeCritters(group){
   var AR = rng(hashStr(cfg.id)+4242), herd = null;
   (cc.animals||[]).forEach(function(a, i){
     var spot = (herd && a[0]===cc.animals[i-1][0]) ? {x:herd.x+(AR()-0.5)*3, z:herd.z+(AR()-0.5)*3} : viewSpot(AR, a[1], a[2]);
-    if(spot && okSpot(spot.x, spot.z)){ herd = spot; addAnimal(critterGroup, AR, a[0], spot); }
+    if(spot && okSpot(spot.x, spot.z) && !hitsSolid(spot.x, spot.z, 0.7, null)){ herd = spot; addAnimal(critterGroup, AR, a[0], spot); }
   });
   flyT = cc.birds ? 3 + Math.random()*5 : 0;
 }
@@ -1467,7 +1495,7 @@ function saveMine(){
 var hemi, sun;
 function build(){
   if(world){ scene.remove(world); world.traverse(function(o){ if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if(o.material){ if(o.material.map && !o.material.map.__keep && !(envCache[cfg.id] && o.material.map===envCache[cfg.id].tex)) o.material.map.dispose(); o.material.dispose(); } }); }
-  uniformsList = []; noteMeshes = []; stickables = [];
+  uniformsList = []; noteMeshes = []; stickables = []; colliders = [];
   renderer.shadowMap.enabled = hq;
   world = new THREE.Group(); scene.add(world);
   computeGrade();
@@ -1605,6 +1633,9 @@ function blocked(x,z){
   if(Math.hypot(x,z)>58) return true;
   if(Math.abs(x)<2.25 && Math.abs(z)<0.32) return true;
   if(groundH(x,z)<WATER+0.05) return true;
+  var c = hitsSolid(x, z, 0.28, null);
+  if(c){ var cx = c.o ? c.o.position.x : c.x, cz = c.o ? c.o.position.z : c.z;
+    if(Math.hypot(x-cx, z-cz) < Math.hypot(player.x-cx, player.z-cz)) return true; }
   return false;
 }
 function baseY(x,z){ return (Math.abs(x)<3.2 && z>-1.7 && z<2.9) ? 0.15 : Math.max(groundH(x,z),0); }
