@@ -170,7 +170,17 @@
   .region i{width:52px;height:52px;border-radius:12px;flex-shrink:0}
   .region b{display:block;font-size:15px}
   .region span{font-size:12.5px;color:#C9C4B8}
-  #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity .8s}
+  #intro{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;padding:0 24px calc(env(safe-area-inset-bottom) + 36px);transition:opacity .8s}
+  #intro:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(10,12,20,.15) 0%,rgba(10,12,20,.55) 45%,rgba(10,12,20,.92) 100%);transition:opacity 2.4s ease}
+  #intro>*{transition:opacity 1.6s ease, transform 1.6s cubic-bezier(.2,.7,.2,1)}
+  #intro>:nth-child(2){transition-delay:.25s} #intro>:nth-child(3){transition-delay:.45s} #intro>:nth-child(4),#intro>:nth-child(5){transition-delay:.6s} #intro>:nth-child(6){transition-delay:.75s} #intro>:nth-child(7){transition-delay:1s}
+  #intro.veil{cursor:pointer}
+  #intro.veil:before{opacity:0}
+  #intro.veil>*{opacity:0!important;transform:translateY(14px)!important;pointer-events:none;transition:none}
+  #veilHint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 42px);transform:translateX(-50%);z-index:21;font-size:13px;letter-spacing:.14em;color:rgba(244,241,234,.75);text-shadow:0 1px 6px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity 1.2s}
+  #veilHint.on{opacity:1;animation:veilBreath 3.2s ease-in-out infinite}
+  @keyframes veilBreath{0%,100%{opacity:.35}50%{opacity:.85}}
+  @media (min-width:700px){ #intro{padding-left:max(48px,7vw);padding-right:48px} #intro>*:not(h1){width:min(100%,460px)} #intro .theme{min-height:80px} }
   #intro{overflow-y:auto}
   #intro h1{align-self:flex-start;margin:0 0 6px;font-family:'Dokdo','Nanum Pen Script',cursive;font-size:76px;font-weight:400;line-height:1;position:relative;display:inline-block;padding:0 6px 14px 0;letter-spacing:-2px}
   #intro h1 .m1{display:inline-block;transform:translateY(-8px) rotate(-7deg)}
@@ -279,6 +289,7 @@
       <svg id="sndOn" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
       <svg id="sndOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg>
     <span class="ml">소리</span></button>
+      <button id="menuHome" class="iconbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-6 8 6"/><path d="M6 10v9h12v-9"/></svg><span class="ml">처음 화면으로</span></button>
       <button id="menuCare" class="iconbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="ml">도움이 필요할 때</span></button>
     </div>
   </div>
@@ -485,7 +496,7 @@
   </div>
 </div>
 
-<div id="intro">
+<div id="intro" class="veil">
   <h1 aria-label="숨글"><span class="m1">숨</span><span class="m2">글</span><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q50 1 98 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg></h1>
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
@@ -494,6 +505,7 @@
   <div id="themes" class="themes"></div>
   <p class="links"><button class="care" id="careLink">도움이 필요할 때</button><a href="privacy.html">개인정보처리방침</a><a href="terms.html">이용약관</a><a href="mailto:hello@sumgeul.com">문의</a></p>
 </div>
+<div id="veilHint">화면을 눌러 주세요</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2747,6 +2759,7 @@ function pageUrl(){ return location.href.split('#')[0]; }
 function enterWorld(){
   var it=$('intro'); if(it.style.display==='none') return;
   bump('w_'+cfg.id);
+  it.classList.remove('veil'); $('veilHint').classList.remove('on');
   it.style.opacity=0; setTimeout(function(){ it.style.display='none'; },800);
   document.body.classList.remove('intro'); showHint(); setHash();
 }
@@ -3044,6 +3057,29 @@ $('menuBtn').addEventListener('click', function(e){ e.stopPropagation(); menuOpe
 $('menuPanel').addEventListener('click', function(e){ if(e.target.closest('button') && e.target.closest('button').id !== 'snd' && e.target.closest('button').id !== 'hq') menuOpen(false); });
 document.addEventListener('pointerdown', function(e){ if(!$('menuPanel').hidden && !e.target.closest('#topR')) menuOpen(false); }, true);
 $('menuCare').addEventListener('click', function(){ openCare(); });
+$('menuHome').addEventListener('click', goHome);
+function goHome(){
+  if(placing) setPlacing(false);
+  Array.prototype.forEach.call(document.querySelectorAll('.scrim.on'), function(sc){ closeModal(sc.id); });
+  if(photo.on) setPhoto(false);
+  try{ history.replaceState(null, '', location.pathname + location.search); }catch(_){}
+  player.x=0; player.z=4.0; player.yaw=0; player.pitch=0.07; player.sit=player.crouch=false; updateSitLabel();
+  var it = $('intro'); it.classList.remove('veil'); it.style.display='flex'; it.style.opacity=0; it.scrollTop = 0;
+  document.body.classList.add('intro');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ it.style.opacity=1; }); });
+  fetchToday();
+}
+// intro starts as just the quiet scenery; the first touch slowly brings the menu in
+(function(){
+  var it = $('intro'), hint = $('veilHint'), hintT = setTimeout(function(){ if(it.classList.contains('veil') && it.style.display!=='none') hint.classList.add('on'); }, 2600);
+  function unveil(){
+    if(!it.classList.contains('veil')) return;
+    clearTimeout(hintT); hint.classList.remove('on'); it.classList.remove('veil');
+    window.removeEventListener('keydown', unveil);
+  }
+  it.addEventListener('click', unveil);
+  window.addEventListener('keydown', unveil);
+})();
 
 // ---------- heart push (home-screen app) ----------
 var VAPID = 'BG98GTvJWp528HKkKnSi4yw0DBi_BtGj8DvTpUA2FDFxhXbx3KyW1H7cDbi9EM1iHI5yN2I1BopjN8o9SJE2VV4';
