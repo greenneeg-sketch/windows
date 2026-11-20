@@ -178,3 +178,11 @@ alter table public.notes add column if not exists spot real[];  -- [x,y,z, nx,ny
 alter table public.notes add constraint notes_spot_ok check (spot is null or (array_length(spot,1) = 6 and abs(spot[1]) < 70 and abs(spot[2]) < 30 and abs(spot[3]) < 70 and abs(spot[4]) <= 1.01 and abs(spot[5]) <= 1.01 and abs(spot[6]) <= 1.01));
 grant select (spot) on public.notes to anon, authenticated;
 -- post_note recreated with one more argument p_spot real[] default null, inserted into notes.spot
+
+-- v25: safety (migration safety_alerts_and_retention)
+-- extensions pg_net, pg_cron; table yc_settings(key,value) with RLS and no policies (holds ntfy_topic)
+-- notes.crisis boolean, set by trigger notes_crisis via yc_is_crisis(texts); trigger notes_alert -> yc_notify()
+-- yc_notify(title,msg,prio,tag): net.http_post to https://ntfy.sh/ (JSON publish), never raises
+-- report_note: reasons abuse|spam|privacy|sexual|danger; 'danger' alerts and does not count toward hiding
+-- admin_list filter 'crisis', admin_stats.crisis (7 days), admin_alert_topic(p_key)
+-- cron 'sumgeul-purge' 19:10 UTC daily: delete notes older than 210 days (reports/hearts cascade)

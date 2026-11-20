@@ -24,7 +24,12 @@
   .primary{background:#FFC94D;color:#1A1712}
   .ghost{background:#2A2E3C;color:#F4F1EA}
   .danger{background:#3A2228;color:#FFB4A8}
-  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .stat.warn{border-color:#8a4b2a;background:#2a1d18}
+  .tag.warn{background:#5a2a1a;color:#FFD9C2}
+  .alert{background:#1D202C;border:1px solid #2C3040;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.6}
+  .alert code{background:#0f1118;padding:3px 8px;border-radius:8px;font-size:14px;user-select:all;word-break:break-all}
+  .alert summary{cursor:pointer;font-weight:700}
   .stat{background:#1D202C;border:1px solid #2C3040;border-radius:14px;padding:12px}
   .stat b{display:block;font-size:26px}
   .stat span{font-size:12px;color:#BDB8AD}
@@ -60,7 +65,16 @@
 
   <div id="panel" hidden style="display:flex;flex-direction:column;gap:16px">
     <div class="stats" id="stats"></div>
+    <details class="alert" id="alertBox"><summary>📱 휴대폰으로 신고 알림 받기</summary>
+      <ol style="margin:10px 0 0;padding-left:20px">
+        <li>앱스토어에서 <b>ntfy</b> 앱을 설치해요</li>
+        <li>앱에서 + 를 눌러 아래 주제 이름을 그대로 입력하고 구독해요<br><code id="topic">불러오는 중…</code></li>
+        <li>신고, “위험해 보여요” 신고, 위기 신호가 있는 글이 올라오면 바로 알림이 와요</li>
+      </ol>
+      <p class="muted" style="margin:8px 0 0">주제 이름은 비밀번호처럼 다른 사람에게 알려주지 마세요. 알림에는 글 내용이 들어가지 않아요.</p>
+    </details>
     <div class="tabs" role="tablist">
+      <button data-f="crisis">마음 쓰이는 글</button>
       <button data-f="reported" class="on">신고됨</button>
       <button data-f="hidden">숨겨짐</button>
       <button data-f="recent">최근 전체</button>
@@ -77,7 +91,7 @@
 var SB_URL = 'https://dhdmynqrbtiqbvmrvflz.supabase.co', SB_KEY = 'sb_publishable_ioOTpxXCCmi9dN83WMlKJw_8kjCJ8_t';
 var WINDOWS = { mapo:'수고했어 창', busan:'털어놓는 창', gangneung:'다짐하는 창', jeju:'소원 창', newyear:'새해 소원 창' };
 var CHEX = { y:'#FFE45C', p:'#FF9EC4', m:'#8FE3C4', b:'#8EC9FF', o:'#FFB067' };
-var REASON = { abuse:'욕설·비하', spam:'광고·도배', privacy:'개인정보', sexual:'음란' };
+var REASON = { abuse:'욕설·비하', spam:'광고·도배', privacy:'개인정보', sexual:'음란', danger:'위험해 보여요' };
 var FONTS = { pen:['"Nanum Pen Script", cursive',1], gaegu:['"Gaegu", cursive',0.78], gamja:['"Gamja Flower", cursive',0.8], melody:['"Hi Melody", cursive',0.82], jua:['"Jua", sans-serif',0.7], batang:['"Gowun Batang", serif',0.66] };
 var $ = function(id){ return document.getElementById(id); };
 var key = ''; try{ key = sessionStorage.getItem('yc-admin') || ''; }catch(e){}
@@ -114,8 +128,9 @@ function ago(iso){
 function loadStats(){
   return rpc('admin_stats', {p_key:key}).then(function(s){
     var box=$('stats'); box.innerHTML='';
-    [['전체',s.total],['오늘',s.today],['신고 대기',s.reported],['숨김',s.hidden]].forEach(function(a){
-      var d=document.createElement('div'); d.className='stat'; var b=document.createElement('b'); b.textContent=a[1]; var sp=document.createElement('span'); sp.textContent=a[0];
+    if(!$('topic').dataset.ok) rpc('admin_alert_topic', {p_key:key}).then(function(t){ $('topic').textContent=t; $('topic').dataset.ok='1'; }).catch(function(){});
+    [['마음 쓰이는 글 (7일)',s.crisis||0],['전체',s.total],['오늘',s.today],['신고 대기',s.reported],['숨김',s.hidden]].forEach(function(a,i){
+      var d=document.createElement('div'); d.className='stat'+(i===0&&a[1]>0?' warn':''); var b=document.createElement('b'); b.textContent=a[1]; var sp=document.createElement('span'); sp.textContent=a[0];
       d.appendChild(b); d.appendChild(sp); box.appendChild(d);
     });
   });
@@ -124,13 +139,14 @@ function loadList(){
   $('list').innerHTML=''; $('empty').hidden=true;
   return rpc('admin_list', {p_key:key, p_filter:filter}).then(function(rows){
     rows = rows || [];
-    if(!rows.length){ $('empty').hidden=false; $('empty').textContent = filter==='reported' ? '처리할 신고가 없어요' : filter==='hidden' ? '숨겨진 포스트잇이 없어요' : '아직 포스트잇이 없어요'; return; }
+    if(!rows.length){ $('empty').hidden=false; $('empty').textContent = filter==='crisis' ? '최근 마음 쓰이는 글이 없어요' : filter==='reported' ? '처리할 신고가 없어요' : filter==='hidden' ? '숨겨진 포스트잇이 없어요' : '아직 포스트잇이 없어요'; return; }
     rows.forEach(function(n){
       var el=document.createElement('div'); el.className='item';
       var cv=document.createElement('canvas'); cv.setAttribute('role','img'); cv.setAttribute('aria-label', (n.texts||[]).map(function(t){return t.t;}).join(' ')||'그림 포스트잇'); draw(cv, n);
       var meta=document.createElement('div'); meta.className='meta';
       [WINDOWS[n.region]||n.region, n.place?n.place+'에서':'지역 없음', ago(n.created_at), '♥ '+n.hearts].forEach(function(t){ var s=document.createElement('span'); s.textContent=t; meta.appendChild(s); });
       var tags=document.createElement('div'); tags.className='meta';
+      if(n.crisis){ var c=document.createElement('span'); c.className='tag warn'; c.textContent='위기 신호 단어'; tags.appendChild(c); }
       if(n.hidden){ var h=document.createElement('span'); h.className='tag'; h.textContent='숨김'; tags.appendChild(h); }
       Object.keys(n.reasons||{}).forEach(function(r){ var t=document.createElement('span'); t.className='tag'; t.textContent=(REASON[r]||r)+' '+n.reasons[r]; tags.appendChild(t); });
       if(!tags.children.length){ var ok=document.createElement('span'); ok.className='tag ok'; ok.textContent='신고 없음'; tags.appendChild(ok); }
