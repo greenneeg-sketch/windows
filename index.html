@@ -705,12 +705,13 @@ function loadPackedHDR(url, done, fail){
   var img = new Image();
   img.onload = function(){
     try{
+      var CAP = /night/.test(url) ? 2.5 : 6e4;   // one star in the night sky is ~70x brighter than the rest and turns into a black speck on some phones
       var w=img.width, h=img.height/2, cv=document.createElement('canvas'); cv.width=w; cv.height=img.height;
       var x=cv.getContext('2d'); x.drawImage(img,0,0); var d=x.getImageData(0,0,w,img.height).data;
       var n=w*h, out=new Uint16Array(n*4), H=THREE.DataUtils.toHalfFloat, one=H(1);
       for(var i=0;i<n;i++){
         var e=d[(n+i)*4], f=e?EXP[e]:0, j=i*4;
-        out[j]=H((d[j]+0.5)*f); out[j+1]=H((d[j+1]+0.5)*f); out[j+2]=H((d[j+2]+0.5)*f); out[j+3]=one;
+        out[j]=H(Math.min(CAP,(d[j]+0.5)*f)); out[j+1]=H(Math.min(CAP,(d[j+1]+0.5)*f)); out[j+2]=H(Math.min(CAP,(d[j+2]+0.5)*f)); out[j+3]=one;
       }
       var tex = new THREE.DataTexture(out, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
       tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.flipY = false;
@@ -1668,6 +1669,62 @@ function addBand(gen){
     critters.push(me);
   }, function(){});
 }
+// ---------- 함께 있는 사람들: everyone else at this window shows up as a drifting firefly / soft light ----------
+// One small call every 20s while you're looking (your rough spot in, theirs out). No names, no ids you can trace: a random per-tab key.
+var locBase = '', pres = { group:null, orbs:{}, n:0, next:0, busy:false }, PRES_SID = (function(){
+  var k = null; try{ k = sessionStorage.getItem('sumgeul-sid'); }catch(_){}
+  if(!k || !/^[a-z0-9]{12,40}$/.test(k)){ k = ''; for(var i=0;i<20;i++) k += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]; try{ sessionStorage.setItem('sumgeul-sid', k); }catch(_){} }
+  return k; })();
+function showLocSub(){ $('locSub').textContent = locBase + (pres.n > 0 ? ' · 지금 '+pres.n+'명 함께' : ''); }
+var presTex = null;
+function presTexture(){
+  if(presTex) return presTex;
+  var c = document.createElement('canvas'); c.width = c.height = 64; var x = c.getContext('2d'), g = x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.12,'rgba(255,255,255,1)'); g.addColorStop(0.3,'rgba(255,255,255,.45)'); g.addColorStop(0.6,'rgba(255,255,255,.1)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0,0,64,64); presTex = new THREE.CanvasTexture(c); presTex.__keep = true; return presTex;
+}
+function makePresence(group){
+  pres.group = new THREE.Group(); group.add(pres.group); pres.orbs = {}; pres.n = 0; pres.next = performance.now() + 1500;
+}
+function presOrb(k){
+  var night = grade.fixedNight || curPhase==='night' || curPhase==='dusk';
+  var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:presTexture(), color:col(night ? '#e8ff9a' : '#fff4d2'), transparent:true, opacity:0, depthWrite:false, fog:false,
+    blending: night ? THREE.AdditiveBlending : THREE.NormalBlending }));
+  sp.scale.setScalar(night ? 0.42 : 0.3);
+  var seed = parseInt(k.slice(0,6), 16) || 1;
+  return { s:sp, tx:0, tz:0, a:0, want:1, ph:(seed%1000)/159, sd:seed };
+}
+function pulse(){
+  if(pres.busy || !pres.group || document.hidden || $('intro').style.display!=='none' || online===false) return;
+  pres.busy = true; var region = cfg.id, gen = pres.group;
+  sbRpc('pulse', {p_sid:PRES_SID, p_region:region, p_x:+player.x.toFixed(1), p_z:+player.z.toFixed(1)}).then(function(list){
+    pres.busy = false; if(gen !== pres.group || region !== cfg.id || !Array.isArray(list)) return;
+    var seen = {};
+    list.forEach(function(u){
+      seen[u.k] = 1; var o = pres.orbs[u.k];
+      if(!o){ o = pres.orbs[u.k] = presOrb(u.k); o.s.position.set(u.x, 1.6, u.z); pres.group.add(o.s); }
+      o.tx = u.x; o.tz = u.z; o.want = 1;
+    });
+    Object.keys(pres.orbs).forEach(function(k){ if(!seen[k]) pres.orbs[k].want = 0; });
+    var n = list.length; if(n !== pres.n){ var was = pres.n; pres.n = n; showLocSub(); if(n > was && was === 0) toast('지금 '+n+'명이 이 창 앞에 함께 있어요'); }
+  }, function(){ pres.busy = false; });
+}
+function updatePresence(dt, T){
+  if(!pres.group) return;
+  if(performance.now() > pres.next){ pres.next = performance.now() + 20000; pulse(); }
+  for(var k in pres.orbs){
+    var o = pres.orbs[k], p = o.s.position, ph = o.ph;
+    // drift toward where that person is, but hover around them like a firefly instead of sliding in a line
+    var hx = o.tx + Math.sin(T*0.37+ph)*0.9, hz = o.tz + Math.cos(T*0.29+ph*1.3)*0.9;
+    p.x += (hx - p.x)*Math.min(1, dt*0.35); p.z += (hz - p.z)*Math.min(1, dt*0.35);
+    p.y = 1.35 + Math.sin(T*0.8+ph)*0.25 + Math.sin(T*2.3+ph*2)*0.05;
+    o.a += ((o.want ? 1 : 0) - o.a)*Math.min(1, dt*0.8);
+    o.s.material.opacity = o.a*(0.7 + 0.3*(0.5+0.5*Math.sin(T*1.7+ph*3)));
+    if(!o.want && o.a < 0.02){ pres.group.remove(o.s); o.s.material.dispose(); delete pres.orbs[k]; }
+  }
+}
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && pres.group) pres.next = 0; });
+
 // ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
 var THOUGHTS = {
   Deer: ['오늘 풀이 유난히 달아요', '천천히 와줘서 고마워요', '당신도 쉬러 왔군요', '발소리가 다정하네요', '잠깐 같이 있어요', '바람이 등을 쓰다듬어요', '서두르지 않아도 괜찮아요'],
@@ -1971,13 +2028,19 @@ function fitPane(x, y){
   function fit(v, R){ var best = R[0], bd = 1e9; R.forEach(function(r){ var c = Math.max(r[0]+PANE_M, Math.min(r[1]-PANE_M, v)), d = Math.abs(c-v); if(d < bd){ bd = d; best = c; } }); return best; }
   return { x: +fit(x, PANE_X).toFixed(3), y: +fit(y, PANE_Y).toFixed(3) };
 }
+function isBack(sp){ return !!(sp && sp.length===6 && sp[5] < -0.9 && Math.abs(sp[2]) < 0.06); }   // stuck on the back of the glass
+function onGlass(n){ return !n.spot || isBack(n.spot); }
+function glassSpot(x, y){ var f = fitPane(x, y); if(camera.position.z < 0){ f.spot = [f.x, f.y, -0.007, 0, 0, -1]; f.kind = 'back'; } return f; }
 function addNoteMesh(n, idx){
   if(!n.spot){ var fp = fitPane(n.x, n.y); n.x = fp.x; n.y = fp.y; }
   var tx = noteTexture(n);
   var m = new THREE.Mesh(new THREE.PlaneGeometry(0.25,0.25), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
   var loose = Math.max(0, (n.age-0.8)/0.2);
   m.position.set(n.x, n.y - loose*0.012, 0.007+idx*0.0004); m.rotation.z = n.r + loose*0.18*(n.r>=0?1:-1); m.rotation.x = -loose*0.12;
-  if(n.spot){
+  if(isBack(n.spot)){
+    var bp = fitPane(n.spot[0], n.spot[1]); n.spot = [bp.x, bp.y, -0.007, 0, 0, -1];
+    m.position.set(bp.x, bp.y - loose*0.012, -0.007-idx*0.0004); m.rotation.set(-m.rotation.x, Math.PI, -m.rotation.z);
+  } else if(n.spot){
     var sp = n.spot;
     m.position.set(sp[0]+sp[3]*0.012, sp[1]+sp[4]*0.012, sp[2]+sp[5]*0.012);
     m.lookAt(sp[0]+sp[3], sp[1]+sp[4], sp[2]+sp[5]); m.rotateZ(n.r);
@@ -2067,6 +2130,7 @@ function build(){
   if(natReady) makeNature(world); else makeTrees(world);
   makeWindow(world);
   makeCritters(world);
+  makePresence(world);
   var motesWas = cfg.motes; if(curPhase==='night' && !grade.fixedNight && cfg.motes!=='none') cfg.motes='firefly';
   if(cfg.motes!=='none') world.add(makeMotes());
   cfg.motes = motesWas;
@@ -2080,7 +2144,7 @@ function build(){
   loadEnv();
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
-  $('locSub').textContent = cfg.scene + (grade.fixedNight ? '' : ' · '+PHASE_LABEL[curPhase]) + (wx()==='rain' ? ' · 서울에 비' : wx()==='snow' ? ' · 서울에 눈' : '');
+  locBase = cfg.scene + (grade.fixedNight ? '' : ' · '+PHASE_LABEL[curPhase]) + (wx()==='rain' ? ' · 서울에 비' : wx()==='snow' ? ' · 서울에 눈' : ''); showLocSub();
 }
 
 // ---------- movement: jump / crouch / sit ----------
@@ -2173,14 +2237,14 @@ function tap(cx,cy){
       if(sh.d > 3.2){ toast(sh.kind==='rock' ? '바위에 조금 더 가까이 가 볼까요' : '나무에 조금 더 가까이 가 볼까요'); return; }
       finishMove({x:0, y:1.5, spot:sh.spot, kind:sh.kind}); return;
     }
-    if(gh && gh.distance<9){ finishMove(fitPane(gh.point.x, gh.point.y)); return; }
+    if(gh && gh.distance<9){ finishMove(glassSpot(gh.point.x, gh.point.y)); return; }
     toast('유리창이나 나무·바위를 눌러주세요'); return;
   }
   if(placing){
     var hit = ray.intersectObject(glassMesh)[0];
     if(!(hit && hit.distance<9) && trySpot(cx, cy, false)) return;
     if(hit && hit.distance<9){
-      pending = fitPane(hit.point.x, hit.point.y);
+      pending = glassSpot(hit.point.x, hit.point.y);
       setPlacing(false); openComposer(null);
     } else toast('유리창을 눌러주세요');
     return;
@@ -2217,7 +2281,7 @@ function glideTo(x, z, yaw, pitch, done){ glide = {fx:player.x, fz:player.z, fya
 $('add').addEventListener('click', function(){
   hideHint();
   if(leftToday()<=0){ toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; }
-  var near = player.z>0.6 && player.z<3.2 && Math.abs(player.x)<2.6;
+  var near = Math.abs(player.z)>0.6 && Math.abs(player.z)<3.2 && Math.abs(player.x)<2.6;
   if(near){ setPlacing(true); return; }
   glideTo(Math.max(-1.2,Math.min(1.2,player.x*0.3)), 1.75, 0, 0.12, function(){ setPlacing(true); });
 });
@@ -2313,9 +2377,11 @@ function fromServer(row){
   return { id:row.id, server:true, spot:(row.spot&&row.spot.length===6)?row.spot:undefined, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
            age:Math.min(1, Math.max(0, days/lifeDays(row.hearts))), left:Math.max(0, Math.ceil(lifeDays(row.hearts)-days)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
 }
-var syncSig = '', syncing = false;
+var syncSig = '', syncing = false, syncGen = 0, syncAgain = false;
+// any change I make (post, move, edit, delete) bumps syncGen, so a fetch that started before it can't paint the old state back
+function syncAfterChange(){ syncGen++; syncSig = ''; if(syncing) syncAgain = true; else syncRegion(true); }
 function updateEmpty(){
-  var empty = !noteMeshes.some(function(m){ return !m.userData.note.spot; }) && !placing;
+  var empty = !noteMeshes.some(function(m){ return onGlass(m.userData.note); }) && !placing;
   var seenK = 'sumgeul-empty-'+cfg.id, seenN = store.get(seenK) || 0;
   if(empty && $('emptyHint').hidden){ if(seenN >= 2) empty = false; else { store.set(seenK, seenN+1); clearTimeout(updateEmpty.t); updateEmpty.t = setTimeout(function(){ $('emptyHint').hidden = true; $('acts').style.bottom = ''; }, 9000); } }
   else if(empty && seenN > 2) empty = false;
@@ -2327,10 +2393,11 @@ $('careLink').addEventListener('click', function(e){ e.stopPropagation(); openCa
 $('careFromReader').addEventListener('click', function(){ openCare('혹시 이 글의 주인이 걱정된다면, 아래 번호를 기억해 주세요. 내 마음이 무거울 때도 똑같이 기댈 수 있어요.'); });
 function syncRegion(force){
   if(syncing || !world) return; syncing = true;
-  var region = cfg.id;
+  var region = cfg.id, gen = syncGen;
   sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,place,spot,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
   .then(function(rows){
     syncing = false;
+    if(gen !== syncGen || syncAgain){ syncAgain = false; syncRegion(true); return; }
     if(region !== cfg.id || !rows) return;
     var hid = store.get(hiddenKey()) || {}, hs = store.get('yurichang-h:'+cfg.id) || {};
     rows = rows.filter(function(r){ return !hid[r.id]; });
@@ -2348,7 +2415,7 @@ function syncRegion(force){
     updateEmpty();
     if(openAfterSync){ var want = openAfterSync; openAfterSync = null;
       noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible) setTimeout(function(){ openReader(m); }, 700); }); }
-  }, function(){ syncing = false; updateEmpty(); });
+  }, function(){ syncing = false; if(syncAgain){ syncAgain = false; syncRegion(true); } updateEmpty(); });
 }
 setInterval(function(){ if(!document.hidden && !modal && online!==false) syncRegion(false); }, 30000);
 
@@ -2560,7 +2627,7 @@ function openComposer(mesh){
   $('quota').textContent = mesh ? '' : '오늘 '+leftToday()+'장 남음';
   $('placeRow').style.display = mesh ? 'none' : 'flex';
   var pv = store.get('yurichang-showplace'); $('showPlace').checked = pv===null ? true : !!pv;
-  $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='rock' ? '바위에 붙이기' : '나무에 붙이기') : '창문에 붙이기');
+  $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='back' ? '창문 뒷면에 붙이기' : pending.kind==='rock' ? '바위에 붙이기' : '나무에 붙이기') : '창문에 붙이기');
   inl.style.display='none'; ed.inl=null; setTool('pen'); markSw(); markFont();
   openModal('composeScrim');
   requestAnimationFrame(edResize);
@@ -2579,7 +2646,7 @@ $('stick').addEventListener('click', function(){
     if(n.server){
       btn.disabled = true;
       sbRpc('edit_note', {p_id:n.id, p_token:tokens()[n.id]||'', p_c:c, p_strokes:strokes, p_texts:texts}).then(function(){
-        n.c=c; n.strokes=strokes; n.texts=texts; refreshNote(em); closeModal('composeScrim'); toast('포스트잇을 고쳤어요');
+        n.c=c; n.strokes=strokes; n.texts=texts; refreshNote(em); closeModal('composeScrim'); toast('포스트잇을 고쳤어요'); syncGen++;
       }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }).then(function(){ btn.disabled=false; });
       return;
     }
@@ -2597,10 +2664,10 @@ $('stick').addEventListener('click', function(){
   (wantPlace ? getPlace : function(cb){ cb(null); })(function(place){
   nn.place = place || undefined;
   sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts, p_place:place||null, p_spot:nn.spot||null}).then(function(res){
-    bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0);
+    bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0); syncGen++;
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
-    closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((nn.spot ? (spotKind==='rock' ? '바위에 살짝 붙였어요' : '나무에 살짝 붙였어요') : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
+    closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? (spotKind==='rock' ? '바위에 살짝 붙였어요' : '나무에 살짝 붙였어요') : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
   }, function(e){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
@@ -2632,7 +2699,7 @@ $('rNext').addEventListener('click', function(){ readerStep(1); });
 })();
 window.addEventListener('keydown', function(e){ if(!$('readerScrim').classList.contains('on')) return; if(e.key==='ArrowRight') readerStep(1); else if(e.key==='ArrowLeft') readerStep(-1); });
 function updateBrowse(){
-  var n = noteMeshes.filter(function(m){ return m.visible && !m.userData.note.spot; }).length, b = $('browse');
+  var n = noteMeshes.filter(function(m){ return m.visible && onGlass(m.userData.note); }).length, b = $('browse');
   b.classList.toggle('on', n > 0 && !modal && !placing);
   if(n > 0){ var t = '포스트잇 <b>'+n+'장</b> · 넘겨보기'; if(b.innerHTML !== t) b.innerHTML = t; }
 }
@@ -2670,7 +2737,7 @@ $('delBtn').addEventListener('click', function(){
   delArm=false; $('delBtn').textContent='떼어내기';
   var m=reading, n=m.userData.note;
   function drop(){ world.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); noteMeshes.splice(noteMeshes.indexOf(m),1); saveMine(); closeModal('readerScrim'); updateEmpty(); toast('포스트잇을 떼어냈어요'); }
-  if(n.server){ sbRpc('delete_note', {p_id:n.id, p_token:tokens()[n.id]||''}).then(function(){ setToken(n.id, null); drop(); }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }); return; }
+  if(n.server){ sbRpc('delete_note', {p_id:n.id, p_token:tokens()[n.id]||''}).then(function(){ setToken(n.id, null); drop(); syncAfterChange(); }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }); return; }
   drop();
 });
 
@@ -2682,7 +2749,7 @@ $('moveBtn').addEventListener('click', function(){
   closeModal('readerScrim');
   moving = { n:n, from:cfg.id, old:{x:n.x, y:n.y, spot:n.spot} };
   dropMesh(m); updateEmpty(); bump('moves');
-  var near = player.z>0.6 && player.z<4.2 && Math.abs(player.x)<2.6;
+  var near = Math.abs(player.z)>0.6 && Math.abs(player.z)<4.2 && Math.abs(player.x)<2.6;
   if(near) setPlacing(true); else glideTo(Math.max(-1.2,Math.min(1.2,player.x*0.3)), 1.75, 0, 0.12, function(){ if(moving) setPlacing(true); });
   toast('포스트잇을 뗐어요 · 붙일 자리를 눌러요');
 });
@@ -2702,12 +2769,12 @@ function finishMove(to){
     addNoteMesh(n, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0;
     if(!n.server) saveMine();
     updateEmpty(); if(navigator.vibrate) try{ navigator.vibrate(18); }catch(_){}
-    toast(to.spot ? (to.kind==='rock' ? '바위에 옮겨 붙였어요' : '나무에 옮겨 붙였어요') : cfg.name+' 창에 옮겨 붙였어요');
+    toast(to.kind==='back' ? cfg.name+' 창 뒷면에 옮겨 붙였어요' : to.spot ? (to.kind==='rock' ? '바위에 옮겨 붙였어요' : '나무에 옮겨 붙였어요') : cfg.name+' 창에 옮겨 붙였어요');
   }
   if(!n.server){ done(); return; }
   if(mv.busy) return; mv.busy = true; btn.disabled = true;
   sbRpc('move_note', {p_id:n.id, p_token:tokens()[n.id]||'', p_region:region, p_x:+to.x.toFixed(3), p_y:+to.y.toFixed(3), p_spot:to.spot||null}).then(function(){
-    syncSig = ''; done();
+    done(); syncAfterChange();
   }, function(e){ mv.busy = false; toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }).then(function(){ btn.disabled = false; });
 }
 
@@ -3337,7 +3404,7 @@ function frame(){
   var near = Math.abs(player.z) < 3.2 && Math.abs(player.x) < 3 && !photo.on ? 1 - sm(1.2, 3.2, Math.abs(player.z)) : 0;
   nearK += (near - nearK) * Math.min(1, dt*4);
   for(var pi=0; pi<noteMeshes.length; pi++){
-    var pm=noteMeshes[pi], base = pm.userData.note.spot ? 1 : 1 + 0.32*nearK;
+    var pm=noteMeshes[pi], base = onGlass(pm.userData.note) ? 1 + 0.32*nearK : 1;
     if(pm.userData.pop!==undefined){ pm.userData.pop=Math.min(1,pm.userData.pop+dt*2.2); var q=pm.userData.pop, sc=q<1 ? 1+Math.sin(q*Math.PI)*0.35 : 1; pm.scale.setScalar(base*sc*Math.min(1,0.2+q*1.6)); if(q>=1) delete pm.userData.pop; }
     else pm.scale.setScalar(base);
   }
@@ -3349,7 +3416,7 @@ function frame(){
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
-  updateCritters(dt, t);
+  updateCritters(dt, t); updatePresence(dt, t);
   if(snowU) snowU.cam.value.copy(camera.position);
   if(rainU) rainU.cam.value.copy(camera.position);
   if(dropsCv){ dropsT += dt; if(dropsT > 0.06){ drawDrops(dropsT); dropsT = 0; } }
