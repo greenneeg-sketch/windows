@@ -705,7 +705,7 @@ function loadPackedHDR(url, done, fail){
   var img = new Image();
   img.onload = function(){
     try{
-      var CAP = /night/.test(url) ? 2.5 : 6e4;   // one star in the night sky is ~70x brighter than the rest and turns into a black speck on some phones
+      var CAP = /night/.test(url) ? 2.5 : 2000;   // two sun HDRIs peak at ~87,000, past half-float's 65,504: the sun turned into Infinity/NaN and showed as a grey square on iPhone
       var w=img.width, h=img.height/2, cv=document.createElement('canvas'); cv.width=w; cv.height=img.height;
       var x=cv.getContext('2d'); x.drawImage(img,0,0); var d=x.getImageData(0,0,w,img.height).data;
       var n=w*h, out=new Uint16Array(n*4), H=THREE.DataUtils.toHalfFloat, one=H(1);
