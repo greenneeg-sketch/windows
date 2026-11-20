@@ -1965,7 +1965,14 @@ function noteTexture(n){
       renderNote(cv.getContext('2d'), n, S, {deco:true}); tex.needsUpdate = true; });
   } tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4; return tex;
 }
+// keep a post-it inside one pane of glass, clear of the wooden bars (notes are ~0.25 wide, a bit more up close)
+var PANE_X = [[-1.92,-0.717],[-0.617,0.617],[0.717,1.92]], PANE_Y = [[0.58,1.70],[1.80,2.92]], PANE_M = 0.2;
+function fitPane(x, y){
+  function fit(v, R){ var best = R[0], bd = 1e9; R.forEach(function(r){ var c = Math.max(r[0]+PANE_M, Math.min(r[1]-PANE_M, v)), d = Math.abs(c-v); if(d < bd){ bd = d; best = c; } }); return best; }
+  return { x: +fit(x, PANE_X).toFixed(3), y: +fit(y, PANE_Y).toFixed(3) };
+}
 function addNoteMesh(n, idx){
+  if(!n.spot){ var fp = fitPane(n.x, n.y); n.x = fp.x; n.y = fp.y; }
   var tx = noteTexture(n);
   var m = new THREE.Mesh(new THREE.PlaneGeometry(0.25,0.25), new THREE.MeshLambertMaterial({map:tx, emissiveMap:tx, emissive:new THREE.Color(cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12,cfg.lightI<1?0.5:0.12), side:THREE.DoubleSide, transparent:n.age>0.6, opacity:n.age>0.6?0.85:1}));
   var loose = Math.max(0, (n.age-0.8)/0.2);
@@ -2166,14 +2173,14 @@ function tap(cx,cy){
       if(sh.d > 3.2){ toast(sh.kind==='rock' ? '바위에 조금 더 가까이 가 볼까요' : '나무에 조금 더 가까이 가 볼까요'); return; }
       finishMove({x:0, y:1.5, spot:sh.spot, kind:sh.kind}); return;
     }
-    if(gh && gh.distance<9){ finishMove({x:Math.max(-1.88,Math.min(1.88,gh.point.x)), y:Math.max(0.62,Math.min(2.88,gh.point.y))}); return; }
+    if(gh && gh.distance<9){ finishMove(fitPane(gh.point.x, gh.point.y)); return; }
     toast('유리창이나 나무·바위를 눌러주세요'); return;
   }
   if(placing){
     var hit = ray.intersectObject(glassMesh)[0];
     if(!(hit && hit.distance<9) && trySpot(cx, cy, false)) return;
     if(hit && hit.distance<9){
-      pending = { x: Math.max(-1.88,Math.min(1.88,hit.point.x)), y: Math.max(0.62,Math.min(2.88,hit.point.y)) };
+      pending = fitPane(hit.point.x, hit.point.y);
       setPlacing(false); openComposer(null);
     } else toast('유리창을 눌러주세요');
     return;
