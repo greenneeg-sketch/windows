@@ -1574,6 +1574,55 @@ function bandSpot(){
   }
   return best;
 }
+// Low-poly hen/rooster, faceted like the rabbit. Faces +z, feet at y=0, ~0.42m tall.
+// userData.wings = [left, right] pivots (rotate .z to flap), userData.head for a little bob.
+function makeChicken(){
+  var CREAM='#f1dcae', CREAM2='#f5e6c4', BELLY='#f3d27e', ORANGE='#e98a37', ORANGE2='#d9702a', RED='#e3341f', YEL='#f2b632', LEG='#f0b93e';
+  var g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
+  var body = rPart(rig, CREAM, 0.12, 0.115, 0.155, 0, 0.2, -0.01, 1, 0.14, 11); body.rotation.x = -0.18;
+  rPart(rig, BELLY, 0.1, 0.085, 0.11, 0, 0.155, 0.03, 1, 0.12, 12);
+  // tail fan: cream plumes with orange between, sweeping up and back
+  var tail = new THREE.Group(); tail.position.set(0, 0.25, -0.13); rig.add(tail);
+  [[-0.05,1.25,CREAM2],[0.05,1.25,CREAM2],[0,1.4,CREAM],[-0.035,0.95,ORANGE],[0.035,0.95,ORANGE],[0,1.1,ORANGE]].forEach(function(f, i){
+    var piv = new THREE.Group(); piv.rotation.set(f[1]*0.85, 0, -f[0]*3); tail.add(piv);
+    var m = rPart(piv, f[2], 0.035, 0.026, 0.11, f[0], 0, -0.07, 0, 0.1, 20+i);
+  });
+  // wings: orange shield with a cream edge, on a pivot at the shoulder
+  var wings = [];
+  [-1,1].forEach(function(sd, i){
+    var piv = new THREE.Group(); piv.position.set(sd*0.093, 0.24, 0.03); rig.add(piv);
+    var w = rPart(piv, ORANGE, 0.03, 0.07, 0.115, sd*0.012, -0.04, -0.05, 0, 0.1, 30+i); w.rotation.x = -0.35;
+    var e = rPart(piv, CREAM, 0.022, 0.045, 0.07, sd*0.006, -0.085, -0.1, 0, 0.1, 32+i); e.rotation.x = -0.5;
+    var s = rPart(piv, ORANGE2, 0.026, 0.035, 0.05, sd*0.016, -0.01, 0.01, 0, 0.1, 34+i);
+    wings.push(piv);
+  });
+  // neck + orange hackle collar
+  rPart(rig, CREAM, 0.066, 0.09, 0.066, 0, 0.31, 0.085, 1, 0.12, 40);
+  var collar = rPart(rig, ORANGE, 0.085, 0.04, 0.082, 0, 0.275, 0.075, 0, 0.18, 41); collar.rotation.x = 0.25;
+  // head
+  var head = new THREE.Group(); head.position.set(0, 0.365, 0.11); rig.add(head);
+  rPart(head, CREAM, 0.066, 0.064, 0.072, 0, 0, 0, 1, 0.1, 50);
+  [-1,1].forEach(function(sd, i){
+    rPart(head, ORANGE, 0.012, 0.028, 0.034, sd*0.058, -0.004, 0.005, 0, 0.1, 51+i);
+    var eye = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), new THREE.MeshStandardMaterial({color:col('#1d1410'), roughness:0.4})); eye.position.set(sd*0.064, 0.008, 0.022); head.add(eye);
+  });
+  var beak = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.05, 4), new THREE.MeshStandardMaterial({color:col(YEL), roughness:0.8, flatShading:true}));
+  beak.rotation.x = Math.PI/2; beak.position.set(0, -0.008, 0.088); head.add(beak);
+  [[0,0.055,-0.03,0.022],[0,0.068,0.0,0.026],[0,0.06,0.03,0.022],[0,0.04,0.052,0.016]].forEach(function(c, i){ rPart(head, RED, c[3]*0.8, c[3], c[3], c[0], c[1], c[2], 0, 0.15, 60+i); });
+  rPart(head, RED, 0.016, 0.03, 0.018, 0, -0.06, 0.05, 0, 0.12, 66);
+  // legs + toes
+  [-1,1].forEach(function(sd, i){
+    var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.1, 5), new THREE.MeshStandardMaterial({color:col(LEG), roughness:0.9, flatShading:true}));
+    leg.position.set(sd*0.04, 0.055, 0.0); rig.add(leg);
+    [-0.5, 0, 0.5, Math.PI].forEach(function(a, k){
+      var toe = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.01, k===3 ? 0.03 : 0.05), leg.material);
+      toe.position.set(sd*0.04 + Math.sin(a)*0.022, 0.006, Math.cos(a)*0.022); toe.rotation.y = a; rig.add(toe);
+    });
+  });
+  rig.traverse(function(m){ if(m.isMesh) m.castShadow = true; });
+  g.userData.wings = wings; g.userData.head = head; g.userData.tail = tail;
+  return g;
+}
 function addBand(gen){
   var at = bandAt; if(!at) return;
   colliders.push({x:at.x, z:at.z, r:1.0});
@@ -1589,18 +1638,14 @@ function addBand(gen){
       var back = null; o.traverse(function(b){ if(b.isBone && b.name==='Torso2') back = b; });
       gen.add(h); return {h:h, o:o, mx:mx, back:back, fit:g.fit};
     }
-    var horse = rig(gs[0]), fox = rig(gs[1]); fox.o.scale.multiplyScalar(1.6); fox.o.position.y *= 1.6; fox.fit *= 1.6;
+    var horse = rig(gs[0]), fox = rig(gs[1]); fox.o.scale.multiplyScalar(2.1); fox.o.position.y *= 2.1; fox.fit *= 2.1;
     horse.h.position.set(at.x, groundH(at.x, at.z), at.z);
-    var rab = makeRabbit('#9a7a64'); rab.scale.setScalar(1.45); rab.rotation.y = ROT; gen.add(rab);
-    var sq = makeSquirrel(); sq.scale.setScalar(1.3); sq.rotation.y = ROT; gen.add(sq);
-    var bird = makeBird(false); bird.scale.setScalar(1.7);
-    bird.traverse(function(m){ if(m.isMesh){ m.material = m.material.clone(); m.material.color = col('#efe6d6'); } });          // a pale little rooster on top
-    var comb = ball(0.022, '#d8443a', 1, 1.4, 1.2); comb.position.set(0, 0.075, 0.115); bird.add(comb);
-    var beak = ball(0.014, '#e8a23a', 1, 0.8, 1.8); beak.position.set(0, 0.03, 0.16); bird.add(beak); bird.rotation.y = ROT; gen.add(bird);
-    [rab, sq, bird].forEach(function(o){ o.traverse(function(m){ if(m.isMesh){ m.castShadow = hq; m.frustumCulled = false; } }); });
-    poseRabbit(rab, null, 0, 0.016); poseSquirrel(sq, null, 0, 0.016, 0);
+    var rab = makeRabbit('#9a7a64'); rab.scale.setScalar(1.3); rab.rotation.y = ROT; gen.add(rab);
+    var hen = makeChicken(); hen.scale.setScalar(1.1); hen.rotation.y = ROT; gen.add(hen);
+    [rab, hen].forEach(function(o){ o.traverse(function(m){ if(m.isMesh){ m.castShadow = hq; m.frustumCulled = false; } }); });
+    poseRabbit(rab, null, 0, 0.016);
     function topOf(o){ o.updateMatrixWorld(true); var b = new THREE.Box3().setFromObject(o); return b.max.y - o.position.y; }
-    var rabH = topOf(rab), sqH = topOf(sq);
+    var rabH = topOf(rab);
     var v = new THREE.Vector3(), flap = 0, flapT = 2 + Math.random()*4, top = 0;
     var me = { o:horse.h, kind:'band', headY:2.4, petR:4.2, calmT:0,
       calm:function(){ this.calmT = 6; flap = 1.6; },
@@ -1611,14 +1656,13 @@ function addBand(gen){
         horse.back.getWorldPosition(v); fox.h.position.set(v.x, v.y + 0.3*horse.fit, v.z);
         fox.h.updateMatrixWorld(true); fox.back.getWorldPosition(v);
         rab.position.set(v.x, v.y + 0.22*fox.fit, v.z); poseRabbit(rab, null, T, dt);
-        sq.position.set(rab.position.x - Math.sin(ROT)*0.07, rab.position.y + rabH*0.66, rab.position.z - Math.cos(ROT)*0.07); poseSquirrel(sq, null, T, dt, this.calmT > 0 ? 1 : 0);
-        bird.position.set(sq.position.x, sq.position.y + sqH*0.78, sq.position.z);
-        top = bird.position.y + 0.08 - horse.h.position.y; this.headY = top;
+        hen.position.set(rab.position.x - Math.sin(ROT)*0.05, rab.position.y + rabH*0.62, rab.position.z - Math.cos(ROT)*0.05);
+        hen.userData.head.rotation.x = Math.sin(T*2.3)*0.12; hen.userData.head.rotation.y = Math.sin(T*0.7)*0.35;
+        top = hen.position.y + 0.5 - horse.h.position.y; this.headY = top;
         if(this.calmT > 0) this.calmT -= dt;
         flapT -= dt; if(flapT < 0){ flap = 1.1; flapT = 4 + Math.random()*6; }
-        var w = bird.userData.wings, a = flap > 0 ? Math.sin(T*22)*0.9 : 0; flap -= dt;
-        w[0].rotation.z = -1.2 + a; w[1].rotation.z = 1.2 - a;
-        bird.rotation.x = Math.sin(T*1.7)*0.05;
+        var w = hen.userData.wings, a = flap > 0 ? Math.abs(Math.sin(T*16))*1.1 : 0; flap -= dt;
+        w[0].rotation.z = -a; w[1].rotation.z = a;
         return true;
       } };
     critters.push(me);
@@ -1632,7 +1676,7 @@ var THOUGHTS = {
   Horse: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '달리는 날도 쉬는 날도 있죠', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '들판은 넓고 시간은 많아요'],
   Horse_White: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '하얀 털이 자랑이에요', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '천천히 걸어도 닿아요'],
   rabbit: ['코가 간질간질해요', '깡충, 오늘도 무사히', '조용히 와줘서 안 놀랐어요', '귀 쫑긋! 무슨 소리지?', '풀밭이 폭신해요', '당신 마음도 폭신하길'],
-  band: ['넷이 모이면 뭐든 할 수 있어요', '맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
+  band: ['우리 넷이 모이면 뭐든 할 수 있어요', '꼬꼬, 맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
   squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
 };
 var KIND_NAME = { band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
