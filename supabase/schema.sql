@@ -189,3 +189,8 @@ grant select (spot) on public.notes to anon, authenticated;
 
 -- v26: daily_metrics — table daily_use(day, dev sha256, pwa, c jsonb) RLS no policies; track_day(p_device,p_c,p_pwa) keeps max per key;
 -- admin_metrics(p_key); cron 'sumgeul-purge-use' deletes rows older than 90 days
+
+-- v28: heart_push — yc_settings vapid_public/vapid_private/push_secret/push_url; table push_subs(endpoint pk, device, sub) RLS no policies;
+-- notes.last_push, notes.push_hearts; save_push(p_device,p_sub), delete_push(p_device,p_endpoint);
+-- heart_note: on a new heart from someone else, at most every 30 min per note, net.http_post -> functions/v1/push-heart
+-- edge function push-heart (verify_jwt off, checks push_secret, reads subs with service role, npm:web-push, deletes 404/410 subs)

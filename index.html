@@ -37,6 +37,21 @@
   #top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 14px) 14px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
   #top>*{pointer-events:auto}
   #topR{display:flex;gap:8px}
+  #loc{min-width:0;flex-shrink:1}#loc span{min-width:0;overflow:hidden}#loc b,#loc small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #topR{flex-shrink:0}
+  @media (max-width:400px){ #top{gap:6px;padding-left:10px;padding-right:10px} #topR{gap:5px} #topR .iconbtn{width:40px;height:40px} #loc{padding:8px 10px;gap:6px} #loc>svg:last-child{display:none} }
+  #mineBtn{position:relative}
+  #mineBtn i{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#FF9EC4;color:#3A1424;font-size:10px;font-style:normal;line-height:16px;display:none}
+  #mineBtn.dot i{display:block}
+  .mine{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .mine button{border:0;background:none;padding:0;color:#F4F1EA;display:flex;flex-direction:column;gap:6px;text-align:left}
+  .mine canvas{width:100%;aspect-ratio:1;box-shadow:0 6px 14px rgba(0,0,0,.35);border-radius:2px}
+  .mine small{font-size:11.5px;color:#BFB8AA;line-height:1.35}.mine small b{color:#FF9EC4;font-weight:700}
+  .pushrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:#262A38}
+  .pushrow div{flex:1;font-size:13.5px;line-height:1.45;color:#D9D4CA}.pushrow b{display:block;color:#F4F1EA;font-size:14.5px}
+  .sw{width:50px;height:30px;border-radius:15px;background:#3A3F50;border:0;position:relative;flex-shrink:0;transition:background .2s}
+  .sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;transition:left .2s}
+  .sw.on{background:#FFC94D}.sw.on::after{left:23px}.sw:disabled{opacity:.35}
   #loc{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 14px;border-radius:22px;color:#F4F1EA;font-size:14px;text-align:left}
   #loc small{display:block;font-size:11.5px;color:#D9D4C9;font-weight:400;white-space:nowrap}
   #loc b{white-space:nowrap}
@@ -211,6 +226,7 @@
   </button>
   <div id="topR">
     <button id="photoBtn" class="glass iconbtn" aria-label="사진 찍기"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></button>
+    <button id="mineBtn" class="glass iconbtn" aria-label="내가 붙인 포스트잇"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/></svg><i id="mineDot"></i></button>
     <button id="shareWin" class="glass iconbtn" aria-label="이 창 링크 공유하기"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></button>
     <button id="hq" class="glass iconbtn" aria-label="고화질 끄기">HD</button>
     <button id="snd" class="glass iconbtn" aria-label="소리 끄기">
@@ -354,6 +370,17 @@
       <button class="pill" id="cardShare" style="background:#FFC94D;color:#1A1712">공유하기</button>
       <button class="pill" data-close="cardScrim" style="background:#2A2E3C;color:#F4F1EA">닫기</button>
     </div>
+  </div>
+</div>
+
+<div id="mineScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="mineTitle">
+    <div class="row"><h2 id="mineTitle">내가 붙인 포스트잇</h2>
+      <button class="close" data-close="mineScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <div class="pushrow"><div><b>공감 알림</b><span id="pushNote">누군가 내 포스트잇에 공감하면 알려드려요</span></div><button class="sw" id="pushSw" role="switch" aria-checked="false" aria-label="공감 알림"></button></div>
+    <div class="mine" id="mineList"></div>
+    <p class="muted" id="mineEmpty" hidden>아직 붙인 포스트잇이 없어요. 마음에 드는 창 앞에서 한 장 붙여볼까요?</p>
+    <p class="muted" style="margin:0;font-size:12px">이 기기에서 붙인 포스트잇만 보여요. 브라우저 데이터를 지우면 목록도 사라져요.</p>
   </div>
 </div>
 
@@ -2043,9 +2070,11 @@ function enterWorld(){
 }
 var startOnce = function(){ startSound(); window.removeEventListener('pointerdown', startOnce, true); };
 window.addEventListener('pointerdown', startOnce, true);
-window.addEventListener('hashchange', function(){ var r=regionBySlug(location.hash.slice(1)); if(r && r!==cfg){ goRegion(r); enterWorld(); } });
-var linked = regionBySlug(location.hash.slice(1));
+function parseHash(){ var h = location.hash.slice(1).split('/'); return {r:regionBySlug(h[0]), id:/^[0-9a-f-]{36}$/.test(h[1]||'') ? h[1] : null}; }
+window.addEventListener('hashchange', function(){ var h=parseHash(); if(h.id) openAfterSync = h.id; if(h.r && h.r!==cfg){ goRegion(h.r); enterWorld(); } else if(h.id){ syncRegion(true); enterWorld(); } });
+var linkedH = parseHash(), linked = linkedH.r;
 if(linked) cfg = linked;
+if(linkedH.id) setTimeout(function(){ openAfterSync = linkedH.id; syncRegion(true); }, 0);
 
 function shareOrCopy(data, okMsg){
   bump('shares');
@@ -2272,6 +2301,60 @@ function showNews(items){
   });
   box.hidden=false;
 }
+// ---------- my notes (보관함) ----------
+function regionById(id){ for(var i=0;i<REGIONS.length;i++) if(REGIONS[i].id===id) return REGIONS[i]; return null; }
+function openNoteIn(reg, id){ openAfterSync = id; closeModal('mineScrim'); if(reg!==cfg){ goRegion(reg); } else syncRegion(true); enterWorld(); }
+function openMine(){
+  bump('mine_open'); openModal('mineScrim'); pushUi();
+  var box = $('mineList'); box.innerHTML = ''; $('mineEmpty').hidden = true; $('mineDot').textContent = ''; $('mineBtn').classList.remove('dot');
+  var ids = Object.keys(tokens()).filter(function(k){ return /^[0-9a-f-]{36}$/.test(k); });
+  if(!ids.length){ $('mineEmpty').hidden = false; return; }
+  sbFetch('/rest/v1/notes?select=id,region,c,strokes,texts,hearts,created_at&id=in.('+ids.join(',')+')&order=created_at.desc').then(function(rows){
+    rows = rows || []; if(!rows.length){ $('mineEmpty').hidden = false; return; }
+    rows.forEach(function(r){
+      var reg = regionById(r.region); if(!reg) return;
+      var b = document.createElement('button'), cv = document.createElement('canvas'), sm = document.createElement('small');
+      cv.width = cv.height = 160; try{ renderNote(cv.getContext('2d'), {c:r.c, strokes:r.strokes||[], texts:r.texts||[], age:0}, 160, {deco:false}); }catch(_){}
+      var left = Math.max(0, Math.ceil(lifeDays(r.hearts) - (Date.now()-new Date(r.created_at).getTime())/86400000));
+      sm.innerHTML = ''; sm.appendChild(document.createTextNode(reg.name+' 창')); sm.appendChild(document.createElement('br'));
+      var hb = document.createElement('b'); hb.textContent = '♥ '+(r.hearts||0); sm.appendChild(hb); sm.appendChild(document.createTextNode(' · '+left+'일 남음'));
+      b.appendChild(cv); b.appendChild(sm); b.setAttribute('aria-label', reg.name+' 창에 붙인 포스트잇, 공감 '+(r.hearts||0));
+      b.addEventListener('click', function(){ openNoteIn(reg, r.id); });
+      box.appendChild(b); markSeen(r.id, r.hearts);
+    });
+  }, function(){ $('mineEmpty').hidden = false; $('mineEmpty').textContent = '인터넷에 연결되면 볼 수 있어요'; });
+}
+$('mineBtn').addEventListener('click', openMine);
+
+// ---------- heart push (home-screen app) ----------
+var VAPID = 'BG98GTvJWp528HKkKnSi4yw0DBi_BtGj8DvTpUA2FDFxhXbx3KyW1H7cDbi9EM1iHI5yN2I1BopjN8o9SJE2VV4';
+function pushable(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && /github\.io$/.test(location.hostname); }
+function standalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function b64u(s){ var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')), a = new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i] = b.charCodeAt(i); return a; }
+function pushUi(){
+  var sw = $('pushSw'), note = $('pushNote');
+  function set(on, msg){ sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on?'true':'false'); if(msg) note.textContent = msg; }
+  if(IOS && !standalone()){ set(false, '아이폰은 공유 → 홈 화면에 추가한 앱에서 켤 수 있어요'); sw.disabled = true; return; }
+  if(!pushable()){ set(false, '이 브라우저에서는 알림을 받을 수 없어요'); sw.disabled = true; return; }
+  sw.disabled = false;
+  if(Notification.permission === 'denied'){ set(false, '설정에서 숨글 알림을 허용해 주세요'); return; }
+  navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){ set(!!sub, sub ? '공감이 달리면 알려드려요 (30분에 한 번까지)' : '누군가 내 포스트잇에 공감하면 알려드려요'); }).catch(function(){});
+}
+$('pushSw').addEventListener('click', function(){
+  var sw = this; if(sw.disabled) return; sw.disabled = true;
+  navigator.serviceWorker.ready.then(function(reg){
+    return reg.pushManager.getSubscription().then(function(sub){
+      if(sub){ var ep = sub.endpoint; return sub.unsubscribe().then(function(){ return sbRpc('delete_push', {p_device:deviceId(), p_endpoint:ep}).catch(function(){}); }).then(function(){ toast('공감 알림을 껐어요'); }); }
+      return Notification.requestPermission().then(function(p){
+        if(p !== 'granted') throw new Error('denied');
+        return reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(VAPID)});
+      }).then(function(sub){ bump('push_on'); return sbRpc('save_push', {p_device:deviceId(), p_sub:sub.toJSON()}); }).then(function(){ toast('공감이 달리면 알려드릴게요'); });
+    });
+  }).catch(function(e){ toast(e && e.message==='denied' ? '알림이 허용되지 않았어요' : '알림을 켜지 못했어요. 잠시 후 다시 해 주세요'); })
+    .then(function(){ sw.disabled = false; pushUi(); });
+});
+
 // ---------- intro: today's one note, across all windows ----------
 var openAfterSync = null;
 function fetchToday(){
@@ -2308,7 +2391,8 @@ function fetchNews(){
     });
     items.sort(function(a,b){ return b.add-a.add; });
     if($('intro').style.display!=='none') showNews(items);
-    else if(items.length) toast('내 포스트잇에 공감 '+items.reduce(function(a,b){return a+b.add;},0)+'개가 새로 달렸어요');
+    if(items.length){ $('mineDot').textContent = '+'+items.reduce(function(a,b){return a+b.add;},0); $('mineBtn').classList.add('dot'); }
+    if($('intro').style.display!=='none'){} else if(items.length) toast('내 포스트잇에 공감 '+items.reduce(function(a,b){return a+b.add;},0)+'개가 새로 달렸어요');
   }, function(){});
 }
 
