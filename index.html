@@ -348,7 +348,7 @@
     <div class="row"><h2 id="composeTitle">포스트잇 쓰기</h2><span id="quota" class="quota"></span><div style="flex:1"></div>
       <button class="close" data-close="composeScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
     <div class="swatches" id="swatches"></div>
-    <div id="edWrap"><input id="inl" type="text" maxlength="20" enterkeyhint="done" aria-label="포스트잇에 넣을 글자" style="display:none"><canvas id="ed" aria-label="포스트잇 전체 면. 펜으로 아무 곳에나 쓰거나 글자를 원하는 위치에 놓을 수 있어요"></canvas></div>
+    <div id="edWrap"><input id="inl" type="text" maxlength="20" enterkeyhint="enter" aria-label="포스트잇에 넣을 글자" style="display:none"><canvas id="ed" aria-label="포스트잇 전체 면. 펜으로 아무 곳에나 쓰거나 글자를 원하는 위치에 놓을 수 있어요"></canvas></div>
     <div class="tools">
       <div class="seg" role="group" aria-label="도구">
         <button id="toolPen" class="on">펜</button><button id="toolErase">지우개</button><button id="toolText">글자</button><button id="toolStk">스티커</button>
@@ -2264,9 +2264,9 @@ function styleInline(){
   inl.style.left = (o.x*edS)+'px'; inl.style.top = (o.y*edS)+'px';
   inl.style.transform = 'translate(-50%,-50%) rotate('+o.rot+'rad)';
 }
-function commitInline(){
+function commitInline(keep){
   var o = ed.inl; if(!o) return;
-  ed.inl = null; inl.style.display='none';
+  ed.inl = null; if(!keep) inl.style.display='none';
   var v = inl.value.trim();
   if(o.i!==null){
     if(v){ var t=ed.texts[o.i]; t.t=v; t.f=o.f; t.s=o.s; t.c=o.c; t.bad=!checkText(v).ok; ed.sel=o.i; if(t.bad) toast(checkText(v).why); }
@@ -2279,7 +2279,18 @@ function commitInline(){
   edDraw();
 }
 inl.addEventListener('input', styleInline);
-inl.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); inl.blur(); } e.stopPropagation(); });
+inl.addEventListener('keydown', function(e){
+  e.stopPropagation();
+  if(e.key!=='Enter' || e.isComposing || e.keyCode===229) return;
+  e.preventDefault();
+  var o = ed.inl; if(!o){ inl.blur(); return; }
+  // Enter = next line: commit this line and open a fresh box right below it (empty line or bottom edge = done)
+  var d = o.s*1.3, nx = o.x - Math.sin(o.rot)*d, ny = o.y + Math.cos(o.rot)*d;
+  if(!inl.value.trim() || ny > 0.93){ inl.blur(); return; }
+  commitInline(true);
+  openInline(nx, ny, null);
+  ed.inl.s = o.s; ed.inl.c = o.c; ed.inl.f = o.f; ed.inl.rot = o.rot; styleInline(); edDraw();
+});
 inl.addEventListener('blur', function(){ setTimeout(commitInline, 0); });
 
 edC.addEventListener('pointerdown', function(e){
