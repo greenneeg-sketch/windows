@@ -1539,6 +1539,21 @@ function hiddenKey(){ return 'yurichang-hidden:'+cfg.id; }
 // allows reading visible notes, and every write goes through checked server functions.
 var SB_URL = 'https://dhdmynqrbtiqbvmrvflz.supabase.co', SB_KEY = 'sb_publishable_ioOTpxXCCmi9dN83WMlKJw_8kjCJ8_t';
 var online = null;   // null = not tried yet, true/false after the first request
+// ---------- usage: one row per device per day, running totals only (no content, no timing) ----------
+var use = (function(){
+  var k = 'sumgeul-use', d = (function(){ var t = new Date(Date.now()+9*3600000); return t.toISOString().slice(0,10); })();
+  var u = store.get(k); if(!u || u.d!==d) u = {d:d, c:{visits:1}}; return {k:k, u:u, dirty:true};
+})();
+function bump(key, n){ use.u.c[key] = Math.min(500, (use.u.c[key]||0) + (n||1)); use.dirty = true; store.set(use.k, use.u); }
+function flushUse(){
+  if(!use.dirty || !SB_URL || /^(localhost|127\.)/.test(location.hostname)) return; use.dirty = false;
+  var pwa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  try{ fetch(SB_URL+'/rest/v1/rpc/track_day', {method:'POST', keepalive:true, headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({p_device:deviceId(), p_c:use.u.c, p_pwa:pwa})}).catch(function(){ use.dirty = true; }); }catch(_){ use.dirty = true; }
+}
+document.addEventListener('visibilitychange', function(){ if(document.hidden) flushUse(); });
+window.addEventListener('pagehide', flushUse);
+setInterval(flushUse, 60000); setTimeout(flushUse, 8000);
 function deviceId(){
   var d = store.get('yurichang-device');
   if(!d){ d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('d'+Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)); store.set('yurichang-device', d); }
@@ -1748,6 +1763,7 @@ INKS.forEach(function(k){
   inkEl.appendChild(b);
 });
 function openComposer(mesh){
+  if(!mesh) bump('composes');
   ed.editing = mesh;
   if(mesh){ var n=mesh.userData.note; ed.c=n.c; ed.strokes=JSON.parse(JSON.stringify(n.strokes||[])); ed.texts=JSON.parse(JSON.stringify(n.texts||[])); }
   else { ed.strokes=[]; ed.texts=[]; }
@@ -1793,7 +1809,7 @@ $('stick').addEventListener('click', function(){
   (wantPlace ? getPlace : function(cb){ cb(null); })(function(place){
   nn.place = place || undefined;
   sbRpc('post_note', {p_device:deviceId(), p_region:region, p_x:nn.x, p_y:nn.y, p_r:nn.r, p_c:nn.c, p_strokes:nn.strokes, p_texts:nn.texts, p_place:place||null, p_spot:nn.spot||null}).then(function(res){
-    useOne(); setToken(res.id, res.token); markSeen(res.id, 0);
+    bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0);
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
     closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((nn.spot ? (spotKind==='rock' ? '바위에 살짝 붙였어요' : '나무에 살짝 붙였어요') : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
@@ -1814,7 +1830,7 @@ function drawReader(){
 }
 function openReader(mesh){
   reading = mesh; var n = mesh.userData.note;
-  openModal('readerScrim');
+  openModal('readerScrim'); bump('reads');
   requestAnimationFrame(drawReader);
   var life = n.left===undefined ? '' : (n.left<=3 ? '곧 떨어져요 · ' : n.left+'일 뒤에 떨어져요 · ');
   $('careLine').hidden = n.mine || !isCrisis(n.texts);
@@ -1827,7 +1843,7 @@ function openReader(mesh){
 }
 $('heartBtn').addEventListener('click', function(){
   if(!reading) return; var n = reading.userData.note; if(n.liked) return;
-  n.liked=true; n.h=(n.h||0)+1;
+  bump('hearts'); n.liked=true; n.h=(n.h||0)+1;
   if(n.left!==undefined){ n.left += 2; toast('공감했어요 · 이 포스트잇이 이틀 더 붙어 있어요'); }
   var hs = store.get('yurichang-h:'+cfg.id)||{}; hs[n.id]=1; store.set('yurichang-h:'+cfg.id, hs);
   var hm = reading;
@@ -1875,7 +1891,7 @@ function renderRegions(){
   });
 }
 $('loc').addEventListener('click', function(){ renderRegions(); openModal('regionScrim'); });
-function goRegion(r){ cfg=r; setHash(); player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창 앞에 섰어요'); }
+function goRegion(r){ bump('w_'+r.id); cfg=r; setHash(); player.x=0; player.z=5.2; player.yaw=0; player.pitch=0.04; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); toast(r.name+' 창 앞에 섰어요'); }
 
 // ---------- graphics quality ----------
 function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute('aria-label', hq?'고화질 끄기':'고화질 켜기'); }
@@ -2011,6 +2027,7 @@ function setHash(){ try{ history.replaceState(null, '', '#'+cfg.slug); }catch(e)
 function pageUrl(){ return location.href.split('#')[0]; }
 function enterWorld(){
   var it=$('intro'); if(it.style.display==='none') return;
+  bump('w_'+cfg.id);
   it.style.opacity=0; setTimeout(function(){ it.style.display='none'; },800);
   document.body.classList.remove('intro'); showHint(); setHash();
 }
@@ -2021,6 +2038,7 @@ var linked = regionBySlug(location.hash.slice(1));
 if(linked) cfg = linked;
 
 function shareOrCopy(data, okMsg){
+  bump('shares');
   if(navigator.share){ navigator.share(data).catch(function(){}); return; }
   var text = data.url || data.text;
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){ toast(okMsg); }, function(){ toast(text); }); }
@@ -2193,7 +2211,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), func
     Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), function(x){ x.classList.toggle('on', x===b); }); layoutFrame(); });
 });
 $('markBtn').addEventListener('click', function(){ photo.mark = !photo.mark; this.classList.toggle('on', photo.mark); this.setAttribute('aria-pressed', photo.mark); });
-$('shutter').addEventListener('click', function(){ photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
+$('shutter').addEventListener('click', function(){ bump('photos'); photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
 // runs right after the frame is drawn, so the picture is read before the browser clears it
 function setPR(r){
   renderer.setPixelRatio(r);
@@ -2222,7 +2240,7 @@ function capturePhoto(){
 $('cardShare').addEventListener('click', function(){
   if(!cardBlob) return;
   var file = new File([cardBlob], cardName, {type:cardBlob.type});
-  navigator.share({files:[file], title:'숨글', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
+  bump('card_shares'); navigator.share({files:[file], title:'숨글', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
 });
 
 // ---------- "my post-its" news: hearts that arrived since the last visit ----------

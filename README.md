@@ -82,3 +82,7 @@
 - 신고 사유 "위험해 보여요": 글을 숨기지 않고 운영자에게 즉시 알림.
 - 운영자 알림: Supabase pg_net → ntfy.sh (주제 이름은 관리자 페이지에서 확인, 글 내용 미포함).
 - 개인정보처리방침(privacy.html), 이용약관(terms.html). 붙인 지 210일 지난 글은 pg_cron으로 매일 자동 삭제.
+
+## v26 이용 통계
+- 기기·하루 단위 누적 카운터만 저장(track_day): visits, reads, hearts, composes, posts, spot_posts, shares, card_shares, photos, w_<창>. 기기 번호는 해시, 글 내용·시각 없음. 90일 후 자동 삭제.
+- 관리자 페이지 "이용 현황": 7일 방문자, 재방문 비율, 붙인 비율, 홈 화면 앱 비율, 읽기→쓰기→붙이기 흐름, 14일 방문 막대, 창별 입장.

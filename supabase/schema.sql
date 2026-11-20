@@ -186,3 +186,6 @@ grant select (spot) on public.notes to anon, authenticated;
 -- report_note: reasons abuse|spam|privacy|sexual|danger; 'danger' alerts and does not count toward hiding
 -- admin_list filter 'crisis', admin_stats.crisis (7 days), admin_alert_topic(p_key)
 -- cron 'sumgeul-purge' 19:10 UTC daily: delete notes older than 210 days (reports/hearts cascade)
+
+-- v26: daily_metrics — table daily_use(day, dev sha256, pwa, c jsonb) RLS no policies; track_day(p_device,p_c,p_pwa) keeps max per key;
+-- admin_metrics(p_key); cron 'sumgeul-purge-use' deletes rows older than 90 days

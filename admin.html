@@ -27,6 +27,17 @@
   .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
   .stat.warn{border-color:#8a4b2a;background:#2a1d18}
   .tag.warn{background:#5a2a1a;color:#FFD9C2}
+  .use{background:#1D202C;border:1px solid #2C3040;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+  .use h3{margin:0;font-size:15px}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .kpi b{display:block;font-size:22px}.kpi span{font-size:12px;color:#BDB8AD}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:90px}
+  .bars div{flex:1;display:flex;flex-direction:column-reverse;gap:1px;min-width:0}
+  .bars i{display:block;border-radius:3px 3px 0 0}.bars .n{background:#FFC94D}.bars .r{background:#7FB4FF}
+  .blab{display:flex;gap:4px;font-size:10px;color:#8E8A82}.blab span{flex:1;text-align:center}
+  .funnel div{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}
+  .funnel em{font-style:normal;width:84px;color:#BDB8AD;flex-shrink:0}.funnel i{display:block;height:14px;background:#FFC94D;border-radius:4px;min-width:2px}
+  @media (max-width:520px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
   .alert{background:#1D202C;border:1px solid #2C3040;border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.6}
   .alert code{background:#0f1118;padding:3px 8px;border-radius:8px;font-size:14px;user-select:all;word-break:break-all}
   .alert summary{cursor:pointer;font-weight:700}
@@ -65,6 +76,14 @@
 
   <div id="panel" hidden style="display:flex;flex-direction:column;gap:16px">
     <div class="stats" id="stats"></div>
+    <section class="use" id="use" hidden>
+      <h3>이용 현황 · 최근 7일</h3>
+      <div class="kpis" id="kpis"></div>
+      <div class="funnel" id="funnel"></div>
+      <div><div class="bars" id="bars"></div><div class="blab" id="blab"></div>
+        <p class="muted" style="margin:6px 0 0;font-size:12px"><span style="color:#FFC94D">■</span> 처음 온 사람 <span style="color:#7FB4FF">■</span> 다시 온 사람 · 최근 14일</p></div>
+      <div class="funnel" id="wins"></div>
+    </section>
     <details class="alert" id="alertBox"><summary>📱 휴대폰으로 신고 알림 받기</summary>
       <ol style="margin:10px 0 0;padding-left:20px">
         <li>앱스토어에서 <b>ntfy</b> 앱을 설치해요</li>
@@ -125,7 +144,30 @@ function ago(iso){
   if(m<60) return m+'분 전'; if(m<1440) return Math.round(m/60)+'시간 전'; return Math.round(m/1440)+'일 전';
 }
 
+function pct(a,b){ return b ? Math.round(a*100/b)+'%' : '–'; }
+function loadUse(){
+  return rpc('admin_metrics', {p_key:key}).then(function(m){
+    var w = m.week||{}, days = m.days||[], el;
+    $('use').hidden = false;
+    var pwa = days.reduce(function(a,d){ return a+d.pwa; },0), vis = days.reduce(function(a,d){ return a+d.visitors; },0);
+    $('kpis').innerHTML='';
+    [['방문한 사람', w.visitors||0], ['다시 온 비율', pct(w.came_back, w.visitors)], ['붙인 비율', pct(w.posted, w.visitors)], ['홈 화면 앱', pct(pwa, vis)]].forEach(function(a){
+      el=document.createElement('div'); el.className='kpi'; var b=document.createElement('b'); b.textContent=a[1]; var sp=document.createElement('span'); sp.textContent=a[0]; el.appendChild(b); el.appendChild(sp); $('kpis').appendChild(el);
+    });
+    function rows(box, list, max){ box.innerHTML=''; list.forEach(function(a){ var d=document.createElement('div'); var em=document.createElement('em'); em.textContent=a[0]; var i=document.createElement('i'); i.style.width=(max? Math.round(a[1]*100/max):0)+'%'; var t=document.createElement('span'); t.textContent=a[1]+(a[2]?' · '+a[2]:''); d.appendChild(em); d.appendChild(i); d.appendChild(t); box.appendChild(d); }); }
+    var V=w.visitors||0;
+    rows($('funnel'), [['방문',V],['포스트잇 읽음',w.read||0,pct(w.read,V)],['쓰기 시작',w.composed||0,pct(w.composed,V)],['붙임',w.posted||0,pct(w.posted,V)]], V);
+    var wins = Object.keys(m.windows||{}).map(function(k){ return [WINDOWS[k.slice(2)]||k.slice(2), m.windows[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
+    rows($('wins'), wins, wins.length?wins[0][1]:0);
+    var mx = Math.max.apply(null, days.map(function(d){ return d.visitors; }).concat([1]));
+    $('bars').innerHTML=''; $('blab').innerHTML='';
+    days.forEach(function(d){ var c=document.createElement('div'); c.title=d.day+' · '+d.visitors+'명';
+      var n=document.createElement('i'); n.className='n'; n.style.height=(d.new_visitors*86/mx)+'px'; var r=document.createElement('i'); r.className='r'; r.style.height=(d.returning_visitors*86/mx)+'px';
+      c.appendChild(n); c.appendChild(r); $('bars').appendChild(c); var l=document.createElement('span'); l.textContent=d.day.slice(8); $('blab').appendChild(l); });
+  }).catch(function(){});
+}
 function loadStats(){
+  loadUse();
   return rpc('admin_stats', {p_key:key}).then(function(s){
     var box=$('stats'); box.innerHTML='';
     if(!$('topic').dataset.ok) rpc('admin_alert_topic', {p_key:key}).then(function(t){ $('topic').textContent=t; $('topic').dataset.ok='1'; }).catch(function(){});
