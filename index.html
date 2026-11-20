@@ -122,6 +122,13 @@
   .news{margin-top:16px;padding:14px;border-radius:16px;background:rgba(255,201,77,.14);border:1px solid rgba(255,201,77,.45);display:flex;flex-direction:column;gap:8px}
   .news[hidden]{display:none}
   .news h3{margin:0;font-size:15px;color:#FFE08F}
+  #today{flex-shrink:0;margin-top:16px;display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(20,22,32,.55);color:#F4F1EA;text-align:left;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #today[hidden]{display:none}
+  #today canvas{width:64px;height:64px;flex-shrink:0;transform:rotate(-4deg);box-shadow:0 6px 14px rgba(0,0,0,.35)}
+  #today div{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  #today small{font-size:12px;color:#FFD9A0;letter-spacing:.04em}
+  #today b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #today span{font-size:12.5px;color:#BFB8AA}
   .news button{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:8px 10px;border:0;border-radius:12px;background:rgba(20,22,32,.55);color:#F4F1EA;text-align:left;font-size:14px}
   .news button i{width:26px;height:26px;border-radius:3px;flex-shrink:0;transform:rotate(-4deg)}
   .news button span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -364,6 +371,7 @@
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
   <div id="news" class="news" hidden></div>
+  <button id="today" hidden aria-label="오늘의 한 장 읽으러 가기"></button>
   <div id="themes" class="themes"></div>
   <p class="links"><button class="care" id="careLink">도움이 필요할 때</button><a href="privacy.html">개인정보처리방침</a><a href="terms.html">이용약관</a></p>
 </div>
@@ -1610,6 +1618,8 @@ function syncRegion(force){
       var n = fromServer(r); if(hs[n.id]) n.liked = true; addNoteMesh(n, noteMeshes.length);
     });
     updateEmpty();
+    if(openAfterSync){ var want = openAfterSync; openAfterSync = null;
+      noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible) setTimeout(function(){ openReader(m); }, 700); }); }
   }, function(){ syncing = false; updateEmpty(); });
 }
 setInterval(function(){ if(!document.hidden && !modal && online!==false) syncRegion(false); }, 30000);
@@ -2262,6 +2272,29 @@ function showNews(items){
   });
   box.hidden=false;
 }
+// ---------- intro: today's one note, across all windows ----------
+var openAfterSync = null;
+function fetchToday(){
+  var since = new Date(Date.now()-3*86400000).toISOString();
+  function q(extra){ return sbFetch('/rest/v1/notes?select=id,region,c,strokes,texts,hearts,created_at&crisis=is.false'+extra+'&order=hearts.desc,created_at.desc&limit=1'); }
+  q('&created_at=gte.'+since).then(function(rows){ return (rows && rows.length) ? rows : q(''); }).then(function(rows){
+    if(!rows || !rows.length) return;
+    var r = rows[0], reg = null; REGIONS.forEach(function(x){ if(x.id===r.region && (!x.season || seasonOpen())) reg = x; });
+    if(!reg) return;
+    var b = $('today'); b.innerHTML = '';
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    var n = {c:r.c, strokes:r.strokes||[], texts:r.texts||[], age:0};
+    try{ renderNote(cv.getContext('2d'), n, 128, {deco:false}); }catch(_){}
+    var d = document.createElement('div'), sm = document.createElement('small'), bb = document.createElement('b'), sp = document.createElement('span');
+    var fresh = Date.now()-new Date(r.created_at).getTime() < 3*86400000;
+    sm.textContent = fresh ? '오늘의 한 장' : '창에 붙은 한 장';
+    bb.textContent = (r.texts||[]).map(function(t){ return t.t; }).join(' ').trim() || '그림을 남긴 포스트잇';
+    sp.textContent = reg.name+' 창 · ♥ '+(r.hearts||0)+' · 읽으러 가기';
+    d.appendChild(sm); d.appendChild(bb); d.appendChild(sp); b.appendChild(cv); b.appendChild(d);
+    b.onclick = function(e){ e.stopPropagation(); bump('today_open'); openAfterSync = r.id; if(reg!==cfg){ cfg = reg; build(); } else syncRegion(true); enterWorld(); startSound(); setAmbience(); };
+    b.hidden = false;
+  }, function(){});
+}
 function fetchNews(){
   var ids = Object.keys(tokens()).filter(function(k){ return /^[0-9a-f-]{36}$/.test(k); });
   if(!ids.length) return;
@@ -2363,7 +2396,7 @@ function frame(){
 if('serviceWorker' in navigator && /github\.io$|localhost$/.test(location.hostname)){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
-function boot(){ build(); frame(); loadNature(); if(linked) enterWorld(); fetchNews(); }
+function boot(){ build(); frame(); loadNature(); if(linked) enterWorld(); fetchNews(); fetchToday(); }
 var fontWait = document.fonts && document.fonts.load ? Promise.race([Promise.all(FONTS.map(function(f){ return document.fonts.load('40px '+f.css.split(',')[0]); }).concat([document.fonts.load('40px Dokdo','숨글')])), new Promise(function(r){ setTimeout(r,3000); })]) : Promise.resolve();
 fontWait.then(boot, boot);
 })();
