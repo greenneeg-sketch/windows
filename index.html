@@ -1745,7 +1745,13 @@ function renderNote(x, n, S, opt){
 function noteTexture(n){
   var S=384, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
   renderNote(cv.getContext('2d'), n, S, {deco:true});
-  var tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4; return tex;
+  var tex = new THREE.CanvasTexture(cv);
+  // Korean web fonts arrive in slices per character range: make sure the glyphs of this note are in, then redraw
+  if(document.fonts && document.fonts.load && n.texts && n.texts.length){
+    var need = n.texts.filter(function(t){ try{ return !document.fonts.check(fontCss(t, S), t.t); }catch(_){ return false; } });
+    if(need.length) Promise.all(need.map(function(t){ return document.fonts.load(fontCss(t, S), t.t).catch(function(){}); })).then(function(){
+      renderNote(cv.getContext('2d'), n, S, {deco:true}); tex.needsUpdate = true; });
+  } tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 4; return tex;
 }
 function addNoteMesh(n, idx){
   var tx = noteTexture(n);
