@@ -65,6 +65,15 @@
   #hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 74px);padding:9px 14px;border-radius:16px;font-size:13px;color:#F4F1EA;width:max-content;max-width:calc(100vw - 32px);text-align:center;line-height:1.4;transition:opacity .6s;pointer-events:none;opacity:0}
   #joy{position:fixed;left:calc(env(safe-area-inset-left) + 22px);bottom:calc(env(safe-area-inset-bottom) + 22px);width:124px;height:124px;border-radius:50%;touch-action:none}
   #acts{transition:bottom .4s}
+  #petBtn{display:none;background:rgba(255,201,77,.92);color:#1A1712}
+  #petBtn.on{display:flex}
+  #bubble{position:fixed;left:0;top:0;z-index:6;pointer-events:none;max-width:210px;padding:10px 14px;border-radius:18px;background:rgba(255,253,247,.94);color:#2A2420;font-family:'Nanum Pen Script',cursive;font-size:22px;line-height:1.15;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .4s;transform:translate(-50%,-100%)}
+  #bubble::after{content:'';position:absolute;left:50%;bottom:-7px;width:14px;height:14px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:3px}
+  #bubble small{display:block;font-family:'Noto Sans KR',sans-serif;font-size:10.5px;color:#9a8f80;margin-bottom:2px;letter-spacing:.05em}
+  #stam{position:fixed;left:calc(env(safe-area-inset-left) + 30px);bottom:calc(env(safe-area-inset-bottom) + 160px);width:108px;height:6px;border-radius:3px;background:rgba(20,22,32,.45);overflow:hidden;opacity:0;transition:opacity .4s;pointer-events:none}
+  #stam i{display:block;height:100%;width:100%;border-radius:3px;background:#FFD27A;transform-origin:left center}
+  #stam.tired i{background:#FF9E7A}
+  body.intro #stam,body.photo #stam,body.intro #petBtn,body.photo #petBtn{display:none}
   .act[hidden]{display:none}
   #knob{position:absolute;left:37px;top:37px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 4px 10px rgba(0,0,0,.3);pointer-events:none}
   #acts{position:fixed;right:calc(env(safe-area-inset-right) + 18px);bottom:calc(env(safe-area-inset-bottom) + 104px);display:flex;gap:10px}
@@ -241,7 +250,13 @@
 <div id="hint" class="glass"></div>
 <div id="cross"></div>
 <div id="joy" class="glass" aria-hidden="true"><div id="knob"></div></div>
+<div id="bubble" aria-live="polite"></div>
+<div id="stam" aria-hidden="true"><i></i></div>
 <div id="acts">
+  <button id="petBtn" class="glass act" aria-label="가까운 동물과 교감하기">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="12" cy="16" rx="4.6" ry="3.8"/><circle cx="6.2" cy="10.4" r="2"/><circle cx="9.6" cy="6.8" r="2.1"/><circle cx="14.4" cy="6.8" r="2.1"/><circle cx="17.8" cy="10.4" r="2"/></svg>
+    <span>교감</span>
+  </button>
   <button id="jumpBtn" class="glass act" aria-label="점프 (Space)">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/><path d="M6 20h12"/></svg>점프
   </button>
@@ -1116,11 +1131,14 @@ function addRabbit(group, R, c){
   var o = makeRabbit(c), p = pickSpot(R, 7, 24); o.position.set(p.x, groundH(p.x,p.z), p.z); o.rotation.y = R()*Math.PI*2; o.scale.setScalar(1.2+R()*0.15); group.add(o);
   o.traverse(function(m){ if(m.isMesh) m.castShadow = hq; });
   colliders.push({o:o, r:0.16});
-  critters.push({ o:o, mode:'rest', wait:1+R()*3, hop:0, hops:0, tx:p.x, tz:p.z, update:function(dt, T){
+  critters.push({ o:o, kind:'rabbit', headY:0.42*o.scale.x, petR:2.4, calmT:0, mode:'rest', wait:1+R()*3, hop:0, hops:0, tx:p.x, tz:p.z,
+    calm:function(){ this.calmT = 7; this.mode = 'rest'; this.wait = 7; this.hop = 0; },
+    update:function(dt, T){
     var o=this.o, pd = Math.hypot(player.x-o.position.x, player.z-o.position.z);
+    if(this.calmT > 0){ this.calmT -= dt; turnTo(o, player.x-o.position.x, player.z-o.position.z, dt, 4); poseRabbit(o, null, T, dt); return true; }
     if(this.mode==='rest'){
       poseRabbit(o, null, T, dt); this.wait -= dt;
-      if(pd < 2.2){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*3.5; this.tz = o.position.z+az/al*3.5; this.mode='go'; this.hop=0; this.hops=8; this.fast=true; }
+      if(pd < 0.9 || (player.running && pd < 3.5)){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*3.5; this.tz = o.position.z+az/al*3.5; this.mode='go'; this.hop=0; this.hops=8; this.fast=true; }
       else if(this.wait<0){ var q = pickSpot(R, 6, 26); var qx = q.x-o.position.x, qz = q.z-o.position.z, ql = Math.hypot(qx,qz)||1, dd = Math.min(ql, 1.5+R()*3); this.tx = o.position.x+qx/ql*dd; this.tz = o.position.z+qz/ql*dd; this.mode='go'; this.hop=0; this.hops=3+Math.floor(R()*6); this.fast=false; }
     } else {
       var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz);
@@ -1137,6 +1155,45 @@ function addRabbit(group, R, c){
   }});
 }
 // Low-poly squirrel in the same faceted style as the rabbit (uses rPart/rabbitMesh). Faces +z, feet at y=0.
+// Low-poly squirrel in the same faceted style as the rabbit (uses rPart/rabbitMesh). Faces +z, feet at y=0.
+var TAIL_SEG = 12, TAIL_RAD = 7, _tc = new THREE.Color(), _tv = new THREE.Vector3(), _tn = new THREE.Vector3(), _tX = new THREE.Vector3(1,0,0);
+var TAIL_R = [0.016, 0.032, 0.045, 0.052, 0.054, 0.052, 0.048, 0.043, 0.037, 0.03, 0.022, 0.013, 0.004];
+function makeTail(c1, c2){
+  var n = (TAIL_SEG+1)*TAIL_RAD, pos = new Float32Array(n*3), colr = new Float32Array(n*3), idx = [], R = rng(91);
+  var a = col(c1), b = col(c2), jit = [];
+  for(var i=0;i<=TAIL_SEG;i++) for(var k=0;k<TAIL_RAD;k++){
+    var v = i*TAIL_RAD+k, f = Math.min(1, Math.max(0, (i/TAIL_SEG-0.35)/0.65));
+    _tc.copy(a).lerp(b, f*0.85 + (R()-0.5)*0.12); colr[v*3]=_tc.r; colr[v*3+1]=_tc.g; colr[v*3+2]=_tc.b;
+    jit.push(1 + (R()-0.5)*0.22);
+    if(i<TAIL_SEG){ var k2 = (k+1)%TAIL_RAD, A = v, B = i*TAIL_RAD+k2, C = (i+1)*TAIL_RAD+k, D = (i+1)*TAIL_RAD+k2; idx.push(A, C, B, B, C, D); }
+  }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(colr, 3)); g.setIndex(idx);
+  var m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({vertexColors:true, flatShading:true, roughness:0.95, metalness:0, side:THREE.DoubleSide}));
+  m.castShadow = true; m.frustumCulled = false; m.userData.jit = jit; m.userData.pts = [0,1,2,3,4,5].map(function(){ return new THREE.Vector3(); });
+  return m;
+}
+// pts: 6 control points (rig space). Rebuilds the tube in place.
+function shapeTail(m, pts){
+  var curve = m.userData.curve || (m.userData.curve = new THREE.CatmullRomCurve3(m.userData.pts, false, 'centripetal'));
+  curve.points = pts; var p = m.geometry.attributes.position, j = m.userData.jit;
+  for(var i=0;i<=TAIL_SEG;i++){
+    var u = i/TAIL_SEG, c = curve.getPoint(u), t = curve.getTangent(u);
+    _tn.crossVectors(t, _tX).normalize(); var r = TAIL_R[i];
+    for(var k=0;k<TAIL_RAD;k++){
+      var ang = k/TAIL_RAD*Math.PI*2, ca = Math.cos(ang), sa = Math.sin(ang), jj = j[i*TAIL_RAD+k];
+      p.setXYZ(i*TAIL_RAD+k, c.x + ca*r*jj*1.05, c.y + _tn.y*sa*r*jj, c.z + _tn.z*sa*r*jj);
+    }
+  }
+  p.needsUpdate = true; m.geometry.computeBoundingSphere();
+}
+var TAIL_SIT = [[0,0.035,-0.05],[0,0.07,-0.11],[0,0.14,-0.125],[0,0.2,-0.095],[0,0.225,-0.04],[0,0.21,0.0]];
+var TAIL_RUN = [[0,0.06,-0.06],[0,0.09,-0.12],[0,0.13,-0.18],[0,0.17,-0.22],[0,0.2,-0.25],[0,0.22,-0.26]];
+function poseTail(m, blend, t, wave){
+  var pts = m.userData.pts;
+  for(var i=0;i<6;i++){ var A = TAIL_SIT[i], B = TAIL_RUN[i], w = Math.sin(t*(wave?9:2.2) - i*0.8)*(wave?0.018:0.008)*i;
+    pts[i].set(A[0] + Math.sin(t*1.6 - i*0.6)*0.006*i*(1-blend), A[1] + (B[1]-A[1])*blend + (wave ? w : 0), A[2] + (B[2]-A[2])*blend + (wave ? 0 : w)); }
+  shapeTail(m, pts);
+}
 function makeSquirrel(){
   var fur = '#b0612c', furL = '#c88a50', cream = '#efd9b8', dark = '#8a4a20';
   var g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
@@ -1180,14 +1237,10 @@ function makeSquirrel(){
     e.rotation.set(-0.1, 0, sd*-0.25); e.userData.base = e.rotation.clone(); ears.push(e);
   });
   // big bushy tail: a chain of puffs, each joint bends a little more
-  var tail = [], parent = hips, SZ = [[0.032, 0.042, 0.036], [0.044, 0.05, 0.042], [0.05, 0.052, 0.046], [0.044, 0.046, 0.042], [0.034, 0.036, 0.032]], BX = [-0.75, 0.25, 0.5, 0.65, 0.7];
-  SZ.forEach(function(q, i){
-    var j = new THREE.Group(); if(i===0) j.position.set(0, 0.0, -0.045); else j.position.set(0, 0.052, 0); parent.add(j);
-    rPart(j, i%2 ? furL : fur, q[0], q[1], q[2], 0, 0.028, 0, 1, 0.2, 80+i);
-    j.rotation.x = BX[i]; j.userData.bx = BX[i]; tail.push(j); parent = j;
-  });
+  // one smooth bushy tail: a tube swept along a curve, thick in the middle, tapering at both ends
+  var tail = makeTail(fur, furL); rig.add(tail);
   g.userData.parts = { rig:rig, hips:hips, torso:torso, head:head, arms:arms, hind:hind, ears:ears, tail:tail, nose:nose };
-  g.userData.look = 0;
+  g.userData.look = 0; g.userData.tb = 0;
   return g;
 }
 // run: 0..1 bound phase, or null when sitting up. nib: nibbling amount 0..1
@@ -1201,7 +1254,7 @@ function poseSquirrel(g, run, t, dt, nib){
     P.head.rotation.set(nib ? 0.25 + Math.sin(t*18)*0.05 : Math.sin(t*0.8)*0.06, Math.sin(u.look*0.7)*0.5*Math.max(0, Math.sin(u.look*0.25)), 0);
     P.arms.forEach(function(a, i){ var b = a.userData.base; a.rotation.set(b.x + (nib ? -0.35 + Math.sin(t*18 + i)*0.08 : 0), b.y, b.z); });
     P.hind.forEach(function(h){ h.rotation.x = 0; });
-    P.tail.forEach(function(j, i){ j.rotation.x = j.userData.bx + Math.sin(t*2.2 - i*0.6)*0.06; j.rotation.z = Math.sin(t*1.6 - i*0.5)*0.05*(i+1); });
+    u.tb = Math.max(0, u.tb - dt*3); poseTail(P.tail, u.tb, t, false);
     P.ears.forEach(function(e){ e.rotation.copy(e.userData.base); });
     return;
   }
@@ -1213,20 +1266,23 @@ function poseSquirrel(g, run, t, dt, nib){
   P.head.rotation.set(-0.95 + c*0.08, 0, 0);
   P.arms.forEach(function(a){ var b = a.userData.base; a.rotation.set(b.x - 0.2 + s*0.9, b.y, b.z*0.4); });
   P.hind.forEach(function(h){ h.rotation.x = -0.9 - s*0.7; });
-  P.tail.forEach(function(j, i){ j.rotation.x = (i===0 ? -2.0 : 0.18) + Math.sin(run*Math.PI*2 - i*0.9)*0.2; j.rotation.z = 0; });
+  u.tb = Math.min(1, u.tb + dt*3); poseTail(P.tail, u.tb, t, true);
   P.ears.forEach(function(e){ e.rotation.set(e.userData.base.x - 0.25, 0, e.userData.base.z); });
 }
 function addSquirrel(group, R){
   var o = makeSquirrel(), p = pickSpot(R, 6, 18); o.position.set(p.x, groundH(p.x,p.z), p.z); o.rotation.y = R()*Math.PI*2; o.scale.setScalar(1.7); group.add(o);
   o.traverse(function(m){ if(m.isMesh) m.castShadow = hq; });
   colliders.push({o:o, r:0.12});
-  critters.push({ o:o, mode:'rest', wait:R()*2, run:0, nib:0, tx:p.x, tz:p.z, update:function(dt, T){
+  critters.push({ o:o, kind:'squirrel', headY:0.36*o.scale.x, petR:2.4, calmT:0, mode:'rest', wait:R()*2, run:0, nib:0, tx:p.x, tz:p.z,
+    calm:function(){ this.calmT = 7; this.mode = 'rest'; this.wait = 7; this.nib = 2.5; },
+    update:function(dt, T){
     var o=this.o, pd = Math.hypot(player.x-o.position.x, player.z-o.position.z);
+    if(this.calmT > 0){ this.calmT -= dt; this.nib -= dt; turnTo(o, player.x-o.position.x, player.z-o.position.z, dt, 5); poseSquirrel(o, null, T, dt, this.nib > 0 ? 1 : 0); return true; }
     if(this.mode==='rest'){
       this.wait -= dt; this.nib -= dt;
       if(this.nib < -3 - R()*4) this.nib = 1.5 + R()*2;      // now and then, nibble something held in the paws
       poseSquirrel(o, null, T, dt, this.nib > 0 ? 1 : 0);
-      if(pd < 2.6){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*4; this.tz = o.position.z+az/al*4; this.mode='go'; this.fast=true; }
+      if(pd < 0.9 || (player.running && pd < 4)){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*4; this.tz = o.position.z+az/al*4; this.mode='go'; this.fast=true; }
       else if(this.wait<0){ var q = pickSpot(R, 5, 20), qx = q.x-o.position.x, qz = q.z-o.position.z, ql = Math.hypot(qx,qz)||1, dd = Math.min(ql, 1+R()*3.5); this.tx = o.position.x+qx/ql*dd; this.tz = o.position.z+qz/ql*dd; this.mode='go'; this.fast=false; }
     } else {
       var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz);
@@ -1320,6 +1376,7 @@ function addCrab(group, R){
 }
 // ---------- animals: CC0 Quaternius "Ultimate Animated Animals" (trimmed to idle/eat/look/walk) ----------
 var ANIMAL_LEN = { Deer:1.35, Stag:1.55, Fox:0.75, Horse:1.9, Horse_White:1.9 };
+var ANIMAL_HEAD = { Deer:1.25, Stag:1.6, Fox:0.6, Horse:1.85, Horse_White:1.85 };
 var ANIMAL_R = { Deer:0.42, Stag:0.48, Fox:0.25, Horse:0.55, Horse_White:0.55 };
 var ANIMAL_SPEED = { Deer:0.55, Stag:0.5, Fox:0.6, Horse:0.7, Horse_White:0.7 };
 var animalCache = {};
@@ -1363,8 +1420,11 @@ function addAnimal(group, R, name, home){
     colliders.push({o:holder, r:rad});
     var acr = acts.walk; if(acr) acr.timeScale = 0.9 + (sp-0.5)*0.6;
     function freeAt(x, z){ return okSpot(x,z) && groundH(x,z) > WATER+0.3 && !hitsSolid(x, z, rad, holder) && Math.hypot(x-player.x, z-player.z) > rad+0.7; }
-    critters.push({ o:holder, mode:'idle', t:1+R()*2, tx:home.x, tz:home.z, stuck:0, update:function(dt){
+    critters.push({ o:holder, kind:name, headY:ANIMAL_HEAD[name]||1, petR:3.2, calmT:0, mode:'idle', t:1+R()*2, tx:home.x, tz:home.z, stuck:0,
+      calm:function(){ this.calmT = 7; this.mode = 'idle'; this.t = 7; play(R()<0.5 ? 'look' : 'idle2', 0.4); },
+      update:function(dt){
       var o = this.o; this.t -= dt;
+      if(this.calmT > 0){ this.calmT -= dt; turnTo(o, player.x-o.position.x, player.z-o.position.z, dt, 2.5); o.position.y += (groundH(o.position.x, o.position.z) - o.position.y)*Math.min(1, dt*6); mixer.update(dt); return true; }
       if(this.mode==='walk'){
         var dx = this.tx-o.position.x, dz = this.tz-o.position.z, d = Math.hypot(dx,dz);
         turnTo(o, dx, dz, dt, 2.2);
@@ -1409,7 +1469,55 @@ function makeCritters(group){
   });
   flyT = cc.birds ? 3 + Math.random()*5 : 0;
 }
+// ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
+var THOUGHTS = {
+  Deer: ['오늘 풀이 유난히 달아요', '천천히 와줘서 고마워요', '당신도 쉬러 왔군요', '발소리가 다정하네요', '잠깐 같이 있어요', '바람이 등을 쓰다듬어요', '서두르지 않아도 괜찮아요'],
+  Stag: ['뿔이 무거워도 고개는 들어요', '이 숲은 내가 지켜요', '다짐은 작게, 걸음은 꾸준히', '안개가 걷히면 길이 보여요', '오늘도 여기까지 잘 왔어요', '깊게 숨 한 번 쉬어요'],
+  Fox: ['킁킁… 좋은 냄새가 나요', '사실 수줍음이 많아요', '오늘 하루 어땠어요?', '꼬리는… 아직 안 돼요', '같이 노을 볼래요?', '살금살금 온 거 다 알아요'],
+  Horse: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '달리는 날도 쉬는 날도 있죠', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '들판은 넓고 시간은 많아요'],
+  Horse_White: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '하얀 털이 자랑이에요', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '천천히 걸어도 닿아요'],
+  rabbit: ['코가 간질간질해요', '깡충, 오늘도 무사히', '조용히 와줘서 안 놀랐어요', '귀 쫑긋! 무슨 소리지?', '풀밭이 폭신해요', '당신 마음도 폭신하길'],
+  squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
+};
+var KIND_NAME = { Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
+var lastThought = {}, petNear = null, bubble = { c:null, t:0 };
+function contextThought(){
+  if(wx()==='rain') return ['비 냄새가 좋아요', '빗소리 들으면 졸려요'];
+  if(wx()==='snow' || cfg.id==='newyear') return ['눈이 소복소복 쌓여요', '새해엔 좋은 일만 있길'];
+  if(curPhase==='night') return ['별이 많이 떴네요', '잘 자요, 오늘도 수고했어요'];
+  if(curPhase==='dusk') return ['노을이 예쁜 시간이에요'];
+  if(curPhase==='dawn') return ['새벽 공기가 상쾌해요'];
+  return [];
+}
+function pickThought(kind){
+  var pool = (THOUGHTS[kind] || ['…']).slice(), ctx = contextThought();
+  if(ctx.length && Math.random() < 0.35) pool = ctx;
+  var s, n = 0; do { s = pool[Math.floor(Math.random()*pool.length)]; } while(s === lastThought[kind] && pool.length > 1 && ++n < 6);
+  lastThought[kind] = s; return s;
+}
+function nearestPet(){
+  var best = null, bd = 1e9;
+  for(var i=0;i<critters.length;i++){ var c = critters[i]; if(!c.calm) continue;
+    var d = Math.hypot(c.o.position.x-player.x, c.o.position.z-player.z); if(d < c.petR && d < bd){ bd = d; best = c; } }
+  return best;
+}
+$('petBtn').addEventListener('pointerdown', function(e){ e.preventDefault(); e.stopPropagation(); hideHint(); var c = petNear || nearestPet(); if(!c) return;
+  c.calm(); bump('pet'); bump('pet_'+c.kind.toLowerCase().slice(0,8));
+  var b = $('bubble'); b.innerHTML = ''; var sm = document.createElement('small'); sm.textContent = KIND_NAME[c.kind]||''; b.appendChild(sm); b.appendChild(document.createTextNode(pickThought(c.kind)));
+  bubble.c = c; bubble.t = 4.6; b.style.opacity = 1; if(navigator.vibrate) try{ navigator.vibrate(12); }catch(_){} });
+var _bv = new THREE.Vector3();
+function updatePet(dt){
+  petNear = (!modal && !photo.on && !placing) ? nearestPet() : null;
+  $('petBtn').classList.toggle('on', !!petNear);
+  if(bubble.c){
+    bubble.t -= dt; var b = $('bubble'), c = bubble.c;
+    _bv.set(c.o.position.x, c.o.position.y + c.headY + 0.12, c.o.position.z).project(camera);
+    if(bubble.t <= 0 || _bv.z > 1 || critters.indexOf(c) < 0){ b.style.opacity = 0; if(bubble.t <= -0.5 || critters.indexOf(c) < 0) bubble.c = null; }
+    b.style.left = ((_bv.x*0.5+0.5)*window.innerWidth)+'px'; b.style.top = ((-_bv.y*0.5+0.5)*window.innerHeight)+'px';
+  }
+}
 function updateCritters(dt, T){
+  updatePet(dt);
   var cc = CRITTERS[cfg.id] || {};
   if(cc.birds && critterGroup && curPhase!=='night'){ flyT -= dt; if(flyT < 0){ flyover(critterGroup, Math.random, 1 + Math.floor(Math.random()*cc.birds[2])); flyT = cc.birds[0] + Math.random()*(cc.birds[1]-cc.birds[0]); } }
   for(var i=critters.length-1;i>=0;i--){ if(critters[i].update(dt, T) === false) critters.splice(i,1); }
@@ -2734,6 +2842,7 @@ REGIONS.forEach(function(r, i){
 
 // ---------- loop ----------
 window.addEventListener('resize', function(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); if(composer) composer.setSize(window.innerWidth,window.innerHeight); });
+var runSt = { st:1, hold:0, rest:0, tired:false, dir:null };
 var clock = new THREE.Clock(), introYaw = 0, perf = {n:0, sum:0, checked:false};
 function frame(){
   var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
@@ -2746,7 +2855,16 @@ function frame(){
   var len = Math.hypot(f,s); if(len>1){ f/=len; s/=len; }
   if(player.sit && len>0.25){ standUp(); }
   if(player.sit){ f=s=0; player.x += (BENCH.x-player.x)*Math.min(1,dt*6); player.z += (BENCH.z+0.05-player.z)*Math.min(1,dt*6); }
-  var sp = player.crouch ? 1.1 : 2.3, sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
+  // hold one direction (or Shift) to run; stamina lasts ~3s, comes back after a short rest
+  var want = !player.sit && !player.crouch && !photo.on && grounded() !== false && len > 0.9, ang = Math.atan2(s, f);
+  if(want && runSt.dir !== null && Math.abs(((ang-runSt.dir+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI) > 0.7) runSt.hold = 0;
+  runSt.dir = want ? ang : null; runSt.hold = want ? runSt.hold + dt : 0;
+  var go = want && !runSt.tired && runSt.st > 0 && (runSt.hold > 0.45 || keys['shift']);
+  if(go){ runSt.st -= dt/3.2; runSt.rest = 0; if(runSt.st <= 0){ runSt.st = 0; runSt.tired = true; go = false; } }
+  else { runSt.rest += dt; if(runSt.rest > 0.8) runSt.st = Math.min(1, runSt.st + dt/(len > 0.1 ? 6 : 3.5)); if(runSt.tired && runSt.st > 0.55) runSt.tired = false; }
+  player.running = go;
+  var stEl = $('stam'); stEl.style.opacity = (go || runSt.st < 0.995) ? 1 : 0; stEl.firstChild.style.transform = 'scaleX('+runSt.st.toFixed(3)+')'; stEl.classList.toggle('tired', runSt.tired);
+  var sp = player.crouch ? 1.1 : go ? 4.4 : runSt.tired ? 1.8 : 2.3, sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
   var tvx = (-sy*f + cy*s)*sp, tvz = (-cy*f - sy*s)*sp;
   var air = grounded() ? 8 : 2.5;
   player.vx += (tvx-player.vx)*Math.min(1,dt*air); player.vz += (tvz-player.vz)*Math.min(1,dt*air);
@@ -2759,7 +2877,7 @@ function frame(){
   if(player.jbuf && grounded()){ if(performance.now()-player.jbuf < 200) player.vy = 4.6; player.jbuf = 0; }
   var eyeT = player.sit ? 1.12 : player.crouch ? 0.95 : 1.6;
   player.eye += (eyeT-player.eye)*Math.min(1,dt*7);
-  var spd = grounded() ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*3.2;
+  var spd = grounded() ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*(player.running ? 2.6 : 3.2);
   if(glide){
     glide.t = Math.min(1, (performance.now()-glide.t0)/900); var e = glide.t<0.5 ? 2*glide.t*glide.t : 1-Math.pow(-2*glide.t+2,2)/2;
     player.x = glide.fx+(glide.x-glide.fx)*e; player.z = glide.fz+(glide.z-glide.fz)*e;
@@ -2778,7 +2896,7 @@ function frame(){
   var intro = $('intro').style.display!=='none';
   if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
   camera.position.set(player.x, baseY(player.x,player.z)+(photo.on ? photo.h : player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd)), player.z);
-  var fovT = photo.on ? 68/photo.zoom : 68;
+  var fovT = photo.on ? 68/photo.zoom : (player.running ? 75 : 68);
   if(Math.abs(camera.fov-fovT)>0.01){ camera.fov += (fovT-camera.fov)*Math.min(1,dt*12); if(Math.abs(camera.fov-fovT)<0.05) camera.fov=fovT; camera.updateProjectionMatrix(); }
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
