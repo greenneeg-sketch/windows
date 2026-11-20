@@ -1136,23 +1136,108 @@ function addRabbit(group, R, c){
     return true;
   }});
 }
+// Low-poly squirrel in the same faceted style as the rabbit (uses rPart/rabbitMesh). Faces +z, feet at y=0.
 function makeSquirrel(){
-  var g = new THREE.Group(), c = '#9a5a2e';
-  var bd = ball(0.07, c, 1, 1, 1.5); bd.position.y = 0.08; g.add(bd);
-  var head = ball(0.05, c); head.position.set(0, 0.14, 0.1); g.add(head);
-  var tail = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.035, 6, 12, Math.PI*1.25), lam('#b06a36')); tail.position.set(0, 0.16, -0.12); tail.rotation.y = Math.PI/2; tail.rotation.z = -0.4; g.add(tail);
-  g.userData.tail = tail; return g;
+  var fur = '#b0612c', furL = '#c88a50', cream = '#efd9b8', dark = '#8a4a20';
+  var g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
+  var hips = new THREE.Group(); hips.position.set(0, 0.035, -0.01); rig.add(hips);       // the body tips forward around the hips
+  var torso = new THREE.Group(); hips.add(torso);
+  rPart(torso, fur, 0.05, 0.075, 0.052, 0, 0.055, 0.0, 1, 0.14, 61);
+  rPart(torso, cream, 0.034, 0.058, 0.03, 0, 0.05, 0.03, 1, 0.12, 62);
+  // haunches + long hind feet (stay on the ground side)
+  var hind = [];
+  [-1, 1].forEach(function(sd, i){
+    var h = new THREE.Group(); h.position.set(sd*0.034, 0.01, -0.005); hips.add(h);
+    rPart(h, fur, 0.03, 0.038, 0.045, sd*0.004, 0.0, 0.0, 1, 0.14, 63+i);
+    var ft = rPart(h, furL, 0.015, 0.009, 0.034, 0, -0.03, 0.035, 1, 0.12, 65+i);
+    hind.push(h);
+  });
+  // arms, paws held at the chest
+  var arms = [];
+  [-1, 1].forEach(function(sd, i){
+    var a = new THREE.Group(); a.position.set(sd*0.03, 0.1, 0.03); torso.add(a);
+    rPart(a, fur, 0.011, 0.03, 0.012, 0, -0.025, 0.01, 1, 0.12, 67+i);
+    rPart(a, furL, 0.011, 0.01, 0.012, sd*-0.006, -0.052, 0.022, 1, 0.12, 69+i);
+    a.rotation.set(-1.25, sd*-0.35, sd*0.12); a.userData.base = a.rotation.clone(); arms.push(a);
+  });
+  // head
+  var head = new THREE.Group(); head.position.set(0, 0.125, 0.012); torso.add(head);
+  rPart(head, fur, 0.043, 0.04, 0.047, 0, 0.022, 0.012, 1, 0.13, 71);
+  rPart(head, cream, 0.026, 0.02, 0.022, 0, 0.008, 0.045, 1, 0.12, 72);
+  var nose = rPart(head, '#c97a70', 0.007, 0.006, 0.006, 0, 0.017, 0.067, 0, 0.1, 73);
+  [-1, 1].forEach(function(sd){
+    var ring = rPart(head, '#e9d5b5', 0.014, 0.016, 0.008, sd*0.031, 0.03, 0.033, 1, 0.06, 74);
+    var eye = rPart(head, '#1a1410', 0.011, 0.013, 0.009, sd*0.033, 0.031, 0.036, 1, 0.05, 75);
+    var hl = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 6, 4), new THREE.MeshBasicMaterial({color:0xffffff})); hl.position.set(sd*0.002, 0.005, 0.007); eye.add(hl);
+  });
+  var ears = [];
+  [-1, 1].forEach(function(sd, i){
+    var e = new THREE.Group(); e.position.set(sd*0.024, 0.055, -0.004); head.add(e);
+    var cg = new THREE.ConeGeometry(1, 1, 5); cg.scale(0.013, 0.034, 0.008); cg.translate(0, 0.017, 0);
+    e.add(rabbitMesh(cg, fur, 0.001, 76+i));
+    var ig = new THREE.ConeGeometry(1, 1, 5); ig.scale(0.007, 0.022, 0.003); ig.translate(0, 0.013, 0.004);
+    e.add(rabbitMesh(ig, '#e8b9a0', 0.0005, 78+i));
+    e.rotation.set(-0.1, 0, sd*-0.25); e.userData.base = e.rotation.clone(); ears.push(e);
+  });
+  // big bushy tail: a chain of puffs, each joint bends a little more
+  var tail = [], parent = hips, SZ = [[0.032, 0.042, 0.036], [0.044, 0.05, 0.042], [0.05, 0.052, 0.046], [0.044, 0.046, 0.042], [0.034, 0.036, 0.032]], BX = [-0.75, 0.25, 0.5, 0.65, 0.7];
+  SZ.forEach(function(q, i){
+    var j = new THREE.Group(); if(i===0) j.position.set(0, 0.0, -0.045); else j.position.set(0, 0.052, 0); parent.add(j);
+    rPart(j, i%2 ? furL : fur, q[0], q[1], q[2], 0, 0.028, 0, 1, 0.2, 80+i);
+    j.rotation.x = BX[i]; j.userData.bx = BX[i]; tail.push(j); parent = j;
+  });
+  g.userData.parts = { rig:rig, hips:hips, torso:torso, head:head, arms:arms, hind:hind, ears:ears, tail:tail, nose:nose };
+  g.userData.look = 0;
+  return g;
+}
+// run: 0..1 bound phase, or null when sitting up. nib: nibbling amount 0..1
+function poseSquirrel(g, run, t, dt, nib){
+  var P = g.userData.parts, u = g.userData;
+  P.nose.scale.setScalar(1 + Math.max(0, Math.sin(t*16))*0.3);
+  if(run === null){
+    u.look += dt;
+    P.hips.rotation.x = 0; P.rig.position.y = 0;
+    P.torso.rotation.x = Math.sin(t*1.3)*0.03;
+    P.head.rotation.set(nib ? 0.25 + Math.sin(t*18)*0.05 : Math.sin(t*0.8)*0.06, Math.sin(u.look*0.7)*0.5*Math.max(0, Math.sin(u.look*0.25)), 0);
+    P.arms.forEach(function(a, i){ var b = a.userData.base; a.rotation.set(b.x + (nib ? -0.35 + Math.sin(t*18 + i)*0.08 : 0), b.y, b.z); });
+    P.hind.forEach(function(h){ h.rotation.x = 0; });
+    P.tail.forEach(function(j, i){ j.rotation.x = j.userData.bx + Math.sin(t*2.2 - i*0.6)*0.06; j.rotation.z = Math.sin(t*1.6 - i*0.5)*0.05*(i+1); });
+    P.ears.forEach(function(e){ e.rotation.copy(e.userData.base); });
+    return;
+  }
+  // bounding run: body level, front and hind legs alternate, tail streams back and waves
+  var s = Math.sin(run*Math.PI*2), c = Math.cos(run*Math.PI*2);
+  P.hips.rotation.x = 1.15;
+  P.rig.position.y = Math.abs(Math.sin(run*Math.PI))*0.035;
+  P.torso.rotation.x = s*0.12;
+  P.head.rotation.set(-0.95 + c*0.08, 0, 0);
+  P.arms.forEach(function(a){ var b = a.userData.base; a.rotation.set(b.x - 0.2 + s*0.9, b.y, b.z*0.4); });
+  P.hind.forEach(function(h){ h.rotation.x = -0.9 - s*0.7; });
+  P.tail.forEach(function(j, i){ j.rotation.x = (i===0 ? -2.0 : 0.18) + Math.sin(run*Math.PI*2 - i*0.9)*0.2; j.rotation.z = 0; });
+  P.ears.forEach(function(e){ e.rotation.set(e.userData.base.x - 0.25, 0, e.userData.base.z); });
 }
 function addSquirrel(group, R){
-  var o = makeSquirrel(), p = pickSpot(R, 6, 18); o.position.set(p.x, groundH(p.x,p.z), p.z); o.scale.setScalar(1.8); group.add(o);
-  critters.push({ o:o, mode:'rest', wait:R()*2, tx:p.x, tz:p.z, update:function(dt, T){
-    var o=this.o; o.userData.tail.rotation.z = -0.4 + Math.sin(T*6)*(this.mode==='rest'?0.12:0.04);
-    if(this.mode==='rest'){ this.wait -= dt; if(this.wait<0){ var q=pickSpot(R, 5, 20); this.tx=q.x; this.tz=q.z; this.mode='go'; } }
-    else { var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz); turnTo(o, dx, dz, dt, 10);
+  var o = makeSquirrel(), p = pickSpot(R, 6, 18); o.position.set(p.x, groundH(p.x,p.z), p.z); o.rotation.y = R()*Math.PI*2; o.scale.setScalar(1.7); group.add(o);
+  o.traverse(function(m){ if(m.isMesh) m.castShadow = hq; });
+  colliders.push({o:o, r:0.12});
+  critters.push({ o:o, mode:'rest', wait:R()*2, run:0, nib:0, tx:p.x, tz:p.z, update:function(dt, T){
+    var o=this.o, pd = Math.hypot(player.x-o.position.x, player.z-o.position.z);
+    if(this.mode==='rest'){
+      this.wait -= dt; this.nib -= dt;
+      if(this.nib < -3 - R()*4) this.nib = 1.5 + R()*2;      // now and then, nibble something held in the paws
+      poseSquirrel(o, null, T, dt, this.nib > 0 ? 1 : 0);
+      if(pd < 2.6){ var ax = o.position.x-player.x, az = o.position.z-player.z, al = Math.hypot(ax,az)||1; this.tx = o.position.x+ax/al*4; this.tz = o.position.z+az/al*4; this.mode='go'; this.fast=true; }
+      else if(this.wait<0){ var q = pickSpot(R, 5, 20), qx = q.x-o.position.x, qz = q.z-o.position.z, ql = Math.hypot(qx,qz)||1, dd = Math.min(ql, 1+R()*3.5); this.tx = o.position.x+qx/ql*dd; this.tz = o.position.z+qz/ql*dd; this.mode='go'; this.fast=false; }
+    } else {
+      var dx=this.tx-o.position.x, dz=this.tz-o.position.z, d=Math.hypot(dx,dz);
+      turnTo(o, dx, dz, dt, 9);
       if(d<0.2){ this.mode='rest'; this.wait=1+R()*4; return true; }
-      var st=Math.min(d, dt*3.4), nx=o.position.x+dx/d*st, nz=o.position.z+dz/d*st;
-      if(!okSpot(nx,nz)){ this.mode='rest'; this.wait=0.4; return true; }
-      o.position.set(nx, groundH(nx,nz)+Math.abs(Math.sin(T*16))*0.05, nz); }
+      this.run = (this.run + dt*(this.fast ? 5.5 : 4.2)) % 1;
+      var st = Math.min(d, dt*(this.fast ? 2.6 : 1.7)*(0.6+0.4*Math.sin(this.run*Math.PI))), nx = o.position.x+Math.sin(o.rotation.y)*st, nz = o.position.z+Math.cos(o.rotation.y)*st;
+      if(!okSpot(nx,nz) || hitsSolid(nx, nz, 0.08, o)){ this.mode='rest'; this.wait=0.6+R(); return true; }
+      o.position.set(nx, groundH(nx,nz), nz);
+      poseSquirrel(o, this.run, T, dt, 0);
+    }
     return true;
   }});
 }
