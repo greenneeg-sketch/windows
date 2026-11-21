@@ -249,7 +249,9 @@
   #dofBtn.on{color:#FFC94D}
   #blurBox{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 166px);display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:22px;pointer-events:auto;width:min(320px,calc(100vw - 40px));font-size:12px;color:#E6E1D6}
   #blurBox[hidden]{display:none}
-  #blurBox b{font-size:12px;color:#FFE08F;min-width:36px;text-align:right}
+  #lensInfo{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 64px);padding:5px 12px;border-radius:14px;font-size:12px;letter-spacing:.04em;color:#FFE08F;font-variant-numeric:tabular-nums;pointer-events:none;display:none}
+  body.photo #lensInfo{display:block}
+  #blurBox b{font-size:12px;color:#FFE08F;min-width:40px;text-align:right}
   #blurAmt{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:28px;background:transparent;touch-action:none}
   #blurAmt::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
   #blurAmt::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;margin-top:-9px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
@@ -339,15 +341,16 @@
   </div>
   <div id="zoomBox" class="glass">
     <button id="zoomOut" aria-label="축소">−</button>
-    <input id="zoom" type="range" min="1" max="4" step="0.01" value="1" aria-label="줌">
+    <input id="zoom" type="range" min="0" max="1" step="0.001" value="0" aria-label="초점거리">
     <button id="zoomIn" aria-label="확대">+</button>
-    <b id="zoomV">1.0x</b>
+    <b id="zoomV">28mm</b>
   </div>
   <div id="blurBox" class="glass" hidden>
-    <span>흐림</span>
-    <input id="blurAmt" type="range" min="0.2" max="1" step="0.01" value="0.6" aria-label="배경 흐림 정도">
-    <b id="blurV">60%</b>
+    <span>조리개</span>
+    <input id="blurAmt" type="range" min="0" max="8" step="1" value="0" aria-label="조리개 값">
+    <b id="blurV">f/1.2</b>
   </div>
+  <div id="lensInfo" class="glass">28mm · f/1.2</div>
   <div id="focusRing"></div>
   <button id="shutter" aria-label="찍기"><i></i></button>
 </div>
@@ -3230,9 +3233,18 @@ function layoutFrame(){
   document.body.classList.toggle('full', photo.ratio==='full');
   f.style.borderColor = photo.ratio==='full' ? 'transparent' : ''; f.style.boxShadow = photo.ratio==='full' ? 'none' : '';
 }
-function setZoom(z){ photo.zoom = Math.max(1, Math.min(4, z)); $('zoom').value = photo.zoom; $('zoomV').textContent = photo.zoom.toFixed(1)+'x'; }
+// a make-believe 28–300mm f/1.2 zoom: zoom = focal length / 28mm, slider is logarithmic like a real zoom ring
+var LENS_MIN = 28, LENS_MAX = 300, F_STOPS = [1.2, 1.4, 2, 2.8, 4, 5.6, 8, 11, 16];
+function lensMM(){ return LENS_MIN*photo.zoom; }
+function sensorH(){ var a = window.innerWidth/window.innerHeight; return 43.27/Math.sqrt(1+a*a); }   // frame height in full-frame mm
+function lensText(){ return Math.round(lensMM())+'mm · f/'+photo.fno; }
+function setZoom(z){
+  photo.zoom = Math.max(1, Math.min(LENS_MAX/LENS_MIN, z));
+  $('zoom').value = Math.log(photo.zoom)/Math.log(LENS_MAX/LENS_MIN); $('zoomV').textContent = Math.round(lensMM())+'mm';
+  $('lensInfo').textContent = lensText(); applyDof();
+}
 function setCamH(h){ photo.h = Math.max(0.4, Math.min(3.6, h)); $('camH').value = photo.h; $('camHv').textContent = photo.h.toFixed(1)+'m'; }
-$('zoom').addEventListener('input', function(){ setZoom(+this.value); });
+$('zoom').addEventListener('input', function(){ setZoom(Math.pow(LENS_MAX/LENS_MIN, +this.value)); });
 $('zoomIn').addEventListener('click', function(){ setZoom(photo.zoom*1.25); });
 $('zoomOut').addEventListener('click', function(){ setZoom(photo.zoom/1.25); });
 $('camH').addEventListener('input', function(){ setCamH(+this.value); });
@@ -3249,7 +3261,7 @@ canvas.addEventListener('touchmove', function(e){
 canvas.addEventListener('touchend', function(e){ if(e.touches.length<2) pinch = null; }, {passive:true});
 canvas.addEventListener('wheel', function(e){ if(!photo.on) return; e.preventDefault(); setZoom(photo.zoom*Math.exp(-e.deltaY*0.0015)); }, {passive:false});
 // ---------- 아웃포커스 (depth of field) ----------
-photo.dof = false; photo.focus = 3; photo.blur = 0.6;
+photo.dof = false; photo.focus = 3; photo.fno = 1.2;
 var dofComposer = null, dofPass = null;
 function setupDof(){
   if(dofComposer || !THREE.BokehPass || !THREE.EffectComposer) return !!dofComposer;
@@ -3259,6 +3271,7 @@ function setupDof(){
     dofComposer.setSize(window.innerWidth, window.innerHeight);
     dofComposer.addPass(new THREE.RenderPass(scene, camera));
     dofPass = new THREE.BokehPass(scene, camera, {focus:3, aperture:0.002, maxblur:0.01, width:window.innerWidth, height:window.innerHeight});
+    var bm = dofPass.materialBokeh; bm.fragmentShader = bm.fragmentShader.replace('float factor = ( focus + viewZ );', 'float factor = ( focus + viewZ ) / max( -viewZ, 0.05 );'); bm.needsUpdate = true;
     // the glass and floating effects must not count as "near": hide them while depth is drawn
     var baseRender = dofPass.render.bind(dofPass);
     dofPass.render = function(r, w, rb, dt, mask){
@@ -3278,8 +3291,11 @@ function applyDof(){
   if(!dofPass) return;
   var u = dofPass.uniforms;
   u.focus.value = photo.focus;
-  u.aperture.value = 0.0006 + 0.0034*photo.blur*photo.blur;   // zooming in makes the background melt more, like a real lens
-  u.maxblur.value = 0.004 + 0.012*photo.blur;
+  // thin-lens blur: circle on the sensor = f^2/(N(s-f)) * |d-s|/d. The shader supplies |d-s|/d; we pass the rest as a
+  // fraction of the frame height; the kernel reaches ~0.4 of it.
+  var f = lensMM(), sMM = Math.max(photo.focus*1000, f*1.05), H = sensorH();
+  u.aperture.value = (f*f/(photo.fno*(sMM - f))) / H / 2 / 0.4;
+  u.maxblur.value = 0.075;
 }
 function focusAt(cx, cy){
   v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1); ray.setFromCamera(v2, camera);
@@ -3295,7 +3311,7 @@ $('dofBtn').addEventListener('click', function(){
   $('blurBox').hidden = !photo.dof;
   if(photo.dof){ focusAt(window.innerWidth/2, window.innerHeight/2); toast('초점 맞출 곳을 눌러요'); }
 });
-$('blurAmt').addEventListener('input', function(){ photo.blur = +this.value; $('blurV').textContent = Math.round(photo.blur*100)+'%'; applyDof(); });
+$('blurAmt').addEventListener('input', function(){ photo.fno = F_STOPS[+this.value]; $('blurV').textContent = 'f/'+photo.fno; $('lensInfo').textContent = lensText(); applyDof(); });
 function setPhoto(on){
   photo.on = on; document.body.classList.toggle('photo', on);
   if(on){ setZoom(1); setCamH(player.eye); }
@@ -3559,7 +3575,7 @@ function frame(){
   var intro = $('intro').style.display!=='none';
   if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
   camera.position.set(player.x, baseY(player.x,player.z)+(photo.on ? photo.h : player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd)), player.z);
-  var fovT = photo.on ? 68/photo.zoom : (player.running ? 75 : 68);
+  var fovT = photo.on ? 2*Math.atan(sensorH()/2/lensMM())*180/Math.PI : (player.running ? 75 : 68);   // full-frame equivalent: the 43.3mm diagonal spread over this screen's shape
   if(Math.abs(camera.fov-fovT)>0.01){ camera.fov += (fovT-camera.fov)*Math.min(1,dt*12); if(Math.abs(camera.fov-fovT)<0.05) camera.fov=fovT; camera.updateProjectionMatrix(); }
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
