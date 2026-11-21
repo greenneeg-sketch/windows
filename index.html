@@ -2695,7 +2695,7 @@ function tap(cx,cy){
       finishMove({x:0, y:1.5, spot:sh.spot, kind:sh.kind}); return;
     }
     if(gh && gh.distance<9){ finishMove(glassSpot(gh.point.x, gh.point.y)); return; }
-    toast('유리창이나 나무·바위를 눌러주세요'); return;
+    toast('붙일 곳을 눌러주세요'); return;
   }
   if(placing){
     var hit = ray.intersectObject(glassMesh)[0], sh0 = stickHit(cx, cy);
