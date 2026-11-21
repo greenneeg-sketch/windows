@@ -3,3 +3,5 @@ Allow: /
 Disallow: /admin.html
 
 Sitemap: https://sumgeul.com/sitemap.xml
+
+#DaumWebMasterTool:cc862cdc65e2fd2adf6397f2ed735650672bcdec88826d5159637d66a9972ab1:9OXzxfMP1b1VGCOsL/bJCQ==
