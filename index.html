@@ -810,18 +810,55 @@ function makeGround(){
   return m;
 }
 
+// water depth baked from the terrain, so the shader knows how deep it is anywhere within ~110m
+function waterDepthTex(){
+  var N = 256, R = 110, d = new Uint8Array(N*N*4);
+  for(var j=0;j<N;j++) for(var i=0;i<N;i++){
+    var x = (i+0.5)/N*2*R - R, z = (j+0.5)/N*2*R - R, dep = Math.max(0, Math.min(4, WATER - groundH(x, z)));
+    var k = (j*N+i)*4; d[k] = Math.round(dep/4*255); d[k+1] = d[k+2] = 0; d[k+3] = 255;
+  }
+  var t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.minFilter = t.magFilter = THREE.LinearFilter; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true;
+  return { tex:t, R:R };
+}
 function makeWater(){
   if(cfg.water==='none') return null;
+  var dt = waterDepthTex();
   var u = { t:{value:0}, deep:{value:col(cfg.deep)}, shallow:{value:col(cfg.shallow)}, sunDir:{value:sunDir()}, sunCol:{value:lin(cfg.lightCol, 6)},
             env:{value:null}, hasEnv:{value:0}, glit:{value:cfg.glit||0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, tint:{value:new THREE.Vector3().fromArray(grade.sky)},
-            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} };
+            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2}, dTex:{value:dt.tex}, dR:{value:dt.R}, sea:{value:cfg.water==='lake' ? 0.25 : 1} };
   uniformsList.push(u);
-  var m = new THREE.ShaderMaterial({ uniforms:u,
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true,
     vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform float glit; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp; void main(){ vec3 v=normalize(cameraPosition-wp); float w=sin(wp.x*1.3+t*1.1)*.5+sin(wp.z*1.7-t*.8)*.5+sin((wp.x+wp.z)*3.3+t*1.9)*.25+sin(wp.x*7.+wp.z*5.-t*3.)*.1; vec3 n=normalize(vec3(w*.045,1.,w*.035)); float fr=0.04+0.96*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.04); vec3 refl = hasEnv>.5 ? envAt(r) : mix(shallow,deep,.3); vec3 c=mix(deep*0.35, refl, clamp(fr*1.6+0.12,0.,1.)); c+=sunCol*pow(max(dot(r,sunDir),0.),220.)*2.; if(glit>0.){ float sd=max(dot(normalize(vec3(r.x,0.,r.z)),normalize(vec3(sunDir.x,0.,sunDir.z))),0.); c=mix(c, mix(deep, shallow, 0.55+0.45*(1.-r.y*3.)), 0.55); c+=vec3(1.,0.62,0.3)*pow(sd,180.)*smoothstep(0.3,0.0,r.y)*(0.5+0.5*sin(wp.x*9.+wp.z*13.+t*4.))*1.6*glit; } float f=smoothstep(fogN,fogF,length(wp-cameraPosition)); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform float glit; uniform float sea; uniform float dR; uniform sampler2D dTex; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp;'+
+      'float h1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); } float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h1(i),h1(i+vec2(1,0)),f.x),mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),f.x),f.y); }'+
+      // sum of travelling waves -> slope; the swell rolls toward the beach (+z), chop runs across it
+      'vec2 slope(vec2 p){ vec2 s=vec2(0.);'+
+      ' float a; a=p.y*0.55-t*1.05+sin(p.x*0.11)*1.5; s+=vec2(0.,cos(a))*0.55*sea;'+
+      ' a=dot(p,vec2(0.37,0.93))*0.9-t*1.35; s+=vec2(0.37,0.93)*cos(a)*0.32;'+
+      ' a=dot(p,vec2(-0.6,0.8))*1.7-t*1.9; s+=vec2(-0.6,0.8)*cos(a)*0.2;'+
+      ' a=dot(p,vec2(0.92,0.39))*3.1-t*2.6; s+=vec2(0.92,0.39)*cos(a)*0.12;'+
+      ' a=dot(p,vec2(-0.2,-0.98))*6.3-t*3.7; s+=vec2(-0.2,-0.98)*cos(a)*0.07;'+
+      ' s+=(vec2(n2(p*2.3+t*0.6),n2(p*2.3-t*0.5+7.))-.5)*0.18; return s; }'+
+      'void main(){ vec3 v=normalize(cameraPosition-wp); float dist=length(wp-cameraPosition);'+
+      ' vec2 uv=wp.xz/(2.*dR)+.5; float dep = (uv.x<0.||uv.x>1.||uv.y<0.||uv.y>1.) ? 4. : texture2D(dTex,uv).r*4.;'+
+      ' vec2 sl=slope(wp.xz)*mix(0.09,0.03,smoothstep(8.,60.,dist)); vec3 n=normalize(vec3(-sl.x,1.,-sl.y));'+
+      ' float fr=0.02+0.98*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.03);'+
+      ' vec3 refl = hasEnv>.5 ? envAt(r) : mix(shallow,deep,.3);'+
+      // colour by depth: clear and tinted in the shallows (sand shows through), darker and bluer offshore
+      ' float dk=smoothstep(0.0,2.6,dep); vec3 body=mix(mix(shallow,deep,0.35)*0.9, deep*0.35, dk);'+
+      ' vec3 c=mix(body, refl, clamp(fr*1.5+0.08,0.,1.));'+
+      ' c+=sunCol*pow(max(dot(r,sunDir),0.),260.)*2.2 + sunCol*pow(max(dot(r,sunDir),0.),40.)*0.05*glit;'+
+      ' if(glit>0.){ float sd=max(dot(normalize(vec3(r.x,0.,r.z)),normalize(vec3(sunDir.x,0.,sunDir.z))),0.); c=mix(c, mix(deep, shallow, 0.55+0.45*(1.-r.y*3.)), 0.45*dk); c+=vec3(1.,0.62,0.3)*pow(sd,180.)*smoothstep(0.3,0.0,r.y)*(0.5+0.5*sin(wp.x*9.+wp.z*13.+t*4.))*1.6*glit; }'+
+      // foam: breaking crests that roll in over the shallows, and lacy foam right at the edge
+      ' float nz=n2(wp.xz*vec2(0.7,1.6)+vec2(0.,t*0.15)), nz2=n2(wp.xz*3.4+t*0.3);'+
+      ' float crest=smoothstep(0.78,1.0,sin(dep*7.5+t*1.25+nz*1.6))*smoothstep(1.6,0.35,dep)*smoothstep(0.0,0.12,dep)*sea;'+
+      ' float edge=smoothstep(0.22,0.0,dep)*(0.45+0.55*nz2);'+
+      ' float foam=clamp(max(crest*(0.55+0.45*nz2), edge),0.,1.); c=mix(c, vec3(1.0,0.98,0.95)*mix(1.,length(sunCol)*0.18+0.5,0.4), foam*0.85);'+
+      ' float a=mix(smoothstep(0.0,0.45,dep)*0.85, 1., foam*0.6); a=max(a, smoothstep(0.3,2.,dep));'+
+      ' float f=smoothstep(fogN,fogF,dist); gl_FragColor=vec4(mix(c,fogC,f), mix(a,1.,f));\n'+OUT+'}' });
   m.userData.water = true;
   var w = new THREE.Mesh(new THREE.PlaneGeometry(1000,1000,1,1), m);
-  w.rotation.x = -Math.PI/2; w.position.y = WATER;
+  w.rotation.x = -Math.PI/2; w.position.y = WATER; w.renderOrder = 1;
   return w;
 }
 
@@ -1590,6 +1627,7 @@ function makeCritters(group){
   flyT = cc.birds ? 3 + Math.random()*5 : 0;
   addBand(critterGroup);
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
+  if(cfg.water==='sea') addShore(critterGroup);
 }
 // ---------- 동해 일출: a giant paper crane on a rock in the sea, gulls that land on it, foam rolling onto the beach ----------
 function triMesh(tris, color){
@@ -1697,22 +1735,31 @@ function addSunriseSea(gen){
       return true;
     } });
   })(gi);
-  // foam: a few soft bands that roll up the beach and fade, following the real shoreline
+}
+// swash: each wave runs up the sand as a thin sheet with a foam lip, then slides back leaving darker wet sand
+function addShore(gen){
   var xs = [], zs = [];
-  for(var x=-70; x<=70; x+=1.5){ var z = -6; while(z > -40 && groundH(x, z) > WATER) z -= 0.25; xs.push(x); zs.push(z); }
-  var u = { t:{value:0}, c:{value:col('#fff4e6')} }; uniformsList.push(u);
-  for(var k=0; k<3; k++){
-    var pos = [], uv = [], idx = [], n = xs.length;
-    for(var i=0;i<n;i++){ pos.push(xs[i], WATER+0.06+k*0.006, zs[i]+0.8, xs[i], WATER+0.06+k*0.006, zs[i]-3.0); uv.push(xs[i], 0, xs[i], 1); if(i<n-1){ var a2=i*2; idx.push(a2,a2+1,a2+2, a2+1,a2+3,a2+2); } }
-    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx);
-    var m = new THREE.ShaderMaterial({ uniforms:{ t:u.t, c:u.c, k:{value:k} }, transparent:true, depthWrite:false,
-      vertexShader:'varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader:'uniform float t; uniform vec3 c; uniform float k; varying vec2 vU; float h(float x){ return fract(sin(x*12.9898)*43758.5453); } float n(float x){ float i=floor(x), f=fract(x); return mix(h(i),h(i+1.),f*f*(3.-2.*f)); }'+
-        'void main(){ float ph=fract(t*0.09+k*0.333); float pos=1.0-ph; float wob=(n(vU.x*0.35+k*7.)-.5)*0.12+(n(vU.x*1.3+t*.2)-.5)*0.05; float d=vU.y-(pos+wob);'+
-        ' float band=smoothstep(0.12,0.0,abs(d)) + smoothstep(0.0,-0.3,d)*step(d,0.)*0.3; float life=smoothstep(0.0,0.25,ph)*smoothstep(1.0,0.7,ph);'+
-        ' float lace=0.55+0.45*n(vU.x*3.1+vU.y*9.+k*3.); gl_FragColor=vec4(c, min(1.,band*life*lace*1.1*smoothstep(1.,0.85,vU.y))); }' });
-    var mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 5; gen.add(mesh);
+  for(var x=-70; x<=70; x+=1.25){ var z = -4; while(z > -45 && groundH(x, z) > WATER) z -= 0.2; xs.push(x); zs.push(z); }
+  var u = { t:{value:0}, c:{value:col('#fff6ea')}, wet:{value:col(cfg.sand || '#b9a57d').multiplyScalar(0.55)} }; uniformsList.push(u);
+  var LAND = 3.0, SEA = 1.2, pos = [], uv = [], idx = [], n = xs.length;
+  for(var i=0;i<n;i++){
+    // hug the ground: sample height along the run-up so the sheet lies on the sloping sand
+    for(var k=0;k<=6;k++){ var s2 = LAND - (LAND+SEA)*k/6, zz = zs[i] + s2; pos.push(xs[i], Math.max(WATER, groundH(xs[i], zz)) + 0.025, zz); uv.push(xs[i], s2); }
+    if(i<n-1) for(var k2=0;k2<6;k2++){ var a0 = i*7+k2, b0 = (i+1)*7+k2; idx.push(a0, b0, a0+1, a0+1, b0, b0+1); }
   }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals();
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    vertexShader:'varying vec2 vU; void main(){ vU=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:'uniform float t; uniform vec3 c; uniform vec3 wet; varying vec2 vU;'+
+      'float h(float x){ return fract(sin(x*12.9898)*43758.5453); } float n1(float x){ float i=floor(x), f=fract(x); return mix(h(i),h(i+1.),f*f*(3.-2.*f)); }'+
+      'float run(float x, float ph){ float p=fract(t*0.085 + ph + n1(x*0.05)*0.35); float up=smoothstep(0.,0.3,p), dn=smoothstep(0.3,1.,p); return (up - dn*up)*(1.7+1.1*n1(x*0.13+ph*9.)) - 0.15; }'+
+      'void main(){ float x=vU.x, s=vU.y; float R1=run(x,0.), R2=run(x+31.,0.5); float R=max(R1,R2);'+
+      ' float sheet=step(s,R)*smoothstep(-0.4,0.1,s); float lip=smoothstep(0.32,0.0,abs(s-R+0.08))*step(0.0,R+0.1);'+
+      ' float lace=0.5+0.5*n1(x*2.7+s*6.+t*0.4); float behind=step(s,R)*smoothstep(R-0.9,R,s)*lace*0.5;'+
+      ' float wetA=smoothstep(2.6,0.,s)*step(0.,s)*0.22*(1.-sheet);'+
+      ' vec3 col=mix(wet, c, clamp(lip*0.95+behind,0.,1.)); float a=max(wetA, sheet*0.26 + lip*0.7*lace + behind*0.55);'+
+      ' gl_FragColor=vec4(col, clamp(a,0.,0.95)*smoothstep(-SEAF,-SEAF+0.6,s)); }'.replace(/SEAF/g, SEA.toFixed(2)) });
+  var mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 3; gen.add(mesh);
 }
 
 // ---------- 숨글 음악대: a little tower of animals out past the glass (horse, fox, rabbit, squirrel, bird) ----------
