@@ -2703,7 +2703,7 @@ function tap(cx,cy){
     if(hit && hit.distance<9){
       pending = glassSpot(hit.point.x, hit.point.y);
       setPlacing(false); openComposer(null);
-    } else toast(placeFree ? '가까운 나무·바위·판다 집을 눌러주세요' : '유리창을 눌러주세요');
+    } else toast(placeFree ? '조금 더 가까이 가서 눌러 볼까요' : '유리창을 눌러주세요');
     return;
   }
   var hits = ray.intersectObjects(noteMeshes.filter(function(m){ return m.visible; }));
@@ -2733,7 +2733,7 @@ function showHint(){
 var toastT;
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(function(){ t.style.opacity=0; },2000); }
 var placeFree = false;
-function setPlacing(on){ placing=on; if(!on){ placeFree = false; if(moving) cancelMove(); } $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : placeFree ? '붙일 곳을 눌러요 · 나무, 바위, 판다 집도 돼요' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
+function setPlacing(on){ placing=on; if(!on){ placeFree = false; if(moving) cancelMove(); } $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : placeFree ? '붙일 곳을 눌러요' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
 var glide = null;
 function glideTo(x, z, yaw, pitch, done){ glide = {fx:player.x, fz:player.z, fyaw:player.yaw, fp:player.pitch, x:x, z:z, yaw:yaw, pitch:pitch, t:0, t0:performance.now(), done:done}; player.sit=false; player.crouch=false; updateSitLabel(); }
 $('add').addEventListener('click', function(){
