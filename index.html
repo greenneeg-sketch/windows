@@ -3297,11 +3297,33 @@ function applyDof(){
   u.aperture.value = (f*f/(photo.fno*(sMM - f))) / H / 2 / 0.4;
   u.maxblur.value = 0.075;
 }
+// measure the real distance under the finger by drawing just that one pixel as depth:
+// works on anything visible — water, sky, trees, animals, birds, far hills — not only things a ray test knows about
+var depthPx = new Uint8Array(4), pickRT = null, pickMat = null;
+function depthAt(cx, cy){
+  try{
+    if(!pickRT){ pickRT = new THREE.WebGLRenderTarget(1, 1); pickMat = new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking}); }
+    var W = window.innerWidth, H = window.innerHeight, hidden = [];
+    world.traverse(function(o){ if(o.visible && o.material && ((o.material.transparent && !o.userData.note) || o.isPoints || o.isSprite || o.isLine || o.material.userData.sky)){ hidden.push(o); o.visible = false; } });
+    camera.setViewOffset(W, H, Math.round(cx), Math.round(cy), 1, 1);
+    var bg = scene.background; scene.background = null; scene.overrideMaterial = pickMat;
+    var prev = renderer.getRenderTarget(), cc = renderer.getClearColor(new THREE.Color()).clone(), ca = renderer.getClearAlpha();
+    renderer.setRenderTarget(pickRT); renderer.setClearColor(0xffffff, 1); renderer.clear(); renderer.render(scene, camera);
+    renderer.readRenderTargetPixels(pickRT, 0, 0, 1, 1, depthPx);
+    renderer.setRenderTarget(prev); renderer.setClearColor(cc, ca);
+    scene.overrideMaterial = null; scene.background = bg; camera.clearViewOffset();
+    hidden.forEach(function(o){ o.visible = true; });
+    var k = 255/256, z = depthPx[0]/255*k/(256*256*256) + depthPx[1]/255*k/(256*256) + depthPx[2]/255*k/256 + depthPx[3]/255*k;
+    if(depthPx[0]===255 && depthPx[1]===255 && depthPx[2]===255 && depthPx[3]===255) return 200;   // untouched clear colour = only sky there: focus at infinity
+    var n = camera.near, f = camera.far, viewZ = (n*f)/((f-n)*z - f);
+    return Math.max(0.3, Math.min(200, -viewZ));                                       // the blur shader works in view depth too
+  }catch(e){ camera.clearViewOffset && camera.clearViewOffset(); scene.overrideMaterial = null; return null; }
+}
 function focusAt(cx, cy){
   v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1); ray.setFromCamera(v2, camera);
   var targets = []; world.traverse(function(o){ if(o.isMesh && o.visible && o!==glassMesh && o!==glassGlow && !(o.material && o.material.transparent && !o.userData.note) && !(o.geometry && o.geometry.type==='SphereGeometry' && o.geometry.parameters.radius>100)) targets.push(o); });
-  var hit = ray.intersectObjects(targets, false)[0];
-  photo.focus = hit ? Math.max(0.3, hit.distance) : 40; applyDof();
+  var hit = ray.intersectObjects(targets, false)[0], d = depthAt(cx, cy);
+  photo.focus = d !== null ? d : (hit ? Math.max(0.3, hit.distance) : 200); applyDof();
   var fr = $('focusRing'); fr.style.left = cx+'px'; fr.style.top = cy+'px'; fr.classList.remove('show'); void fr.offsetWidth; fr.classList.add('show');
   clearTimeout(focusAt.t); focusAt.t = setTimeout(function(){ fr.classList.remove('show'); }, 900);
 }
@@ -3309,7 +3331,7 @@ $('dofBtn').addEventListener('click', function(){
   if(!photo.dof && !setupDof()){ toast('이 기기에서는 아웃포커스를 쓸 수 없어요'); return; }
   photo.dof = !photo.dof; this.classList.toggle('on', photo.dof); this.setAttribute('aria-pressed', photo.dof);
   $('blurBox').hidden = !photo.dof;
-  if(photo.dof){ focusAt(window.innerWidth/2, window.innerHeight/2); toast('초점 맞출 곳을 눌러요'); }
+  if(photo.dof){ focusAt(window.innerWidth/2, window.innerHeight/2); setTimeout(function(){ if(photo.dof) focusAt(window.innerWidth/2, window.innerHeight/2); }, 160); toast('초점 맞출 곳을 눌러요'); }
 });
 $('blurAmt').addEventListener('input', function(){ photo.fno = F_STOPS[+this.value]; $('blurV').textContent = 'f/'+photo.fno; $('lensInfo').textContent = lensText(); applyDof(); });
 function setPhoto(on){
