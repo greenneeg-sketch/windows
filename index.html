@@ -250,6 +250,7 @@
   #dofBtn.on{color:#FFC94D}
   #blurBox{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 166px);display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:22px;pointer-events:auto;width:min(320px,calc(100vw - 40px));font-size:12px;color:#E6E1D6}
   #blurBox[hidden]{display:none}
+  #ratioSeg button{white-space:nowrap;padding-left:9px;padding-right:9px}
   #lensInfo{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 64px);padding:5px 12px;border-radius:14px;font-size:12px;letter-spacing:.04em;color:#FFE08F;font-variant-numeric:tabular-nums;pointer-events:none;display:none}
   body.photo #lensInfo{display:block}
   #blurBox b{font-size:12px;color:#FFE08F;min-width:40px;text-align:right}
@@ -328,7 +329,7 @@
   <div id="photoFrame"></div>
   <div id="photoTop">
     <button id="photoClose" class="glass iconbtn" aria-label="사진 모드 닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button>
-    <div class="seg glass" id="ratioSeg" role="group" aria-label="사진 비율"><button data-r="story" class="on">9:16</button><button data-r="square">1:1</button><button data-r="full">전체</button></div>
+    <div class="seg glass" id="ratioSeg" role="group" aria-label="사진 비율"><button data-r="story" class="on">9:16</button><button data-r="square">1:1</button><button data-r="wide">16:9</button><button data-r="full">전체</button></div>
     <div style="display:flex;gap:8px">
       <button id="dofBtn" class="glass iconbtn" aria-label="아웃포커스" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.3 3.3L9 12"/><path d="M20.4 8.5L10 8.5"/><path d="M18.7 18.2L13.3 9"/><path d="M9.7 20.7L15 12"/><path d="M3.6 15.5H14"/><path d="M5.3 5.8L10.7 15"/></svg></button>
       <button id="markBtn" class="glass iconbtn on" aria-label="로고 넣기" aria-pressed="true">로고</button>
@@ -3522,7 +3523,7 @@ var photo = { on:false, ratio:'story', mark:true, want:false, zoom:1, h:1.6 };
 function frameRect(){
   var vw = window.innerWidth, vh = window.innerHeight, top = 120, bottom = 130, availH = vh - top - bottom, availW = vw - 24, w, h;
   if(photo.ratio==='full'){ return {x:0, y:0, w:vw, h:vh}; }
-  var ar = photo.ratio==='story' ? 9/16 : 1;
+  var ar = photo.ratio==='story' ? 9/16 : photo.ratio==='wide' ? 16/9 : 1;
   w = availW; h = w/ar; if(h > availH){ h = availH; w = h*ar; }
   return {x:(vw-w)/2, y:top+(availH-h)/2, w:w, h:h};
 }
@@ -3704,7 +3705,7 @@ function drawBubbleInto(x, r, k){
 function capturePhoto(){
   photo.want = false;
   var src = renderer.domElement, r = frameRect(), sx = src.width/window.innerWidth, sy = src.height/window.innerHeight;
-  var W = photo.ratio==='square' ? 1080 : 1080, H = photo.ratio==='story' ? 1920 : photo.ratio==='square' ? 1080 : Math.round(1080*r.h/r.w);
+  var W = photo.ratio==='wide' ? 1920 : 1080, H = photo.ratio==='story' ? 1920 : photo.ratio==='square' ? 1080 : photo.ratio==='wide' ? 1080 : Math.round(1080*r.h/r.w);
   var out = document.createElement('canvas'); out.width = W; out.height = H; var x = out.getContext('2d');
   x.imageSmoothingQuality = 'high';
   x.drawImage(src, r.x*sx, r.y*sy, r.w*sx, r.h*sy, 0, 0, W, H);
@@ -3957,7 +3958,7 @@ function frame(){
   updateFireworks(dt, performance.now());
   var superPR = 0;
   if(photo.want){   // render the shot at ~2x the saved image's resolution, then scale down: smooth edges, no visible pixels
-    var fr = frameRect(), outH = photo.ratio==='story' ? 1920 : photo.ratio==='square' ? 1080 : Math.round(1080*fr.h/fr.w);
+    var fr = frameRect(), outH = photo.ratio==='story' ? 1920 : (photo.ratio==='square' || photo.ratio==='wide') ? 1080 : Math.round(1080*fr.h/fr.w);
     var maxPR = (renderer.capabilities.maxTextureSize || 4096) / Math.max(window.innerWidth, window.innerHeight);
     superPR = Math.min(4, maxPR, Math.max(DPR*1.75, 2*outH/fr.h)); if(superPR > DPR+0.05) setPR(superPR); else superPR = 0; }
   if(photo.on && photo.dof && dofComposer) dofComposer.render();
