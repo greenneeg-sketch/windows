@@ -1594,80 +1594,143 @@ function addCrab(group, R){
     poseCrab(o, T, moving, this.wave > 0 || this.calmT > 0); return true;
   }});
 }
-// ---------- shark: a sleek grey-blue great-white-like body that swims the shallows, fin cutting the surface, now and then heading far out ----------
-function makeShark(){
-  var L = 3.2, segZ = 40, segR = 14, g = new THREE.Group();
-  var geo = new THREE.CylinderGeometry(1, 1, L, segR, segZ, false); geo.rotateX(Math.PI/2);   // along z, nose at +z
-  var pos = geo.attributes.position, base = new Float32Array(pos.array.length), colors = [];
-  var top = col('#4d6470'), mid = col('#6f8790'), belly = col('#f0f2ee');
-  function prof(t){   // t: 0 tail .. 1 nose -> radius
-    var r = t < 0.15 ? 0.07 + t*0.9 : t < 0.76 ? 0.205 + 0.215*Math.sin((t-0.15)/0.61*Math.PI*0.5) : 0.42*Math.pow(Math.max(0,(1-t)/0.24), 0.72);
-    return Math.max(0.015, Math.min(0.42, r));
-  }
-  for(var i=0;i<pos.count;i++){
-    var x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), t = (z + L/2)/L, r = prof(t);
-    var nx = x*r*0.8, ny = y*r*0.95 - (t>0.86 ? (t-0.86)*0.35 : 0);
-    pos.setXYZ(i, nx, ny, z); base[i*3] = nx; base[i*3+1] = ny; base[i*3+2] = z;
-    var c = new THREE.Color(); var k = THREE.MathUtils.smoothstep(y, -0.35, 0.15);
-    c.copy(belly).lerp(mid, k); if(y > 0.25) c.lerp(top, Math.min(1,(y-0.25)/0.6)); colors.push(c.r, c.g, c.b);
-  }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geo.computeVertexNormals();
-  var skin = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.55, metalness:0});
-  var body = new THREE.Mesh(geo, skin); body.castShadow = true; g.add(body);
-  var finMat = new THREE.MeshStandardMaterial({color:col('#4a606b'), roughness:0.6, side:THREE.DoubleSide});
-  function fin(pts, depth){ var sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for(var i=1;i<pts.length;i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath();
-    var fg = new THREE.ExtrudeGeometry(sh, {depth:depth||0.03, bevelEnabled:true, bevelThickness:0.012, bevelSize:0.012, bevelSegments:1}); fg.translate(0,0,-(depth||0.03)/2); fg.rotateY(-Math.PI/2); return new THREE.Mesh(fg, finMat); }
-  // shapes are drawn in (z, y): +z toward the nose
-  var dorsal = fin([[0.38,0.0],[-0.12,0.0],[-0.02,0.12],[0.1,0.55],[0.18,0.5]]); dorsal.position.set(0, 0.34, 0.15); g.add(dorsal);
-  var dorsal2 = fin([[0.06,0],[-0.08,0],[-0.06,0.09]], 0.02); dorsal2.position.set(0, 0.12, -1.12); g.add(dorsal2);
-  [-1,1].forEach(function(sd){ var pf = fin([[0.25,0],[-0.05,0],[-0.38,-0.48],[-0.25,-0.5]], 0.025); pf.position.set(sd*0.24, -0.16, 0.55); pf.rotation.z = sd*0.55; g.add(pf); });
-  var anal = fin([[0.05,0],[-0.08,0],[-0.07,-0.08]], 0.02); anal.position.set(0, -0.1, -1.08); g.add(anal);
-  var tail = new THREE.Group(); tail.position.set(0, 0, -L/2+0.02); g.add(tail);
-  var caudal = fin([[0.12,0.02],[-0.1,0.62],[-0.2,0.6],[-0.05,0.02],[-0.16,-0.42],[-0.06,-0.44],[0.12,-0.04]], 0.025); tail.add(caudal);
-  var eyeM = new THREE.MeshBasicMaterial({color:0x0b0d10});
-  [-1,1].forEach(function(sd){ var e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeM); e.position.set(sd*0.2, 0.08, 1.18); g.add(e);
-    for(var k=0;k<5;k++){ var gl = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.17, 0.012), new THREE.MeshBasicMaterial({color:0x3a4a52})); gl.position.set(sd*0.3, -0.02, 0.78 - k*0.06); gl.rotation.x = 0.15; g.add(gl); } });
-  var mouth = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.008, 4, 12, Math.PI*0.8), new THREE.MeshBasicMaterial({color:0x3a2a2c})); mouth.rotation.set(Math.PI/2, 0, Math.PI*0.1); mouth.position.set(0, -0.12, 1.2); g.add(mouth);
-  g.userData = { body:body, base:base, L:L, tail:tail, dorsal:dorsal };
-  return g;
+// ---------- sea life: CC0 models — reef shark (tevy.dev), dolphin / whale / fish (Quaternius "Animated Fish") ----------
+// all face +z; the posed bone box under-reads the skin, so each has a measured mesh/bone length ratio
+var SEA_RATIO = { ReefShark:1.5, Dolphin:1.37, Fish1:1.52, Fish2:1.51, Fish3:1.51, Whale:1.39, Mantaray:1.57 }, seaCache = {};
+function loadSea(n){
+  if(seaCache[n]) return seaCache[n];
+  return (seaCache[n] = new Promise(function(ok, no){
+    if(!THREE.GLTFLoader || !THREE.SkeletonUtils) return no('no loader');
+    new THREE.GLTFLoader().load('models/sea/'+n+'.glb', function(g){
+      var sc = g.scene, mx = new THREE.AnimationMixer(sc); if(g.animations[0]) mx.clipAction(g.animations[0]).play(); mx.update(0.3); sc.updateMatrixWorld(true);
+      var bb = new THREE.Box3(), v = new THREE.Vector3(); sc.traverse(function(b){ if(b.isBone){ v.setFromMatrixPosition(b.matrixWorld); bb.expandByPoint(v); } });
+      mx.stopAllAction(); var sz = bb.getSize(new THREE.Vector3());
+      ok({ g:g, fit:1/(sz.z*SEA_RATIO[n]), cy:bb.getCenter(new THREE.Vector3()).y });
+    }, null, no);
+  }));
 }
-function bendShark(g, T, amp){
-  // a swimming wave that grows toward the tail; the tail fin rides the end of it
-  var u = g.userData, pos = u.body.geometry.attributes.position, b = u.base, L = u.L;
-  for(var i=0;i<pos.count;i++){ var z = b[i*3+2], t = (L/2 - z)/L, off = Math.sin(z*2.1 + T*5.2)*amp*t*t; pos.setX(i, b[i*3] + off); }
-  pos.needsUpdate = true; u.body.geometry.computeVertexNormals();
-  var zt = -L/2, tt = 1, offT = Math.sin(zt*2.1 + T*5.2)*amp*tt*tt, slope = Math.cos(zt*2.1 + T*5.2)*2.1*amp;
-  u.tail.position.x = offT; u.tail.rotation.y = -slope*1.2;
+function seaClone(e, len, n){
+  var o = THREE.SkeletonUtils.clone(e.g.scene), h = new THREE.Group(), k = len*e.fit; o.scale.setScalar(k); o.position.y = -e.cy*k; h.add(o);
+  o.traverse(function(m){ if(!m.isMesh) return; m.frustumCulled = false; m.castShadow = false;
+    if(n==='ReefShark'){   // the CC0 shark ships compressed textures we don't load: paint it countershaded instead (grey-blue back, white belly)
+      var mat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.5, metalness:0});
+      mat.onBeforeCompile = function(sh){
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vNy;').replace('#include <defaultnormal_vertex>', '#include <defaultnormal_vertex>\nvNy = objectNormal.y;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vNy;').replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(0.93,0.94,0.92), vec3(0.36,0.45,0.5), smoothstep(-0.4,0.3,vNy));');
+      };
+      m.material = mat;
+    } else if(m.material){ m.material = m.material.clone(); m.material.roughness = 0.75; m.material.metalness = 0; }
+  });
+  var mx = new THREE.AnimationMixer(o), acts = {};
+  e.g.animations.forEach(function(a){ acts[a.name] = mx.clipAction(a); });
+  var first = e.g.animations[0]; if(first){ acts[first.name].play(); acts[first.name].time = Math.random()*first.duration; }
+  return { h:h, o:o, mx:mx, acts:acts };
 }
+function seaDepth(x, z){ return WATER - groundH(x, z); }
+function seaCells(minD, maxD, zMin, zMax, step){ var out = []; for(var x=-80; x<=80; x+=step) for(var z=zMax; z>=zMin; z-=step){ var d = seaDepth(x, z); if(d > minD && d < maxD) out.push([x, z]); } return out; }
+function steerTo(st, dt, turn){ var dx = st.tgt[0]-st.x, dz = st.tgt[1]-st.z, want = Math.atan2(dx, dz), dh = ((want - st.hd + Math.PI*3) % (Math.PI*2)) - Math.PI;
+  st.hd += Math.max(-turn*dt, Math.min(turn*dt, dh)); return { dist:Math.hypot(dx, dz), dh:dh }; }
+// shark: cruises the shallows with its fin out, now and then heads far out to sea and comes back
 function addShark(group){
-  // find a band of water 1–2.6m deep near the beach to cruise, and far water to wander out to
-  function depthAt(x, z){ return WATER - groundH(x, z); }
-  var near = [], far = [];
-  for(var x=-50; x<=50; x+=5) for(var z=-6; z>=-110; z-=2){ var d = depthAt(x, z); if(d > 1.0 && d < 2.6) near.push([x, z]); else if(d > 2.8 && z < -40 && Math.abs(x) < 60) far.push([x, z]); }
+  var near = seaCells(1.0, 1.9, -60, -6, 3), far = seaCells(1.7, 99, -130, -45, 6).filter(function(c){ return Math.abs(c[0]) < 60; });
   if(near.length < 6) return;
-  var sk = makeShark(); sk.scale.setScalar(1.0); group.add(sk);
-  var p0 = near[Math.floor(Math.random()*near.length)], tgt = null, sp = 1.1, hd = Math.random()*6.28, out = false;
-  sk.position.set(p0[0], WATER - 0.42, p0[1]);
-  function pick(){
-    out = Math.random() < 0.22 && far.length > 0; var arr = out ? far : near;
-    // prefer targets roughly ahead so it glides in long arcs rather than zig-zagging
-    var best = null, bs = -9; for(var k=0;k<6;k++){ var c = arr[Math.floor(Math.random()*arr.length)], dx = c[0]-sk.position.x, dz = c[1]-sk.position.z, dd = Math.hypot(dx,dz); if(dd < 6) continue; var sc = (Math.sin(hd)*dx + Math.cos(hd)*dz)/dd + Math.random()*0.6; if(sc > bs){ bs = sc; best = c; } }
-    tgt = best || arr[0]; sp = out ? 1.5 : 0.8 + Math.random()*0.5;
-  }
-  pick();
-  critters.push({ o:sk, update:function(dt, T){
-    var dx = tgt[0]-sk.position.x, dz = tgt[1]-sk.position.z;
-    if(Math.hypot(dx, dz) < 3) pick();
-    var want = Math.atan2(dx, dz), dh = ((want - hd + Math.PI*3) % (Math.PI*2)) - Math.PI;
-    hd += Math.max(-0.35*dt, Math.min(0.35*dt, dh));                                // wide, lazy turns
-    var nx = sk.position.x + Math.sin(hd)*sp*dt, nz = sk.position.z + Math.cos(hd)*sp*dt;
-    if(depthAt(nx, nz) > 0.85){ sk.position.x = nx; sk.position.z = nz; } else { hd += 1.2*dt*(dh>0?1:-1); pick(); }
-    var dep = depthAt(sk.position.x, sk.position.z), sink = Math.min(0.42 + Math.max(0, dep-2.2)*0.25, 0.75);   // in deeper water it rides lower, fin just showing
-    sk.position.y += ((WATER - sink + Math.sin(T*0.4)*0.04) - sk.position.y)*Math.min(1, dt*1.5);
-    sk.rotation.set(Math.sin(T*0.5)*0.03, hd, -dh*0.25);
-    bendShark(sk, T*(sp/1.1), 0.16);
-    return true;
-  }});
+  loadSea('ReefShark').then(function(e){
+    if(critterGroup!==group) return;
+    var S = seaClone(e, 2.6, 'ReefShark'); group.add(S.h);
+    var p0 = near[Math.floor(Math.random()*near.length)], st = { x:p0[0], z:p0[1], hd:Math.random()*6.28, tgt:null, out:false, sp:1 };
+    var swim = S.acts.swim, fast = S.acts.swim_fast;
+    function pick(){
+      st.out = Math.random() < 0.22 && far.length > 0; var arr = st.out ? far : near, best = null, bs = -9;
+      for(var k=0;k<6;k++){ var c = arr[Math.floor(Math.random()*arr.length)], dx = c[0]-st.x, dz = c[1]-st.z, dd = Math.hypot(dx,dz); if(dd < 8) continue; var sc = (Math.sin(st.hd)*dx + Math.cos(st.hd)*dz)/dd + Math.random()*0.6; if(sc > bs){ bs = sc; best = c; } }
+      st.tgt = best || arr[0]; st.sp = st.out ? 1.7 : 0.8 + Math.random()*0.4;
+      if(fast && swim){ var a = st.out ? fast : swim, b = st.out ? swim : fast; if(!a.isRunning()){ a.reset().play(); a.crossFadeFrom(b, 1.2, false); } }
+    }
+    pick(); S.h.position.set(st.x, WATER - 0.4, st.z);
+    critters.push({ o:S.h, update:function(dt, T){
+      var r = steerTo(st, dt, 0.35); if(r.dist < 4) pick();
+      var nx = st.x + Math.sin(st.hd)*st.sp*dt, nz = st.z + Math.cos(st.hd)*st.sp*dt;
+      if(seaDepth(nx, nz) > 0.85){ st.x = nx; st.z = nz; } else { st.hd += 1.4*dt; pick(); }
+      var dep = seaDepth(st.x, st.z), sink = Math.min(0.32 + Math.max(0, dep-2.2)*0.2, 0.6);   // dorsal fin just cuts the surface
+      S.h.position.x = st.x; S.h.position.z = st.z; S.h.position.y += ((WATER - sink + Math.sin(T*0.4)*0.03) - S.h.position.y)*Math.min(1, dt*1.5);
+      S.h.rotation.set(0, st.hd, -r.dh*0.2);
+      S.mx.timeScale = 0.7 + st.sp*0.35; S.mx.update(dt);
+      return true;
+    }});
+  }, function(){});
+}
+// dolphins: a small pod out in deeper water, porpoising — every so often one arcs clean out of the water
+function addDolphins(group){
+  var far = seaCells(1.7, 99, -110, -30, 6).filter(function(c){ return Math.abs(c[0]) < 70; });
+  if(far.length < 8) return;
+  loadSea('Dolphin').then(function(e){
+    if(critterGroup!==group) return;
+    var c0 = far[Math.floor(Math.random()*far.length)], pod = { x:c0[0], z:c0[1], hd:Math.random()*6.28, tgt:far[Math.floor(Math.random()*far.length)] };
+    for(var i=0;i<3;i++) (function(i){
+      var D = seaClone(e, 2.1 + Math.random()*0.3, 'Dolphin'); group.add(D.h);
+      var off = [(i-1)*2.2, -Math.abs(i-1)*2.4], st = { leap:-1, next:4 + i*3 + Math.random()*8, ph:Math.random()*6 };
+      critters.push({ o:D.h, update:function(dt, T){
+        if(i===0){ var r = steerTo(pod, dt, 0.25); if(r.dist < 6) pod.tgt = far[Math.floor(Math.random()*far.length)];
+          var nx = pod.x + Math.sin(pod.hd)*2.4*dt, nz = pod.z + Math.cos(pod.hd)*2.4*dt; if(seaDepth(nx, nz) > 1.6){ pod.x = nx; pod.z = nz; } else pod.hd += 1.5*dt; }
+        var s = Math.sin(pod.hd), c = Math.cos(pod.hd), x = pod.x + c*off[0] + s*off[1], z = pod.z - s*off[0] + c*off[1];
+        var y = WATER - 0.55 + Math.sin(T*1.3 + st.ph)*0.25, pitch = -Math.cos(T*1.3 + st.ph)*0.18;   // rolling porpoise just under the surface, back showing now and then
+        st.next -= dt;
+        if(st.leap < 0 && st.next < 0){ st.leap = 0; st.next = 9 + Math.random()*14; }
+        if(st.leap >= 0){ st.leap += dt/1.5; var k = st.leap; y = WATER - 0.5 + Math.sin(k*Math.PI)*2.0; pitch = -Math.cos(k*Math.PI)*0.9; if(k >= 1) st.leap = -1; }
+        D.h.position.set(x, y, z); D.h.rotation.set(pitch, pod.hd, 0);
+        D.mx.timeScale = st.leap >= 0 ? 0.4 : 1.1; D.mx.update(dt);
+        return true;
+      }});
+    })(i);
+  }, function(){});
+}
+// fish: little schools milling in the clear shallows, visible through the water
+function addFish(group, kinds){
+  var shallow = seaCells(0.5, 1.5, -60, -4, 2).filter(function(c){ return Math.abs(c[0]) < 30; });
+  if(shallow.length < 4) return;
+  kinds.forEach(function(kind, si){
+    loadSea(kind).then(function(e){
+      if(critterGroup!==group) return;
+      var c0 = shallow[Math.floor(Math.random()*shallow.length)], sch = { x:c0[0], z:c0[1], hd:Math.random()*6.28, tgt:shallow[Math.floor(Math.random()*shallow.length)], t:0 };
+      for(var i=0;i<7;i++) (function(i){
+        var F = seaClone(e, kind==='Fish3' ? 0.22 : 0.32, kind); group.add(F.h);
+        var o = { a:Math.random()*6.28, r:0.3 + Math.random()*0.7, y:Math.random()*0.2, w:0.6 + Math.random()*0.8 };
+        critters.push({ o:F.h, update:function(dt, T){
+          if(i===0){ var r = steerTo(sch, dt, 0.9); if(r.dist < 1.5) sch.tgt = shallow[Math.floor(Math.random()*shallow.length)];
+            var nx = sch.x + Math.sin(sch.hd)*0.55*dt, nz = sch.z + Math.cos(sch.hd)*0.55*dt; var dd = seaDepth(nx, nz); if(dd > 0.35 && dd < 1.7){ sch.x = nx; sch.z = nz; } else { sch.hd += 2*dt; sch.tgt = shallow[Math.floor(Math.random()*shallow.length)]; } }
+          var a = o.a + T*o.w*0.4, x = sch.x + Math.cos(a)*o.r, z = sch.z + Math.sin(a)*o.r, d = Math.max(0.3, seaDepth(x, z));
+          var px = F.h.position.x, pz = F.h.position.z; F.h.position.set(x, WATER - Math.min(d*0.55, 0.35+o.y), z);
+          var dx = x-px, dz = z-pz; if(dx*dx+dz*dz > 1e-8) F.h.rotation.y = Math.atan2(dx, dz);
+          F.mx.timeScale = 1.6; F.mx.update(dt); return true;
+        }});
+      })(i);
+    }, function(){});
+  });
+}
+// whale: far out, mostly under; every half minute or so it surfaces, blows a spout, shows its back and slips under again
+function addWhale(group){
+  var far = seaCells(1.7, 99, -170, -90, 10).filter(function(c){ return Math.abs(c[0]) < 90; });
+  if(far.length < 4) return;
+  loadSea('Whale').then(function(e){
+    if(critterGroup!==group) return;
+    var W = seaClone(e, 11, 'Whale'); group.add(W.h);
+    var c0 = far[Math.floor(Math.random()*far.length)], st = { x:c0[0], z:c0[1], hd:Math.random()*6.28, tgt:far[Math.floor(Math.random()*far.length)], up:-1, next:6 + Math.random()*10 };
+    var puffs = [], pm = new THREE.SpriteMaterial({ map:presTexture(), color:0xffffff, transparent:true, opacity:0, depthWrite:false });
+    for(var i=0;i<10;i++){ var sp = new THREE.Sprite(pm.clone()); sp.visible = false; group.add(sp); puffs.push({ s:sp, t:-1, vx:0, vz:0 }); }
+    critters.push({ o:W.h, update:function(dt, T){
+      var r = steerTo(st, dt, 0.08); if(r.dist < 10) st.tgt = far[Math.floor(Math.random()*far.length)];
+      st.x += Math.sin(st.hd)*1.1*dt; st.z += Math.cos(st.hd)*1.1*dt;
+      st.next -= dt; if(st.up < 0 && st.next < 0){ st.up = 0; st.next = 28 + Math.random()*20; }
+      var y = WATER - 3, pitch = 0;
+      if(st.up >= 0){ st.up += dt/9; var k = st.up; y = WATER - 3 + Math.sin(Math.min(1,k)*Math.PI)*2.75; pitch = -Math.cos(k*Math.PI)*0.12;
+        if(k > 0.3 && k < 0.36 && !st.blown){ st.blown = true; puffs.forEach(function(p, j){ p.t = 0; p.vx = (Math.random()-0.5)*0.6; p.vz = (Math.random()-0.5)*0.6; p.s.visible = true; p.d = j*0.05; }); }
+        if(k >= 1){ st.up = -1; st.blown = false; } }
+      W.h.position.set(st.x, y, st.z); W.h.rotation.set(pitch, st.hd, 0); W.mx.timeScale = 0.6; W.mx.update(dt);
+      var hx = st.x + Math.sin(st.hd)*3, hz = st.z + Math.cos(st.hd)*3;
+      puffs.forEach(function(p){ if(p.t < 0) return; p.t += dt; var k = Math.max(0, p.t - p.d)/2.2; if(k >= 1){ p.t = -1; p.s.visible = false; return; }
+        p.s.position.set(hx + p.vx*k*3, WATER + 0.4 + k*4.5, hz + p.vz*k*3); p.s.scale.setScalar(0.8 + k*3.5); p.s.material.opacity = 0.7*(1-k)*Math.min(1, k*8); });
+      return true;
+    }});
+  }, function(){});
 }
 // ---------- animals: CC0 Quaternius "Ultimate Animated Animals" (trimmed to idle/eat/look/walk) ----------
 var ANIMAL_LEN = { Deer:1.35, Stag:1.55, Fox:0.75, Horse:1.9, Horse_White:1.9 };
@@ -1766,7 +1829,9 @@ function makeCritters(group){
   addBand(critterGroup);
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
   if(cfg.water==='sea') addShore(critterGroup);
-  if(cfg.water==='sea' || cfg.water==='farsea') addShark(critterGroup);
+  if(cfg.water==='sea' || cfg.water==='farsea'){ addShark(critterGroup); addDolphins(critterGroup); }
+  if(cfg.water==='sea') addFish(critterGroup, cfg.id==='busan' ? ['Fish1','Fish2'] : ['Fish1','Fish3']);
+  if(cfg.id==='newyear' || cfg.id==='busan') addWhale(critterGroup);
 }
 // ---------- 동해 일출: a giant paper crane on a rock in the sea, gulls that land on it, foam rolling onto the beach ----------
 function triMesh(tris, color){
