@@ -84,7 +84,7 @@
   .sns button:active i{transform:scale(.93)}
   #petBtn{display:none;background:rgba(255,201,77,.92);color:#1A1712}
   #petBtn.on{display:flex}
-  #bubble{position:fixed;left:0;top:0;z-index:6;pointer-events:none;max-width:210px;padding:10px 14px;border-radius:18px;background:rgba(255,253,247,.94);color:#2A2420;font-family:'Nanum Pen Script',cursive;font-size:22px;line-height:1.15;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .4s;transform:translate(-50%,-100%)}
+  #bubble{position:fixed;left:0;top:0;z-index:6;pointer-events:none;width:max-content;max-width:210px;padding:10px 14px;border-radius:18px;background:rgba(255,253,247,.94);color:#2A2420;font-family:'Nanum Pen Script',cursive;font-size:22px;line-height:1.15;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .4s;transform:translate(-50%,-100%)}
   #bubble::after{content:'';position:absolute;left:50%;bottom:-7px;width:14px;height:14px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:3px}
   #bubble small{display:block;font-family:'Noto Sans KR',sans-serif;font-size:10.5px;color:#9a8f80;margin-bottom:2px;letter-spacing:.05em}
   #stam{position:fixed;left:calc(env(safe-area-inset-left) + 30px);bottom:calc(env(safe-area-inset-bottom) + 160px);width:108px;height:6px;border-radius:3px;background:rgba(20,22,32,.45);overflow:hidden;opacity:0;transition:opacity .4s;pointer-events:none}
@@ -1595,7 +1595,25 @@ function addShark(group){
     }
     pick(); S.h.position.set(st.x, WATER - 0.4, st.z);
     var follow = 0;   // 0..1: how keen it is on the player right now (builds up while you're on the beach, fades after you leave)
-    critters.push({ o:S.h, update:function(dt, T){
+    var peek = 0, peekT = 0;   // 교감: glide up to the shallows right in front of you and poke its head out of the water
+    critters.push({ o:S.h, kind:'shark', headY:0.75, petR:0, calmT:0, calm:function(){ peekT = 6.5; follow = 1; }, update:function(dt, T){
+      this.petR = follow > 0.5 ? 10 : 0;                                          // only when it has come in close to you
+      if(peekT > 0){ peekT -= dt;
+        var pz0 = player.z - 1.2, kk = 0; while(kk++ < 40 && seaDepth(player.x, pz0) < 0.75) pz0 -= 0.4;
+        st.tgt = [player.x, pz0 - 1.3]; st.sp = Math.max(0.35, Math.min(1.4, Math.hypot(st.tgt[0]-st.x, st.tgt[1]-st.z)*0.35));
+        var rr = steerTo(st, dt, 1.4), arrived = rr.dist < 1.6;
+        if(!arrived){ var mx2 = st.x + Math.sin(st.hd)*st.sp*dt, mz2 = st.z + Math.cos(st.hd)*st.sp*dt; if(seaDepth(mx2, mz2) > 0.6){ st.x = mx2; st.z = mz2; } }
+        else { var face = Math.atan2(player.x - st.x, player.z - st.z), fd = ((face - st.hd + Math.PI*3) % (Math.PI*2)) - Math.PI; st.hd += fd*Math.min(1, dt*2.5); }
+        peek += ((arrived ? 1 : 0) - peek)*Math.min(1, dt*2.2);
+      } else peek += (0 - peek)*Math.min(1, dt*1.5);
+      if(peek > 0.02 || peekT > 0){
+        S.h.position.x = st.x; S.h.position.z = st.z;
+        var yy = WATER - 0.45 + peek*0.5 + Math.sin(T*1.6)*0.04*peek;
+        S.h.position.y += (yy - S.h.position.y)*Math.min(1, dt*3);
+        S.h.rotation.set(-peek*0.55, st.hd, Math.sin(T*1.1)*0.05*peek);            // nose tipped up out of the water, a gentle bob
+        S.mx.timeScale = 0.35 + (1-peek)*0.6; S.mx.update(dt);
+        return true;
+      }
       // player near the waterline? come in close and shadow them along the shore, lingering while they stay
       var pd = seaDepth(player.x, player.z), nearShore = pd > -1.2 && player.z < 2 && Math.abs(player.x) < 60;
       follow = Math.max(0, Math.min(1, follow + (nearShore ? dt/4 : -dt/25)));
@@ -2098,11 +2116,12 @@ var THOUGHTS = {
   Horse: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '달리는 날도 쉬는 날도 있죠', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '들판은 넓고 시간은 많아요'],
   Horse_White: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '하얀 털이 자랑이에요', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '천천히 걸어도 닿아요'],
   rabbit: ['코가 간질간질해요', '깡충, 오늘도 무사히', '조용히 와줘서 안 놀랐어요', '귀 쫑긋! 무슨 소리지?', '풀밭이 폭신해요', '당신 마음도 폭신하길'],
+  shark: ['안녕! 나 무서운 상어 아니에요', '물가까지 와줘서 고마워요', '같이 헤엄칠래요? …농담이에요', '오늘 바다는 조금 차가워요', '멀리 나갔다 왔는데 당신이 보여서 왔어요', '사람들이 자꾸 도망가서 조금 외로웠어요', '파도 소리 들으면 마음이 편해져요'],
   crab: ['옆으로 걷는 게 더 빨라요', '집게 조심하세요… 장난이에요', '파도가 오면 잠깐 숨어요', '모래 속이 따뜻해요', '오늘은 바다가 잔잔하네요'],
   band: ['우리 넷이 모이면 뭐든 할 수 있어요', '꼬꼬, 맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
   squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
 };
-var KIND_NAME = { crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
+var KIND_NAME = { shark:'상어', crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
 var lastThought = {}, petNear = null, bubble = { c:null, t:0 };
 function contextThought(){
   if(wx()==='rain') return ['비 냄새가 좋아요', '빗소리 들으면 졸려요'];
@@ -2137,7 +2156,7 @@ function updatePet(dt){
     bubble.t -= dt; var b = $('bubble'), c = bubble.c;
     _bv.set(c.o.position.x, c.o.position.y + c.headY + 0.12, c.o.position.z).project(camera);
     if(bubble.t <= 0 || _bv.z > 1 || critters.indexOf(c) < 0){ b.style.opacity = 0; if(bubble.t <= -0.5 || critters.indexOf(c) < 0) bubble.c = null; }
-    b.style.left = ((_bv.x*0.5+0.5)*window.innerWidth)+'px'; b.style.top = ((-_bv.y*0.5+0.5)*window.innerHeight)+'px';
+    var bw = b.offsetWidth || 180; b.style.left = Math.max(bw/2+10, Math.min(window.innerWidth-bw/2-10, (_bv.x*0.5+0.5)*window.innerWidth))+'px'; /* keep the bubble on screen */ b.style.top = ((-_bv.y*0.5+0.5)*window.innerHeight)+'px';
   }
 }
 function updateCritters(dt, T){
