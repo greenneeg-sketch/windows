@@ -22,6 +22,7 @@ copyright holder. No license is granted beyond what GitHub's Terms of Service al
 - 동물 3D 모델(사슴, 수사슴, 여우, 말): Quaternius "Ultimate Animated Animals" — CC0 1.0 (models/animals/, 동작 일부만 남겨 압축)
 - 상어 3D 모델: tevy.dev "Reef Shark" — CC0 1.0 (models/sea/ReefShark.glb, 텍스처 제거)
 - 돌고래·고래·물고기 3D 모델: Quaternius "Animated Fish" — CC0 1.0 (models/sea/, glb로 변환)
+- 게 3D 모델: "Low Poly Underwater Pack" by reodesuxz — 프로젝트 내 사용 허가(단독 에셋으로 재배포 금지). index.html 안에 형상 데이터로만 포함
 - 나비 날개 텍스처: Čestmír Dammer (Kelgar) "Butterfly" — CC0 1.0 (tex/butterfly.png, 색을 바꿔 노랑·흰나비로도 사용)
 - 3D 엔진: three.js r128 — MIT License (CDN에서 불러옴)
 - 글꼴: Nanum Pen Script, Dokdo, Gaegu, Jua, Gowun Batang, Gamja Flower, Hi Melody, Noto Sans KR
