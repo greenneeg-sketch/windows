@@ -1605,16 +1605,16 @@ function makeCrane(){
   var TF=[0,0.3,0.3], TB=[0,0.3,-0.3], SL=[-0.21,0.12,0], SR=[0.21,0.12,0], BOT=[0,-0.17,0], FR=[0,0.04,0.36], BK=[0,0.04,-0.36];
   g.add(foldMesh([[FR,SL,BOT],[BK,BOT,SL],[FR,BOT,SR],[BK,SR,BOT]], S));
   g.add(foldMesh([[TF,FR,SL],[TF,SR,FR],[TB,SL,BK],[TB,BK,SR],[TF,SL,TB],[TF,TB,SR]], P));
-  var rF=[-0.04,0.3,0.22], rB=[-0.04,0.3,-0.25], C=[-0.62,0.37,0.0], tip=[-1.38,0.44,-0.56];
+  var rF=[-0.04,0.3,0.26], rB=[-0.04,0.3,-0.28], C=[-0.6,0.37,0.06], tip=[-1.25,0.43,-0.5];
   var w1 = [rF, C, tip], w2 = [rF, tip, rB];
   g.add(foldMesh([w1, mir(w1)], P)); g.add(foldMesh([w2, mir(w2)], S));
-  var nB=[0,0.02,0.33], nL=[0.035,0.27,0.31], N=[0,1.16,0.86];
+  var nB=[0,-0.06,0.3], nL=[0.05,0.3,0.27], N=[0,0.96,0.76];
   g.add(foldMesh([[nB,nL,N],[nB,mir([nL])[0],N]], P));
-  var hL=[0.03,1.06,0.92], H=[0,0.92,1.16];
+  var hL=[0.045,0.87,0.84], H=[0,0.74,1.02];
   g.add(foldMesh([[N,hL,H],[N,mir([hL])[0],H]], S));
-  var tB=[0,0.02,-0.33], tL=[0.035,0.27,-0.31], T=[0,1.32,-0.82];
+  var tB=[0,-0.06,-0.3], tL=[0.05,0.3,-0.27], T=[0,1.04,-0.8];
   g.add(foldMesh([[tB,tL,T],[tB,mir([tL])[0],T]], P));
-  g.userData.perch = [[-1.32,0.45,-0.54],[1.32,0.45,-0.54],[0,1.32,-0.82],[0,1.16,0.86],[0,0.31,-0.02]];
+  g.userData.perch = [[-1.2,0.44,-0.48],[1.2,0.44,-0.48],[0,1.04,-0.8],[0,0.96,0.76],[0,0.31,-0.02]];
   return g;
 }
 function facet(r, color, sx, sy, sz){ var m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), new THREE.MeshStandardMaterial({color:col(color), roughness:0.9, metalness:0, flatShading:true})); m.scale.set(sx||1, sy||1, sz||1); return m; }
@@ -1654,7 +1654,7 @@ function addSunriseSea(gen){
   var rockM = new THREE.MeshStandardMaterial({color:col('#4a423c'), roughness:1, flatShading:true});
   [[0,WATER-0.4,0,1.5,1.0],[1.1,WATER-0.5,0.5,0.9,0.7],[-1.0,WATER-0.6,-0.4,1.0,0.6]].forEach(function(r){
     var m = new THREE.Mesh(new THREE.DodecahedronGeometry(r[3], 0), rockM); m.position.set(r[0], r[1], r[2]); m.scale.y = r[4]; m.rotation.y = r[0]*2; base.add(m); });
-  var crane = makeCrane(), S = 2.4; crane.scale.setScalar(S); crane.position.set(0, WATER+0.62+0.45*S, 0); crane.rotation.y = -Math.PI/2 + 0.7; base.add(crane);
+  var crane = makeCrane(), S = 2.6; crane.scale.setScalar(S); crane.position.set(0, WATER-0.4+1.5*0.79+0.17*S-0.08, 0); /* lowest fold rests on the rock */ crane.rotation.y = -Math.PI/2 + 0.7; base.add(crane);
   crane.traverse(function(m){ if(m.isMesh){ m.castShadow = hq; } });
   base.updateMatrixWorld(true);
   var perches = crane.userData.perch.map(function(p){ return { v:crane.localToWorld(new THREE.Vector3(p[0], p[1]+0.02, p[2])), busy:false }; });
@@ -1662,8 +1662,8 @@ function addSunriseSea(gen){
   // gulls: circle, glide in to a free spot on the crane, sit a while, lift off again
   var center = new THREE.Vector3(cx, 0, cz), v = new THREE.Vector3();
   for(var gi=0; gi<4; gi++) (function(gi){
-    var o = makeGull(); o.scale.setScalar(2.3); gen.add(o);
-    var st = { mode:'fly', t:0, next:4 + gi*3.5 + Math.random()*5, th:Math.random()*6.28, R:5 + Math.random()*4, h:4.5 + Math.random()*2.5, sp:(Math.random()<0.5?-1:1)*(0.32+Math.random()*0.12), from:new THREE.Vector3(), to:null, perch:null };
+    var o = makeGull(); o.scale.setScalar(1.35); gen.add(o);
+    var st = { mode:'fly', t:0, next:18 + gi*14 + Math.random()*12, th:Math.random()*6.28, R:5 + Math.random()*4, h:4.5 + Math.random()*2.5, sp:(Math.random()<0.5?-1:1)*(0.32+Math.random()*0.12), from:new THREE.Vector3(), to:null, perch:null };
     function flyPos(th, out){ return out.set(cx + Math.cos(th)*st.R, st.h + Math.sin(th*2)*0.6, cz + Math.sin(th)*st.R*0.7); }
     flyPos(st.th, o.position);
     critters.push({ o:o, update:function(dt, T){
@@ -1673,7 +1673,7 @@ function addSunriseSea(gen){
         o.position.copy(v); if(Math.abs(dx)+Math.abs(dz) > 1e-4) o.rotation.y = Math.atan2(dx, dz);
         o.rotation.z = -st.sp*0.9; var ph = (T*2.2+gi)%6.0, fl = ph < 2.2 ? Math.sin(ph*7.5)*0.5 : 0.08;   // flap a few beats, then a long glide
         w[0].rotation.z = -fl; w[1].rotation.z = fl; el[0].rotation.z = -fl*0.6; el[1].rotation.z = fl*0.6;
-        if(st.t > st.next){ var free = perches.filter(function(p){ return !p.busy; }); if(free.length){ st.perch = free[Math.floor(Math.random()*free.length)]; st.perch.busy = true; st.mode = 'in'; st.t = 0; st.from.copy(o.position); } else st.next += 3; }
+        if(st.t > st.next){ var free = perches.filter(function(p){ return !p.busy; }); if(free.length === perches.length){ /* one gull on the crane at a time */ st.perch = free[Math.floor(Math.random()*free.length)]; st.perch.busy = true; st.mode = 'in'; st.t = 0; st.from.copy(o.position); } else st.next += 10 + Math.random()*10; }
       } else if(st.mode==='in' || st.mode==='out'){
         var k = Math.min(1, st.t/2.6), e = k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
         var a = st.mode==='in' ? st.from : st.perch.v, b = st.mode==='in' ? st.perch.v : st.to;
@@ -1682,8 +1682,8 @@ function addSunriseSea(gen){
         var flap = st.mode==='out' ? Math.sin(T*12)*0.7 : (k > 0.75 ? Math.sin(T*14)*0.8 : 0.05);
         w[0].rotation.z = -flap; w[1].rotation.z = flap; el[0].rotation.z = -flap*0.6; el[1].rotation.z = flap*0.6;
         if(k >= 1){
-          if(st.mode==='in'){ st.mode = 'sit'; st.t = 0; st.next = 5 + Math.random()*9; o.rotation.y = faceY + (Math.random()-0.5)*1.2; }
-          else { st.perch.busy = false; st.perch = null; st.mode = 'fly'; st.t = 0; st.next = 8 + Math.random()*10; }
+          if(st.mode==='in'){ st.mode = 'sit'; st.t = 0; st.next = 5 + Math.random()*6; o.rotation.y = faceY + (Math.random()-0.5)*1.2; }
+          else { st.perch.busy = false; st.perch = null; st.mode = 'fly'; st.t = 0; st.next = 35 + Math.random()*35; }
         }
       } else {                                             // sitting: wings folded, looks around now and then
         o.position.copy(st.perch.v); o.position.y += 0.155*o.scale.y; o.userData.legs.visible = true;
@@ -1774,7 +1774,7 @@ function makeChicken(){
   return g;
 }
 function addBand(gen){
-  var at = bandAt; if(!at) return;
+  var at = bandAt; if(!at || cfg.id==='newyear') return;
   colliders.push({x:at.x, z:at.z, r:1.0});
   Promise.all([loadAnimal('Horse'), loadAnimal('Fox')]).then(function(gs){
     if(critterGroup!==gen) return;
@@ -2275,7 +2275,7 @@ function build(){
   world.add(makeSky());
   world.add(makeGround());
   var w = makeWater(); if(w) world.add(w);
-  bandAt = null; bandAt = bandSpot();
+  bandAt = null; if(cfg.id!=='newyear') bandAt = bandSpot();
   if(!cfg.noGrass) world.add(makeGrass());
   if(natReady) makeNature(world); else makeTrees(world);
   makeWindow(world);
