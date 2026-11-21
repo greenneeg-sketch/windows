@@ -1594,10 +1594,24 @@ function addShark(group){
       if(fast && swim){ var a = st.out ? fast : swim, b = st.out ? swim : fast; if(!a.isRunning()){ a.reset().play(); a.crossFadeFrom(b, 1.2, false); } }
     }
     pick(); S.h.position.set(st.x, WATER - 0.4, st.z);
+    var follow = 0;   // 0..1: how keen it is on the player right now (builds up while you're on the beach, fades after you leave)
     critters.push({ o:S.h, update:function(dt, T){
-      var r = steerTo(st, dt, 0.35); if(r.dist < 4) pick();
+      // player near the waterline? come in close and shadow them along the shore, lingering while they stay
+      var pd = seaDepth(player.x, player.z), nearShore = pd > -1.2 && player.z < 2 && Math.abs(player.x) < 60;
+      follow = Math.max(0, Math.min(1, follow + (nearShore ? dt/4 : -dt/25)));
+      if(follow > 0.15){
+        var bz0 = player.z - 1.5, k = 0;
+        while(k++ < 40 && seaDepth(player.x, bz0) < 1.05) bz0 -= 0.5;           // the nearest water deep enough to swim, straight out from the player
+        var ang = T*0.18, bx = player.x + Math.cos(ang)*3.2, bz = bz0 - 1.6 + Math.sin(ang)*1.4;   // a slow lazy loop just off the beach in front of you
+        if(seaDepth(bx, bz) < 1.0) bz = bz0 - 1.6;
+        var dd = Math.hypot(bx-st.x, bz-st.z);
+        st.tgt = [bx, bz]; st.out = false; st.sp = Math.max(0.45, Math.min(1.6, dd*0.22));
+        if(fast && swim && fast.isRunning() && st.sp < 1.1){ swim.reset().play(); swim.crossFadeFrom(fast, 1.0, false); }
+      }
+      var r = steerTo(st, dt, follow > 0.15 ? 0.9 : 0.35);
+      if(follow <= 0.15 && (r.dist < 4 || Math.abs(st.x) > 75 || st.z < -140)) pick();
       var nx = st.x + Math.sin(st.hd)*st.sp*dt, nz = st.z + Math.cos(st.hd)*st.sp*dt;
-      if(seaDepth(nx, nz) > 0.85){ st.x = nx; st.z = nz; } else { st.hd += 1.4*dt; pick(); }
+      if(seaDepth(nx, nz) > 0.85){ st.x = nx; st.z = nz; } else { st.hd += 1.4*dt; if(follow <= 0.15) pick(); }
       var dep = seaDepth(st.x, st.z), sink = Math.min(0.32 + Math.max(0, dep-2.2)*0.2, 0.6);   // dorsal fin just cuts the surface
       S.h.position.x = st.x; S.h.position.z = st.z; S.h.position.y += ((WATER - sink + Math.sin(T*0.4)*0.03) - S.h.position.y)*Math.min(1, dt*1.5);
       S.h.rotation.set(0, st.hd, -r.dh*0.2);
