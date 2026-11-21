@@ -1612,7 +1612,7 @@ function addShark(group){
     pick(); S.h.position.set(st.x, WATER - 0.4, st.z);
     var follow = 0;   // 0..1: how keen it is on the player right now (builds up while you're on the beach, fades after you leave)
     var peek = 0, peekT = 0;   // 교감: glide up to the shallows right in front of you and poke its head out of the water
-    critters.push({ o:S.h, kind:'shark', headY:0.75, petR:0, calmT:0, calm:function(){ peekT = 6.5; follow = 1; }, update:function(dt, T){
+    critters.push({ o:S.h, mx:S.mx, kind:'shark', headY:0.75, petR:0, calmT:0, calm:function(){ peekT = 6.5; follow = 1; }, update:function(dt, T){
       this.petR = follow > 0.5 ? 10 : 0;                                          // only when it has come in close to you
       if(peekT > 0){ peekT -= dt;
         var pz0 = player.z - 1.2, kk = 0; while(kk++ < 40 && seaDepth(player.x, pz0) < 0.75) pz0 -= 0.4;
@@ -1895,7 +1895,7 @@ function addSunriseSea(gen){
   var cx = 0.9, cz = -21, base = new THREE.Group(); base.position.set(cx, 0, cz); gen.add(base);
   var rockM = new THREE.MeshStandardMaterial({color:col('#4a423c'), roughness:1, flatShading:true});
   [[0,WATER-0.4,0,1.5,1.0],[1.1,WATER-0.5,0.5,0.9,0.7],[-1.0,WATER-0.6,-0.4,1.0,0.6]].forEach(function(r){
-    var m = new THREE.Mesh(new THREE.DodecahedronGeometry(r[3], 0), rockM); m.position.set(r[0], r[1], r[2]); m.scale.y = r[4]; m.rotation.y = r[0]*2; base.add(m); });
+    var m = new THREE.Mesh(new THREE.DodecahedronGeometry(r[3], 0), rockM); m.position.set(r[0], r[1], r[2]); m.scale.y = r[4]; m.rotation.y = r[0]*2; base.add(m); m.userData.stick = 'crane'; stickables.push(m); });
   var crane = makeCrane(), S = 2.6; crane.scale.setScalar(S); crane.position.set(0, WATER-0.4+1.5*0.79+0.17*S-0.08, 0); /* lowest fold rests on the rock */ crane.rotation.y = -Math.PI/2 + 0.7; base.add(crane);
   crane.traverse(function(m){ if(m.isMesh){ m.castShadow = hq; } });
   base.updateMatrixWorld(true);
@@ -1968,7 +1968,8 @@ var PANDA_DATA = {"panda_sitting":{"mn":[-0.557,0,-0.378],"mx":[0.557,1.51,0.55]
 function addSanctuary(gen){
   var S = sanctAt; if(!S) return;
   var root = new THREE.Group(); gen.add(root);   // children in world coordinates so 교감 / bubbles find them
-  function put(name, x, z, ry, sc){ var m = packMesh(name, PANDA_DATA[name]), wx = S.x+x, wz = S.z+z; m.position.set(wx, groundH(wx, wz) - 0.02, wz); m.rotation.y = ry||0; if(sc) m.scale.setScalar(sc); root.add(m); return m; }
+  var STK = { bamboo_hut:'hut', bamboo_fence:'fence', bamboo_gate:'gate', feeding_station:'feed', climbing_frame:'frame', tire_swing:'swing', sanctuary_sign:'sign', mossy_rock:'rock', bamboo_cluster:'bamboo' };
+  function put(name, x, z, ry, sc){ var m = packMesh(name, PANDA_DATA[name]), wx = S.x+x, wz = S.z+z; if(STK[name]){ m.userData.stick = STK[name]; stickables.push(m); } m.position.set(wx, groundH(wx, wz) - 0.02, wz); m.rotation.y = ry||0; if(sc) m.scale.setScalar(sc); root.add(m); return m; }
   function block(x, z, r){ colliders.push({x:S.x+x, z:S.z+z, r:r}); }
   // ring of bamboo fence with the gate facing the window (-z)
   var R = S.r, segs = Math.round(2*Math.PI*R/2.15);
@@ -2508,6 +2509,8 @@ function spotOk(sp){
   _sr.set(_sv, _sd); _sr.near = 0; _sr.far = 0.5;
   return _sr.intersectObjects(stickables).length > 0;
 }
+var STICK_KO = { tree:'나무', rock:'바위', hut:'판다 집', fence:'대나무 울타리', gate:'대나무 문', feed:'먹이대', frame:'정글짐', swing:'그네', sign:'안내판', bamboo:'대나무', crane:'종이학 바위' };
+function stickName(k){ return STICK_KO[k] || '나무'; }
 function stickHit(cx, cy){
   if(!stickables.length) return null;
   v2.set(cx/window.innerWidth*2-1, -(cy/window.innerHeight)*2+1); ray.setFromCamera(v2, camera);
@@ -2515,6 +2518,7 @@ function stickHit(cx, cy){
   var g = ray.intersectObject(glassMesh)[0]; if(g && g.distance < h.distance) return null;
   var nrm = h.face ? h.face.normal.clone() : new THREE.Vector3(0,0,1);
   if(h.instanceId !== undefined){ var im = new THREE.Matrix4(); h.object.getMatrixAt(h.instanceId, im); nrm.applyMatrix3(new THREE.Matrix3().getNormalMatrix(im)); }
+  else nrm.transformDirection(h.object.matrixWorld);   // plain meshes: face normal is in the object's own space
   nrm.normalize(); if(nrm.dot(ray.ray.direction) > 0) nrm.negate();
   var q = h.point;
   return { d:h.distance, kind:h.object.userData.stick, spot:[q.x,q.y,q.z,nrm.x,nrm.y,nrm.z].map(function(v){ return +v.toFixed(3); }) };
@@ -2522,7 +2526,7 @@ function stickHit(cx, cy){
 function trySpot(cx, cy, quiet){
   var h = stickHit(cx, cy);
   if(!h){ return false; }
-  if(h.d > 3.2){ if(!quiet) toast(h.kind==='rock' ? '바위에 조금 더 가까이 가 볼까요' : '나무에 조금 더 가까이 가 볼까요'); return !quiet; }
+  if(h.d > 3.2){ if(!quiet) toast(stickName(h.kind)+'에 조금 더 가까이 가 볼까요'); return !quiet; }
   if(leftToday()<=0){ toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return true; }
   if(navigator.vibrate) try{ navigator.vibrate(18); }catch(_){}
   pending = { x:0, y:1.5, spot:h.spot, kind:h.kind }; if(placing) setPlacing(false); openComposer(null);
@@ -2687,19 +2691,19 @@ function tap(cx,cy){
   if(placing && moving){
     var gh = ray.intersectObject(glassMesh)[0], sh = stickHit(cx, cy);
     if(sh && (!gh || sh.d < gh.distance)){
-      if(sh.d > 3.2){ toast(sh.kind==='rock' ? '바위에 조금 더 가까이 가 볼까요' : '나무에 조금 더 가까이 가 볼까요'); return; }
+      if(sh.d > 3.2){ toast(stickName(sh.kind)+'에 조금 더 가까이 가 볼까요'); return; }
       finishMove({x:0, y:1.5, spot:sh.spot, kind:sh.kind}); return;
     }
     if(gh && gh.distance<9){ finishMove(glassSpot(gh.point.x, gh.point.y)); return; }
     toast('유리창이나 나무·바위를 눌러주세요'); return;
   }
   if(placing){
-    var hit = ray.intersectObject(glassMesh)[0];
-    if(!(hit && hit.distance<9) && trySpot(cx, cy, false)) return;
+    var hit = ray.intersectObject(glassMesh)[0], sh0 = stickHit(cx, cy);
+    if(sh0 && (!(hit && hit.distance<9) || sh0.d < hit.distance) && trySpot(cx, cy, false)) return;
     if(hit && hit.distance<9){
       pending = glassSpot(hit.point.x, hit.point.y);
       setPlacing(false); openComposer(null);
-    } else toast('유리창을 눌러주세요');
+    } else toast(placeFree ? '가까운 나무·바위·판다 집을 눌러주세요' : '유리창을 눌러주세요');
     return;
   }
   var hits = ray.intersectObjects(noteMeshes.filter(function(m){ return m.visible; }));
@@ -2728,15 +2732,16 @@ function showHint(){
 }
 var toastT;
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(function(){ t.style.opacity=0; },2000); }
-function setPlacing(on){ placing=on; if(!on && moving) cancelMove(); $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
+var placeFree = false;
+function setPlacing(on){ placing=on; if(!on){ placeFree = false; if(moving) cancelMove(); } $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : placeFree ? '붙일 곳을 눌러요 · 나무, 바위, 판다 집도 돼요' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
 var glide = null;
 function glideTo(x, z, yaw, pitch, done){ glide = {fx:player.x, fz:player.z, fyaw:player.yaw, fp:player.pitch, x:x, z:z, yaw:yaw, pitch:pitch, t:0, t0:performance.now(), done:done}; player.sit=false; player.crouch=false; updateSitLabel(); }
 $('add').addEventListener('click', function(){
   hideHint();
   if(leftToday()<=0){ toast('오늘은 '+DAILY+'장을 다 붙였어요. 내일 또 와요'); return; }
   var near = Math.abs(player.z)>0.6 && Math.abs(player.z)<3.2 && Math.abs(player.x)<2.6;
-  if(near){ setPlacing(true); return; }
-  glideTo(Math.max(-1.2,Math.min(1.2,player.x*0.3)), 1.75, 0, 0.12, function(){ setPlacing(true); });
+  placeFree = !near;                 // away from the window: stick it on whatever hard thing is in front of you, right where you are
+  setPlacing(true);
 });
 $('placeCancel').addEventListener('click', function(){ setPlacing(false); });
 function openModal(id){ modal=true; keys={}; $(id).classList.add('on'); }
@@ -3080,7 +3085,7 @@ function openComposer(mesh){
   $('quota').textContent = mesh ? '' : '오늘 '+leftToday()+'장 남음';
   $('placeRow').style.display = mesh ? 'none' : 'flex';
   var pv = store.get('yurichang-showplace'); $('showPlace').checked = pv===null ? true : !!pv;
-  $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='back' ? '창문 뒷면에 붙이기' : pending.kind==='rock' ? '바위에 붙이기' : '나무에 붙이기') : '창문에 붙이기');
+  $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='back' ? '창문 뒷면에 붙이기' : stickName(pending.kind)+'에 붙이기') : '창문에 붙이기');
   inl.style.display='none'; ed.inl=null; setTool('pen'); markSw(); markFont();
   openModal('composeScrim');
   requestAnimationFrame(edResize);
@@ -3120,7 +3125,7 @@ $('stick').addEventListener('click', function(){
     bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0); syncGen++;
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
-    closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? (spotKind==='rock' ? '바위에 살짝 붙였어요' : '나무에 살짝 붙였어요') : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
+    closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? stickName(spotKind)+'에 살짝 붙였어요' : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
   }, function(e){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
@@ -3222,7 +3227,7 @@ function finishMove(to){
     addNoteMesh(n, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0;
     if(!n.server) saveMine();
     updateEmpty(); if(navigator.vibrate) try{ navigator.vibrate(18); }catch(_){}
-    toast(to.kind==='back' ? cfg.name+' 창 뒷면에 옮겨 붙였어요' : to.spot ? (to.kind==='rock' ? '바위에 옮겨 붙였어요' : '나무에 옮겨 붙였어요') : cfg.name+' 창에 옮겨 붙였어요');
+    toast(to.kind==='back' ? cfg.name+' 창 뒷면에 옮겨 붙였어요' : to.spot ? stickName(to.kind)+'에 옮겨 붙였어요' : cfg.name+' 창에 옮겨 붙였어요');
   }
   if(!n.server){ done(); return; }
   if(mv.busy) return; mv.busy = true; btn.disabled = true;
