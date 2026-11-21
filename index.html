@@ -2165,8 +2165,8 @@ function renderNote(x, n, S, opt){
     if(n.age>0.6){ x.fillStyle='rgba(255,255,255,.5)'; x.beginPath(); x.moveTo(S,S-46*k2); x.lineTo(S-46*k2,S); x.lineTo(S,S); x.fill(); }
   }
 }
-function noteTexture(n){
-  var S=384, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+function noteTexture(n, big){
+  var S=big ? 1024 : 384, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
   renderNote(cv.getContext('2d'), n, S, {deco:true});
   var tex = new THREE.CanvasTexture(cv);
   // Korean web fonts arrive in slices per character range: make sure the glyphs of this note are in, then redraw
@@ -2233,7 +2233,7 @@ var refreshT = null;
 function refreshAllNotes(){ clearTimeout(refreshT); refreshT = setTimeout(function(){ noteMeshes.forEach(function(m){ try{ refreshNote(m); }catch(_){} }); }, 250); }
 if(document.fonts && document.fonts.addEventListener){ document.fonts.addEventListener('loadingdone', refreshAllNotes); }
 window.addEventListener('load', refreshAllNotes);
-function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); var tx=noteTexture(n); mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
+function refreshNote(mesh){ var n=mesh.userData.note; mesh.material.map.dispose(); if(mesh.userData.smallTex && mesh.userData.smallTex!==mesh.material.map) mesh.userData.smallTex.dispose(); var big=!!mesh.userData.bigTex; mesh.userData.bigTex=mesh.userData.smallTex=null; var tx=noteTexture(n, big && photo.on); if(big && photo.on){ mesh.userData.bigTex=tx; mesh.userData.smallTex=noteTexture(n); } mesh.material.map=tx; mesh.material.emissiveMap=tx; mesh.material.needsUpdate=true; }
 function slotsFor(seed){
   var R = rng(seed), out = [];
   [[-1.93,-0.74],[-0.6,0.6],[0.74,1.93]].forEach(function(cx){ [[0.62,1.66],[1.84,2.9]].forEach(function(cy){
@@ -2312,8 +2312,8 @@ function jump(){
 function standUp(){ player.sit=false; player.crouch=false; player.z = Math.max(player.z, BENCH.z+0.45); updateSitLabel(); }
 function sitOrCrouch(){
   if(player.sit||player.crouch){ standUp(); return; }
-  var d = Math.hypot(player.x-BENCH.x, player.z-BENCH.z);
-  if(d<1.9 && grounded()){ player.sit=true; player.vx=player.vz=0; toast('벤치에 앉았어요. 움직이면 일어나요'); }
+  var onBench = Math.abs(player.x-BENCH.x) < 1.0 && Math.abs(player.z-BENCH.z) < 0.55;   // standing on/over the seat, not just near it
+  if(onBench && grounded()){ player.sit=true; player.vx=player.vz=0; toast('벤치에 앉았어요. 움직이면 일어나요'); }
   else player.crouch=true;
   updateSitLabel();
 }
@@ -3266,7 +3266,9 @@ var dofComposer = null, dofPass = null;
 function setupDof(){
   if(dofComposer || !THREE.BokehPass || !THREE.EffectComposer) return !!dofComposer;
   try{
-    dofComposer = new THREE.EffectComposer(renderer);
+    var dms = null;
+    if(renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget){ try{ dms = new THREE.WebGLMultisampleRenderTarget(window.innerWidth*DPR, window.innerHeight*DPR, {format:THREE.RGBAFormat}); dms.samples = 4; }catch(e){ dms = null; } }
+    dofComposer = dms ? new THREE.EffectComposer(renderer, dms) : new THREE.EffectComposer(renderer);
     dofComposer.setPixelRatio && dofComposer.setPixelRatio(DPR);
     dofComposer.setSize(window.innerWidth, window.innerHeight);
     dofComposer.addPass(new THREE.RenderPass(scene, camera));
@@ -3334,9 +3336,38 @@ $('dofBtn').addEventListener('click', function(){
   if(photo.dof){ focusAt(window.innerWidth/2, window.innerHeight/2); setTimeout(function(){ if(photo.dof) focusAt(window.innerWidth/2, window.innerHeight/2); }, 160); toast('초점 맞출 곳을 눌러요'); }
 });
 $('blurAmt').addEventListener('input', function(){ photo.fno = F_STOPS[+this.value]; $('blurV').textContent = 'f/'+photo.fno; $('lensInfo').textContent = lensText(); applyDof(); });
+// a mechanical 찰칵: curtain snap, short whirr, second curtain
+function sharpNotes(on){
+  noteMeshes.forEach(function(m){
+    var mat = m.material; if(!mat || !mat.map) return;
+    if(on && !m.userData.bigTex && m.position.distanceTo(camera.position) < 14){
+      var old = mat.map, t = noteTexture(m.userData.note, true); m.userData.smallTex = old; m.userData.bigTex = t; mat.map = t; mat.emissiveMap = t; mat.needsUpdate = true;
+    } else if(!on && m.userData.bigTex){
+      var big = m.userData.bigTex; mat.map = m.userData.smallTex; mat.emissiveMap = m.userData.smallTex; mat.needsUpdate = true; big.dispose(); m.userData.bigTex = m.userData.smallTex = null;
+    }
+  });
+}
+function shutterSound(){
+  try{
+    if(!actx){ var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return; actx = new AC(); master = actx.createGain(); master.gain.value = soundOn ? 1 : 0; master.connect(actx.destination); }
+    if(actx.state === 'suspended') actx.resume();
+    var t = actx.currentTime, out = actx.createGain(); out.gain.value = 0.9; out.connect(actx.destination);
+    function snap(at, f, vol, len){
+      var src = actx.createBufferSource(); src.buffer = noiseBuf('white');
+      var bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 1.4;
+      var g = actx.createGain(); g.gain.setValueAtTime(0.0001, t+at); g.gain.exponentialRampToValueAtTime(vol, t+at+0.002); g.gain.exponentialRampToValueAtTime(0.0001, t+at+len);
+      src.connect(bp); bp.connect(g); g.connect(out); src.start(t+at, Math.random()*2, len+0.02);
+    }
+    snap(0, 3200, 0.55, 0.035); snap(0.004, 900, 0.35, 0.05);
+    var o = actx.createOscillator(), og = actx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(140, t+0.03); o.frequency.exponentialRampToValueAtTime(90, t+0.09);
+    og.gain.setValueAtTime(0.0001, t+0.03); og.gain.exponentialRampToValueAtTime(0.03, t+0.04); og.gain.exponentialRampToValueAtTime(0.0001, t+0.1); o.connect(og); og.connect(out); o.start(t+0.03); o.stop(t+0.12);
+    snap(0.105, 2600, 0.45, 0.04); snap(0.108, 700, 0.3, 0.06);
+  }catch(e){}
+}
 function setPhoto(on){
   photo.on = on; document.body.classList.toggle('photo', on);
   if(on){ setZoom(1); setCamH(player.eye); }
+  sharpNotes(on);
   if(placing) setPlacing(false);
   if(on){ hideHint(); layoutFrame(); $('photoTip').style.opacity = 1; setTimeout(function(){ $('photoTip').style.opacity = 0; }, 3500); }
 }
@@ -3348,7 +3379,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), func
     Array.prototype.forEach.call(document.querySelectorAll('#ratioSeg button'), function(x){ x.classList.toggle('on', x===b); }); layoutFrame(); });
 });
 $('markBtn').addEventListener('click', function(){ photo.mark = !photo.mark; this.classList.toggle('on', photo.mark); this.setAttribute('aria-pressed', photo.mark); });
-$('shutter').addEventListener('click', function(){ bump('photos'); photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
+$('shutter').addEventListener('click', function(){ bump('photos'); shutterSound(); photo.want = true; var fl=$('flash'); fl.style.transition='none'; fl.style.opacity=0.85; requestAnimationFrame(function(){ fl.style.transition='opacity .35s'; fl.style.opacity=0; }); });
 // runs right after the frame is drawn, so the picture is read before the browser clears it
 function setPR(r){
   renderer.setPixelRatio(r);
@@ -3609,7 +3640,10 @@ function frame(){
   if(bulbs.length) twinkle(t);
   updateFireworks(dt, performance.now());
   var superPR = 0;
-  if(photo.want){ superPR = Math.min(3, DPR*1.75); if(superPR > DPR+0.05) setPR(superPR); else superPR = 0; }
+  if(photo.want){   // render the shot at ~2x the saved image's resolution, then scale down: smooth edges, no visible pixels
+    var fr = frameRect(), outH = photo.ratio==='story' ? 1920 : photo.ratio==='square' ? 1080 : Math.round(1080*fr.h/fr.w);
+    var maxPR = (renderer.capabilities.maxTextureSize || 4096) / Math.max(window.innerWidth, window.innerHeight);
+    superPR = Math.min(4, maxPR, Math.max(DPR*1.75, 2*outH/fr.h)); if(superPR > DPR+0.05) setPR(superPR); else superPR = 0; }
   if(photo.on && photo.dof && dofComposer) dofComposer.render();
   else if(hq && composer) composer.render(); else renderer.render(scene, camera);
   if(photo.want){ capturePhoto(); if(superPR) setPR(DPR); }
