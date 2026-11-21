@@ -1513,22 +1513,160 @@ function addDragonfly(group, R){
     return true;
   }});
 }
+// ---------- crab: glossy red shell, cream underside, eye stalks, big pincers, four pairs of jointed legs ----------
+function smoothMat(c, rough){ return new THREE.MeshStandardMaterial({color:col(c), roughness:rough==null?0.42:rough, metalness:0}); }
+function sph(r, mat, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), mat); m.scale.set(sx||1, sy||1, sz||1); return m; }
+function seg(len, r0, r1, mat){ var g = new THREE.CylinderGeometry(r1, r0, len, 9, 1); g.translate(0, len/2, 0); return new THREE.Mesh(g, mat); }   // grows along +y from the joint
+function makeCrab(){
+  var RED = smoothMat('#d83a2e', 0.35), CRM = smoothMat('#e8b49a', 0.6), EYE = smoothMat('#111111', 0.2);
+  var g = new THREE.Group(), body = new THREE.Group(); body.position.y = 0.075; g.add(body);
+  body.add(sph(0.1, RED, 1.25, 0.42, 0.95));                                      // carapace
+  var rim = sph(0.1, CRM, 1.22, 0.3, 0.93); rim.position.y = -0.012; body.add(rim);   // pale underside peeking out
+  var eyes = [];
+  [-1,1].forEach(function(sd){
+    var st = new THREE.Group(); st.position.set(sd*0.032, 0.03, 0.075); body.add(st);
+    var stalk = seg(0.04, 0.006, 0.005, RED); st.add(stalk);
+    var ball = sph(0.011, RED); ball.position.y = 0.043; st.add(ball);
+    var pupil = sph(0.006, EYE); pupil.position.set(sd*0.003, 0.046, 0.007); st.add(pupil);
+    eyes.push(st);
+  });
+  // claws: upper arm -> forearm -> pincer (fixed finger + moving finger)
+  var claws = [];
+  [-1,1].forEach(function(sd){
+    var sh = new THREE.Group(); sh.position.set(sd*0.09, 0.0, 0.07); sh.rotation.order = 'YXZ'; sh.rotation.set(0.35, sd*0.25, -sd*1.05); body.add(sh);
+    sh.add(seg(0.07, 0.012, 0.011, RED));
+    var el = new THREE.Group(); el.position.y = 0.07; el.rotation.set(0.1, 0, sd*1.7); sh.add(el);
+    el.add(seg(0.05, 0.012, 0.016, RED));
+    var hand = new THREE.Group(); hand.position.y = 0.05; hand.rotation.set(0.1, 0, -sd*0.35); el.add(hand);
+    var palm = sph(0.026, RED, 0.7, 1.3, 0.9); palm.position.y = 0.03; hand.add(palm);
+    var palmIn = sph(0.028, CRM, 0.55, 1.1, 0.8); palmIn.position.set(-sd*0.008, 0.03, 0.006); hand.add(palmIn);
+    var fixed = seg(0.045, 0.012, 0.002, RED); fixed.position.set(sd*0.008, 0.055, 0); fixed.rotation.z = -sd*0.12; hand.add(fixed);
+    var mv = new THREE.Group(); mv.position.set(-sd*0.01, 0.052, 0); hand.add(mv);
+    var fing = seg(0.042, 0.01, 0.002, CRM); fing.rotation.z = sd*0.12; mv.add(fing);
+    claws.push({ sh:sh, el:el, mv:mv, sd:sd });
+  });
+  // legs: 4 per side, three segments each (red, tipped cream)
+  var legs = [];
+  [-1,1].forEach(function(sd){
+    for(var i=0;i<4;i++){
+      var hip = new THREE.Group(); hip.position.set(sd*0.105, -0.004, 0.035 - i*0.035); hip.rotation.y = sd*(0.55 - i*0.38); body.add(hip);
+      var up = new THREE.Group(); up.rotation.z = -sd*1.2; hip.add(up);            // femur angles out and a little up
+      up.add(seg(0.07, 0.0075, 0.0065, RED));
+      var knee = new THREE.Group(); knee.position.y = 0.07; knee.rotation.z = -sd*1.25; up.add(knee);   // bends down to the sand
+      knee.add(seg(0.075, 0.0065, 0.005, RED));
+      var tip = new THREE.Group(); tip.position.y = 0.07; tip.rotation.z = -sd*0.3; knee.add(tip);
+      tip.add(seg(0.05, 0.006, 0.001, CRM));
+      legs.push({ up:up, knee:knee, sd:sd, i:i, ph:(i%2)*Math.PI + (sd>0?Math.PI/2:0) });
+    }
+  });
+  g.traverse(function(m){ if(m.isMesh) m.castShadow = true; });
+  g.userData = { body:body, eyes:eyes, claws:claws, legs:legs };
+  return g;
+}
+function poseCrab(g, T, walk, wave){
+  var u = g.userData;
+  u.legs.forEach(function(L){
+    var a = walk ? Math.sin(T*16 + L.ph) : 0;
+    L.up.rotation.z = -L.sd*(1.2 - (walk ? Math.max(0,a)*0.3 : 0));
+    L.knee.rotation.z = -L.sd*(1.25 + (walk ? a*0.15 : 0));
+  });
+  u.body.position.y = 0.075 + (walk ? Math.abs(Math.sin(T*16))*0.004 : Math.sin(T*1.6)*0.002);
+  u.claws.forEach(function(C, i){
+    var w = wave ? Math.max(0, Math.sin(T*5 + i*1.4)) : 0;
+    C.sh.rotation.z = -C.sd*(1.05 - w*0.35); C.el.rotation.z = C.sd*(1.7 - w*0.25);
+    C.mv.rotation.z = C.sd*(0.1 + (0.5+0.5*Math.sin(T*(wave?9:2.2) + i*2))*0.35);     // pincer snapping
+  });
+  u.eyes.forEach(function(e, i){ e.rotation.z = Math.sin(T*0.9 + i*2.1)*0.15; e.rotation.x = Math.sin(T*1.3 + i)*0.1; });
+}
 function addCrab(group, R){
-  var g = new THREE.Group(), c = '#c4452f';
-  var bd = ball(0.07, c, 1.3, 0.5, 1); bd.position.y = 0.04; g.add(bd);
-  [-1,1].forEach(function(sd){ var cl = ball(0.025, c); cl.position.set(sd*0.08, 0.05, 0.06); g.add(cl);
-    for(var i=0;i<3;i++){ var l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.008), lam(c)); l.position.set(sd*0.09, 0.025, -0.03+i*0.03); l.rotation.z = sd*0.5; g.add(l); } });
-  var spot = null;
+  var g = makeCrab(), spot = null;
   for(var i=0;i<80 && !spot;i++){ var x=(R()-0.5)*40, z=-8-R()*8, y=groundH(x,z); if(y>WATER+0.03 && y<WATER+0.7 && okSpot(x,z)) spot={x:x,z:z}; }
   if(!spot) return;
-  g.position.set(spot.x, groundH(spot.x,spot.z), spot.z); g.scale.setScalar(1.7); group.add(g);
-  critters.push({ o:g, dir:R()<0.5?-1:1, t:R()*5, update:function(dt, T){
-    var o=this.o; this.t -= dt;
-    if(this.t<0){ this.dir = -this.dir; this.t = 1.5+R()*3; }
-    var moving = (this.t % 2) > 0.6, nx = o.position.x + (moving ? this.dir*dt*0.45 : 0), y = groundH(nx, o.position.z);
+  g.position.set(spot.x, groundH(spot.x,spot.z), spot.z); g.scale.setScalar(1.6); group.add(g);
+  critters.push({ o:g, kind:'crab', headY:0.3, petR:1.6, calmT:0, calm:function(){ this.calmT = 3; }, dir:R()<0.5?-1:1, t:R()*5, wave:0, update:function(dt, T){
+    var o=this.o; this.t -= dt; if(this.calmT>0) this.calmT -= dt;
+    if(this.t<0){ this.dir = -this.dir; this.t = 1.5+R()*3; if(R()<0.3) this.wave = 1.6; }
+    this.wave -= dt;
+    var moving = (this.t % 2) > 0.6 && this.wave <= 0, nx = o.position.x + (moving ? this.dir*dt*0.45 : 0), y = groundH(nx, o.position.z);
     if(y>WATER+0.02 && y<WATER+0.8) o.position.x = nx; else this.dir = -this.dir;
-    o.position.y = groundH(o.position.x, o.position.z) + (moving ? Math.abs(Math.sin(T*24))*0.006 : 0);
-    o.rotation.y = 0; return true;
+    o.position.y = groundH(o.position.x, o.position.z);
+    o.rotation.y = Math.sin(T*0.3)*0.25;                                             // crabs walk sideways: body stays facing the sea-ish
+    poseCrab(o, T, moving, this.wave > 0 || this.calmT > 0); return true;
+  }});
+}
+// ---------- shark: a sleek grey-blue great-white-like body that swims the shallows, fin cutting the surface, now and then heading far out ----------
+function makeShark(){
+  var L = 3.2, segZ = 40, segR = 14, g = new THREE.Group();
+  var geo = new THREE.CylinderGeometry(1, 1, L, segR, segZ, false); geo.rotateX(Math.PI/2);   // along z, nose at +z
+  var pos = geo.attributes.position, base = new Float32Array(pos.array.length), colors = [];
+  var top = col('#4d6470'), mid = col('#6f8790'), belly = col('#f0f2ee');
+  function prof(t){   // t: 0 tail .. 1 nose -> radius
+    var r = t < 0.15 ? 0.07 + t*0.9 : t < 0.76 ? 0.205 + 0.215*Math.sin((t-0.15)/0.61*Math.PI*0.5) : 0.42*Math.pow(Math.max(0,(1-t)/0.24), 0.72);
+    return Math.max(0.015, Math.min(0.42, r));
+  }
+  for(var i=0;i<pos.count;i++){
+    var x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), t = (z + L/2)/L, r = prof(t);
+    var nx = x*r*0.8, ny = y*r*0.95 - (t>0.86 ? (t-0.86)*0.35 : 0);
+    pos.setXYZ(i, nx, ny, z); base[i*3] = nx; base[i*3+1] = ny; base[i*3+2] = z;
+    var c = new THREE.Color(); var k = THREE.MathUtils.smoothstep(y, -0.35, 0.15);
+    c.copy(belly).lerp(mid, k); if(y > 0.25) c.lerp(top, Math.min(1,(y-0.25)/0.6)); colors.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); geo.computeVertexNormals();
+  var skin = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.55, metalness:0});
+  var body = new THREE.Mesh(geo, skin); body.castShadow = true; g.add(body);
+  var finMat = new THREE.MeshStandardMaterial({color:col('#4a606b'), roughness:0.6, side:THREE.DoubleSide});
+  function fin(pts, depth){ var sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); for(var i=1;i<pts.length;i++) sh.lineTo(pts[i][0], pts[i][1]); sh.closePath();
+    var fg = new THREE.ExtrudeGeometry(sh, {depth:depth||0.03, bevelEnabled:true, bevelThickness:0.012, bevelSize:0.012, bevelSegments:1}); fg.translate(0,0,-(depth||0.03)/2); fg.rotateY(-Math.PI/2); return new THREE.Mesh(fg, finMat); }
+  // shapes are drawn in (z, y): +z toward the nose
+  var dorsal = fin([[0.38,0.0],[-0.12,0.0],[-0.02,0.12],[0.1,0.55],[0.18,0.5]]); dorsal.position.set(0, 0.34, 0.15); g.add(dorsal);
+  var dorsal2 = fin([[0.06,0],[-0.08,0],[-0.06,0.09]], 0.02); dorsal2.position.set(0, 0.12, -1.12); g.add(dorsal2);
+  [-1,1].forEach(function(sd){ var pf = fin([[0.25,0],[-0.05,0],[-0.38,-0.48],[-0.25,-0.5]], 0.025); pf.position.set(sd*0.24, -0.16, 0.55); pf.rotation.z = sd*0.55; g.add(pf); });
+  var anal = fin([[0.05,0],[-0.08,0],[-0.07,-0.08]], 0.02); anal.position.set(0, -0.1, -1.08); g.add(anal);
+  var tail = new THREE.Group(); tail.position.set(0, 0, -L/2+0.02); g.add(tail);
+  var caudal = fin([[0.12,0.02],[-0.1,0.62],[-0.2,0.6],[-0.05,0.02],[-0.16,-0.42],[-0.06,-0.44],[0.12,-0.04]], 0.025); tail.add(caudal);
+  var eyeM = new THREE.MeshBasicMaterial({color:0x0b0d10});
+  [-1,1].forEach(function(sd){ var e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeM); e.position.set(sd*0.2, 0.08, 1.18); g.add(e);
+    for(var k=0;k<5;k++){ var gl = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.17, 0.012), new THREE.MeshBasicMaterial({color:0x3a4a52})); gl.position.set(sd*0.3, -0.02, 0.78 - k*0.06); gl.rotation.x = 0.15; g.add(gl); } });
+  var mouth = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.008, 4, 12, Math.PI*0.8), new THREE.MeshBasicMaterial({color:0x3a2a2c})); mouth.rotation.set(Math.PI/2, 0, Math.PI*0.1); mouth.position.set(0, -0.12, 1.2); g.add(mouth);
+  g.userData = { body:body, base:base, L:L, tail:tail, dorsal:dorsal };
+  return g;
+}
+function bendShark(g, T, amp){
+  // a swimming wave that grows toward the tail; the tail fin rides the end of it
+  var u = g.userData, pos = u.body.geometry.attributes.position, b = u.base, L = u.L;
+  for(var i=0;i<pos.count;i++){ var z = b[i*3+2], t = (L/2 - z)/L, off = Math.sin(z*2.1 + T*5.2)*amp*t*t; pos.setX(i, b[i*3] + off); }
+  pos.needsUpdate = true; u.body.geometry.computeVertexNormals();
+  var zt = -L/2, tt = 1, offT = Math.sin(zt*2.1 + T*5.2)*amp*tt*tt, slope = Math.cos(zt*2.1 + T*5.2)*2.1*amp;
+  u.tail.position.x = offT; u.tail.rotation.y = -slope*1.2;
+}
+function addShark(group){
+  // find a band of water 1–2.6m deep near the beach to cruise, and far water to wander out to
+  function depthAt(x, z){ return WATER - groundH(x, z); }
+  var near = [], far = [];
+  for(var x=-50; x<=50; x+=5) for(var z=-6; z>=-110; z-=2){ var d = depthAt(x, z); if(d > 1.0 && d < 2.6) near.push([x, z]); else if(d > 2.8 && z < -40 && Math.abs(x) < 60) far.push([x, z]); }
+  if(near.length < 6) return;
+  var sk = makeShark(); sk.scale.setScalar(1.0); group.add(sk);
+  var p0 = near[Math.floor(Math.random()*near.length)], tgt = null, sp = 1.1, hd = Math.random()*6.28, out = false;
+  sk.position.set(p0[0], WATER - 0.42, p0[1]);
+  function pick(){
+    out = Math.random() < 0.22 && far.length > 0; var arr = out ? far : near;
+    // prefer targets roughly ahead so it glides in long arcs rather than zig-zagging
+    var best = null, bs = -9; for(var k=0;k<6;k++){ var c = arr[Math.floor(Math.random()*arr.length)], dx = c[0]-sk.position.x, dz = c[1]-sk.position.z, dd = Math.hypot(dx,dz); if(dd < 6) continue; var sc = (Math.sin(hd)*dx + Math.cos(hd)*dz)/dd + Math.random()*0.6; if(sc > bs){ bs = sc; best = c; } }
+    tgt = best || arr[0]; sp = out ? 1.5 : 0.8 + Math.random()*0.5;
+  }
+  pick();
+  critters.push({ o:sk, update:function(dt, T){
+    var dx = tgt[0]-sk.position.x, dz = tgt[1]-sk.position.z;
+    if(Math.hypot(dx, dz) < 3) pick();
+    var want = Math.atan2(dx, dz), dh = ((want - hd + Math.PI*3) % (Math.PI*2)) - Math.PI;
+    hd += Math.max(-0.35*dt, Math.min(0.35*dt, dh));                                // wide, lazy turns
+    var nx = sk.position.x + Math.sin(hd)*sp*dt, nz = sk.position.z + Math.cos(hd)*sp*dt;
+    if(depthAt(nx, nz) > 0.85){ sk.position.x = nx; sk.position.z = nz; } else { hd += 1.2*dt*(dh>0?1:-1); pick(); }
+    var dep = depthAt(sk.position.x, sk.position.z), sink = Math.min(0.42 + Math.max(0, dep-2.2)*0.25, 0.75);   // in deeper water it rides lower, fin just showing
+    sk.position.y += ((WATER - sink + Math.sin(T*0.4)*0.04) - sk.position.y)*Math.min(1, dt*1.5);
+    sk.rotation.set(Math.sin(T*0.5)*0.03, hd, -dh*0.25);
+    bendShark(sk, T*(sp/1.1), 0.16);
+    return true;
   }});
 }
 // ---------- animals: CC0 Quaternius "Ultimate Animated Animals" (trimmed to idle/eat/look/walk) ----------
@@ -1628,6 +1766,7 @@ function makeCritters(group){
   addBand(critterGroup);
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
   if(cfg.water==='sea') addShore(critterGroup);
+  if(cfg.water==='sea' || cfg.water==='farsea') addShark(critterGroup);
 }
 // ---------- 동해 일출: a giant paper crane on a rock in the sea, gulls that land on it, foam rolling onto the beach ----------
 function triMesh(tris, color){
@@ -1932,10 +2071,11 @@ var THOUGHTS = {
   Horse: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '달리는 날도 쉬는 날도 있죠', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '들판은 넓고 시간은 많아요'],
   Horse_White: ['바람이 갈기를 쓰다듬어요', '꽃향기가 실려 와요', '하얀 털이 자랑이에요', '소원은 말하면 가까워진대요', '당근… 없어도 괜찮아요', '천천히 걸어도 닿아요'],
   rabbit: ['코가 간질간질해요', '깡충, 오늘도 무사히', '조용히 와줘서 안 놀랐어요', '귀 쫑긋! 무슨 소리지?', '풀밭이 폭신해요', '당신 마음도 폭신하길'],
+  crab: ['옆으로 걷는 게 더 빨라요', '집게 조심하세요… 장난이에요', '파도가 오면 잠깐 숨어요', '모래 속이 따뜻해요', '오늘은 바다가 잔잔하네요'],
   band: ['우리 넷이 모이면 뭐든 할 수 있어요', '꼬꼬, 맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
   squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
 };
-var KIND_NAME = { band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
+var KIND_NAME = { crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
 var lastThought = {}, petNear = null, bubble = { c:null, t:0 };
 function contextThought(){
   if(wx()==='rain') return ['비 냄새가 좋아요', '빗소리 들으면 졸려요'];
