@@ -194,6 +194,8 @@
   #intro h1 svg{position:absolute;left:-4px;right:0;bottom:0;width:calc(100% + 6px);height:16px;overflow:visible}
   #intro p.tag{margin:-2px 0 14px;font-size:13px;letter-spacing:.12em;color:#CFC8BA;opacity:.85}
   #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
+  .ye{margin-top:16px;width:100%;text-align:left;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,214,140,.55);background:linear-gradient(135deg,rgba(255,196,110,.22),rgba(255,140,120,.14));color:#F4F1EA;font:inherit;cursor:pointer;display:block}
+  .ye b{display:block;font-size:16px;color:#FFE2A8;margin-bottom:3px} .ye span{font-size:13px;opacity:.85}
   .news{margin-top:16px;padding:14px;border-radius:16px;background:rgba(255,201,77,.14);border:1px solid rgba(255,201,77,.45);display:flex;flex-direction:column;gap:8px}
   .news[hidden]{display:none}
   .news h3{margin:0;font-size:15px;color:#FFE08F}
@@ -456,7 +458,7 @@
 <div id="cardScrim" class="scrim" style="align-items:center">
   <button id="cardX" data-close="cardScrim" aria-label="닫기">✕</button>
   <div id="cardBox" role="dialog" aria-label="포스트잇 공유 이미지">
-    <div id="cardTitle" style="display:none;text-align:center"><b style="font-size:18px;color:#F4F1EA">포스트잇을 붙였어요</b><div class="muted" style="margin-top:4px;font-size:13px">친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요</div></div>
+    <div id="cardTitle" style="display:none;text-align:center"><b id="cardT1" style="font-size:18px;color:#F4F1EA">포스트잇을 붙였어요</b><div id="cardT2" class="muted" style="margin-top:4px;font-size:13px">친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요</div></div>
     <img id="cardImg" alt="공유할 포스트잇 이미지">
     <p class="muted" id="cardHint" style="text-align:center;margin:0">이미지를 길게 눌러 저장할 수 있어요</p>
     <div class="pillrow">
@@ -515,6 +517,7 @@
   <h1 aria-label="숨글"><span class="m1">숨</span><span class="m2">글</span><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q50 1 98 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg></h1>
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
+  <button id="yearEnd" class="ye" hidden></button>
   <div id="news" class="news" hidden></div>
   <button id="today" hidden aria-label="오늘의 한 장 읽으러 가기"></button>
   <div id="themes" class="themes"></div>
@@ -3104,7 +3107,9 @@ function syncRegion(force){
     });
     updateEmpty();
     if(openAfterSync){ var want = openAfterSync; openAfterSync = null;
-      noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible){ standBefore(m); setTimeout(function(){ openReader(m); }, 1300); } }); }
+      noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible){ standBefore(m);
+        if(bragId===want && m.userData.note.h > 0){ bragId = null; setTimeout(function(){ postCard = {n:m.userData.note, hash:cfg.slug+'/'+want, kind:'hearts'}; }, 1300); }
+        else setTimeout(function(){ openReader(m); }, 1300); } }); }
   }, function(){ syncing = false; if(syncAgain){ syncAgain = false; syncRegion(true); } updateEmpty(); });
 }
 setInterval(function(){ if(!document.hidden && !modal && online!==false) syncRegion(false); }, 30000);
@@ -3357,7 +3362,7 @@ $('stick').addEventListener('click', function(){
     bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0); syncGen++;
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
-    closeModal('composeScrim'); updateEmpty(); if(!isCrisis(nn.texts) && region===cfg.id) setTimeout(function(){ postCard = {n:nn, hash:cfg.slug+'/'+res.id}; }, 1100); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? stickName(spotKind)+'에 살짝 붙였어요' : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
+    closeModal('composeScrim'); updateEmpty(); if(!isCrisis(nn.texts) && region===cfg.id) var yeK = YE.on && YE.flow ? 'yearend' : null; if(yeK){ bump('ye_post'); YE.flow = false; } setTimeout(function(){ postCard = {n:nn, hash:cfg.slug+'/'+res.id, kind:yeK}; }, 1100); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? stickName(spotKind)+'에 살짝 붙였어요' : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
   }, function(e){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
@@ -3701,7 +3706,7 @@ $('shareWin').addEventListener('click', function(){
 
 // ---------- story image of one post-it (1080 x 1920) ----------
 var cardBlob = null, cardUrl = null, cardHash = '';
-function makeCard(n, bg){
+function makeCard(n, bg, kind){
   var W=1080, H=1920, cv=document.createElement('canvas'); cv.width=W; cv.height=H; var x=cv.getContext('2d');
   // calm backdrop: the window's sky, softened and darkened toward the edges
   var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,cfg.sky[0]); g.addColorStop(0.55,cfg.sky[1]); g.addColorStop(1,cfg.sky[2]); x.fillStyle=g; x.fillRect(0,0,W,H);
@@ -3730,25 +3735,52 @@ function makeCard(n, bg){
   x.textAlign='center'; x.textBaseline='alphabetic';
   // small wordmark + window name, quiet and spaced
   drawMark(x, W/2, 152, 120, 'rgba(255,255,255,.96)'); x.textAlign='center'; x.textBaseline='alphabetic';
+  if(kind==='yearend'){   // a warm year-end title over the note, with a few sparkles
+    var yg = x.createLinearGradient(0, 300, 0, 420); yg.addColorStop(0,'#FFE7B0'); yg.addColorStop(1,'#FFB98A');
+    x.fillStyle = 'rgba(255,224,170,.9)'; x.font='500 30px "Noto Sans KR", sans-serif'; if('letterSpacing' in x) x.letterSpacing='10px';
+    x.fillText(YE.year, W/2, 300); if('letterSpacing' in x) x.letterSpacing='0px';
+    x.fillStyle = yg; x.font='700 66px "Noto Serif KR","Nanum Myeongjo",serif'; x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=18;
+    x.fillText('올해의 나에게', W/2, 392); x.shadowBlur=0;
+    for(var sp=0; sp<26; sp++){ var sx=60+Math.random()*(W-120), sy=230+Math.random()*1300; if(Math.abs(sx-W/2)<420 && sy>440 && sy<1340) continue;
+      var sr=2+Math.random()*5; x.fillStyle='rgba(255,236,190,'+(0.35+Math.random()*0.5)+')'; x.beginPath(); x.moveTo(sx,sy-sr*2.2); x.lineTo(sx+sr*0.5,sy); x.lineTo(sx,sy+sr*2.2); x.lineTo(sx-sr*0.5,sy); x.closePath(); x.fill();
+      x.beginPath(); x.moveTo(sx-sr*2.2,sy); x.lineTo(sx,sy+sr*0.5); x.lineTo(sx+sr*2.2,sy); x.lineTo(sx,sy-sr*0.5); x.closePath(); x.fill(); }
+  } else if(kind==='hearts'){
+    x.fillStyle = '#FF8FA3'; x.font='700 64px "Noto Sans KR", sans-serif'; x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=18;
+    x.fillText('♥ '+(n.h||0), W/2, 330); x.shadowBlur=0;
+    x.fillStyle='rgba(255,255,255,.8)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText('명이 이 마음에 공감했어요', W/2, 386);
+  } else {
   x.fillStyle = cfg.id==='newyear' ? 'rgba(255,224,143,.95)' : 'rgba(255,255,255,.72)'; x.font='500 28px "Noto Sans KR", sans-serif';
   if('letterSpacing' in x) x.letterSpacing='6px';
   x.fillText(cfg.name+' 창', W/2, 266);
   if('letterSpacing' in x) x.letterSpacing='0px';
+  }
   // meta under the note
   var meta=[]; if(n.place) meta.push(n.place+'에서'); if(n.h) meta.push('♥ '+n.h);
   if(meta.length){ x.fillStyle='rgba(255,255,255,.85)'; x.font='400 32px "Noto Sans KR", sans-serif'; x.fillText(meta.join('   ·   '), W/2, 1400); }
   // footer: hairline + invitation + address
   x.fillStyle='rgba(255,255,255,.35)'; x.fillRect(W/2-40, 1660, 80, 2);
-  x.fillStyle='rgba(255,255,255,.82)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText('나도 한 장 붙이러 가기', W/2, 1730);
+  x.fillStyle='rgba(255,255,255,.82)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText(kind==='yearend' ? '#올해의나에게 · 나도 한 줄 남기러 가기' : '나도 한 장 붙이러 가기', W/2, 1730);
   x.fillStyle='rgba(255,255,255,.55)'; x.font='400 26px "Noto Sans KR", sans-serif';
   x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W/2, 1780);
   return cv;
 }
 var postCard = null;
+// ---------- year-end campaign: "2026, 올해의 나에게 한 줄" (until New Year's Eve, Korean time) ----------
+function kstDate(){ var d = new Date(Date.now() + 9*3600e3); return d.toISOString().slice(0,10); }
+var YE = { on: kstDate() >= '2026-11-22' && kstDate() <= '2026-12-31', flow:false, year:'2026' };
+if(YE.on){
+  var yb = $('yearEnd'); yb.innerHTML = '<b>✉️ '+YE.year+', 올해의 나에게 한 줄</b><span>한 해 애쓴 나에게 포스트잇 한 장 남기고, 연말 카드로 간직해요</span>'; yb.hidden = false;
+  yb.addEventListener('click', function(e){
+    e.stopPropagation(); bump('ye_banner'); YE.flow = true; startSound();
+    var r = regionById('mapo'); if(r && r !== cfg){ cfg = r; build(); }
+    enterWorld(); setAmbience && setAmbience();
+    setTimeout(function(){ if(!modal){ setPlacing(true); toast('올해의 나에게 하고 싶은 말, 창에 붙여 볼까요'); } }, 1400);
+  });
+}
 function makePostCard(){   // runs right after a render, while the frame is still in the canvas
   var pc = postCard; postCard = null; if(modal) return;
-  var cv = makeCard(pc.n, renderer.domElement);
-  cv.toBlob(function(b){ if(!b || modal) return; bump('postcard_open'); cardHash = pc.hash; showImage(b, fileName('card','jpg'), true); }, 'image/jpeg', 0.93);
+  var cv = makeCard(pc.n, renderer.domElement, pc.kind);
+  cv.toBlob(function(b){ if(!b || modal) return; bump(pc.kind==='hearts' ? 'heartcard_open' : 'postcard_open'); cardHash = pc.hash; showImage(b, fileName('card','jpg'), pc); }, 'image/jpeg', 0.93);
 }
 function openCard(mesh){
   var nn = mesh.userData.note; cardHash = cfg.slug + (nn.server ? '/'+nn.id : '');
@@ -3763,7 +3795,13 @@ function fileName(kind, ext){
 }
 function showImage(b, name, post){
   cardBlob = b; cardName = name || 'yurichang.jpg';
-  shareCtx = { text: post ? '오늘 '+cfg.name+' 창에 마음 한 줄 붙이고 왔어요 🪟' : '누군가 '+cfg.name+' 창에 남긴 한 줄 🪟', hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
+  var kind = post && post.kind;
+  var stext = kind==='yearend' ? YE.year+', 올해의 나에게 한 줄 남겼어요 ✉️ #올해의나에게 #숨글'
+            : kind==='hearts' ? '내 포스트잇에 공감 '+post.n.h+'개가 달렸어요 ♥ #숨글'
+            : post ? '오늘 '+cfg.name+' 창에 마음 한 줄 붙이고 왔어요 🪟' : '누군가 '+cfg.name+' 창에 남긴 한 줄 🪟';
+  shareCtx = { text:stext, hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
+  $('cardT1').textContent = kind==='yearend' ? YE.year+'년의 나에게 붙였어요' : kind==='hearts' ? '공감 '+post.n.h+'개를 받은 포스트잇이에요' : '포스트잇을 붙였어요';
+  $('cardT2').textContent = kind==='yearend' ? '연말 카드로 간직하고, 친구에게도 "너도 써 봐" 해 볼까요?' : kind==='hearts' ? '누군가 내 마음에 고개를 끄덕였어요. 이 순간을 나눠 볼까요?' : '친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요';
   $('cardTitle').style.display = post ? '' : 'none'; $('cardBox').classList.toggle('post', !!post); $('cardShare').textContent = post ? '스토리·SNS에 올리기' : '공유하기';
   if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
@@ -4006,7 +4044,7 @@ function showNews(items){
     sw.style.background=CHEX[it.c]||'#FFE45C';
     sp.textContent=(r? r.name+' 창 · ':'')+(it.text||'그림 포스트잇'); bb.textContent='♥ +'+it.add;
     b.appendChild(sw); b.appendChild(sp); b.appendChild(bb);
-    b.addEventListener('click', function(){ if(r && r!==cfg){ cfg=r; build(); } enterWorld(); });
+    b.addEventListener('click', function(e){ e.stopPropagation(); bump('news_open'); if(r){ bragId = it.id; openNoteIn(r, it.id); } else enterWorld(); });
     box.appendChild(b);
   });
   box.hidden=false;
@@ -4094,7 +4132,7 @@ $('pushSw').addEventListener('click', function(){
 });
 
 // ---------- intro: today's one note, across all windows ----------
-var openAfterSync = null;
+var openAfterSync = null, bragId = null;
 function fetchToday(){
   var since = new Date(Date.now()-3*86400000).toISOString();
   function q(extra){ return sbFetch('/rest/v1/notes?select=id,region,c,strokes,texts,hearts,created_at&crisis=is.false'+extra+'&order=hearts.desc,created_at.desc&limit=1'); }
