@@ -873,44 +873,60 @@ function peakSkyMaterial(){
 }
 function addPeakVista(group){
   var u = peakUniforms(), R = rng(9137);
-  // distant ridgelines: rings of silhouettes, each farther one paler, rounded like old Korean mountains
-  var L = [[150,-50,22],[185,-42,22],[225,-34,20],[272,-26,18],[325,-17,15],[385,-9,12],[440,-2,9]];
-  var N = 540, pos = [], top = [], lay = [], idx = [], v = 0;
-  L.forEach(function(l, li){
-    var ph = [], fq = [2,3,4,6,9,13,19,27,41,63,95];
-    fq.forEach(function(){ ph.push(R()*Math.PI*2); });
-    var w1 = R()*6, w2 = R()*6;
+  // distant ridgelines: layer after layer of forested ridges, each farther one paler, with fog pooling at every foot,
+  // like looking out from a Korean summit at dawn. Silhouettes come from 2D noise sampled around a circle (seamless),
+  // rounded old-mountain shapes with a fine treeline on top.
+  var TN = (function(){ var p = []; for(var i=0;i<512;i++) p.push(Math.floor(R()*256)); return p; })();
+  function hsh(i, j){ return TN[(TN[(i & 255)] + (j & 255)) & 511] / 255; }
+  function vn(x, z){ var i = Math.floor(x), j = Math.floor(z), fx = x-i, fz = z-j; fx = fx*fx*(3-2*fx); fz = fz*fz*(3-2*fz);
+    var a = hsh(i,j), b = hsh(i+1,j), c = hsh(i,j+1), d = hsh(i+1,j+1); return a + (b-a)*fx + (c-a)*fz + (a-b-c+d)*fx*fz; }
+  var L = 11, N = 1440, pos = [], top = [], tops = [], lay = [], slo = [], idx = [], v = 0;
+  for(var li=0; li<L; li++){
+    var lf = li/(L-1), R0 = 135*Math.pow(690/135, lf), base = -58 + 54*Math.pow(lf, 0.8), amp = 30 - 18*lf;
+    var ox = R()*100, oz = R()*100, rw = R()*6, hs = [];
     for(var i=0;i<=N;i++){
-      var a = i/N*Math.PI*2, h = 0;
-      fq.forEach(function(f, k){ h += Math.sin(a*f+ph[k]) / Math.pow(f, 0.85); });
-      h = l[1] + l[2]*(h*0.55 + 0.25*Math.pow(Math.max(0, Math.sin(a*fq[3]+ph[2])), 3));
-      var r = l[0]*(1 + 0.05*Math.sin(a*3+w1) + 0.03*Math.sin(a*7+w2));
-      var x = Math.cos(a)*r, z = Math.sin(a)*r;
-      pos.push(x, h, z, x, -175, z); top.push(h, h); lay.push(li/(L.length-1), li/(L.length-1));
-      if(i<N){ idx.push(v, v+1, v+2, v+1, v+3, v+2); }
+      var a = i/N*Math.PI*2, ca = Math.cos(a), sa = Math.sin(a), n = 0, sm2 = 0, am = 1, sum = 0, fr = R0/150*1.1;
+      for(var o=0;o<5;o++){ var q = vn(ox + ca*fr, oz + sa*fr), rr = 1-Math.abs(2*q-1); n += Math.pow(rr,1.7)*am; sm2 += q*am; sum += am; am *= 0.48; fr *= 2.15; }
+      n = (n*0.55 + sm2*0.45)/sum;
+      var tree = (vn(ox*3 + ca*R0*0.22, oz*3 + sa*R0*0.22) - 0.5)*1.5 + (vn(ox + ca*R0*0.6, oz + sa*R0*0.6) - 0.5)*0.9;   // canopy bumps, a few metres
+      hs.push(base + amp*Math.max(0, n-0.2)*1.9 + tree*(1-0.6*lf));
+    }
+    for(var i=0;i<=N;i++){
+      var a = i/N*Math.PI*2, h = hs[i], r = R0*(1 + 0.045*Math.sin(a*3+rw) + 0.025*Math.sin(a*7+rw*2));
+      var x = Math.cos(a)*r, z = Math.sin(a)*r, dh = (hs[Math.min(N,i+8)] - hs[Math.max(0,i-8)]) / (16*Math.PI*2/N*r);
+      var hm = 0; for(var k=-12;k<=12;k++) hm += hs[Math.min(N, Math.max(0, i+k))]; hm /= 25;
+      pos.push(x, h, z, x, -180, z); top.push(h, h); tops.push(hm, hm); lay.push(lf, lf); slo.push(dh, dh);
+      if(i<N) idx.push(v, v+1, v+2, v+1, v+3, v+2);
       v += 2;
     }
-    v = v;   // next ring starts fresh after the seam column
-  });
+  }
   var g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aTop', new THREE.Float32BufferAttribute(top, 1));
   g.setAttribute('aL', new THREE.Float32BufferAttribute(lay, 1));
+  g.setAttribute('aS', new THREE.Float32BufferAttribute(slo, 1));
+  g.setAttribute('aTs', new THREE.Float32BufferAttribute(tops, 1));
   g.setIndex(idx);
   var rm = new THREE.ShaderMaterial({ uniforms:u, side:THREE.DoubleSide, fog:false,
-    vertexShader:'attribute float aTop; attribute float aL; varying vec3 wp; varying float vTop; varying float vL; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; vTop=aTop; vL=aL; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:'uniform vec3 sunDir,ridge,haze,mist,glow,sunCol; uniform float lowSun,dens; varying vec3 wp; varying float vTop; varying float vL;'+PEAK_GLSL+
-      'void main(){ vec3 v=normalize(wp-cameraPosition); float tw=max(dot(normalize(v.xz),normalize(sunDir.xz+1e-5)),0.);'+
-      ' vec3 c=mix(ridge, haze, pow(vL,0.8)*0.86);'+
-      ' c*=0.9+0.1*fbm(wp.xz*0.05)+0.06*fbm(wp.xz*0.4);'+
-      ' c+=glow*pow(tw,6.)*(0.12+0.55*vL)*lowSun + sunCol*pow(max(-dot(normalize(wp.xz),normalize(sunDir.xz+1e-5)),0.),2.)*0.05*(1.-vL)*step(0.,sunDir.y);'+
-      ' float m=1.-smoothstep(vTop-26.-14.*vL, vTop-2., wp.y); m*=0.55+0.35*vL; m*=0.6+0.4*dens;'+
-      ' m=max(m, 1.-smoothstep(-67.,-47.,wp.y)); vec3 mc=mix(mist, haze, smoothstep(150.,520.,length(wp-cameraPosition))*0.5)*0.96; c=mix(c, mc, m);'+
+    vertexShader:'attribute float aTop; attribute float aL; attribute float aS; attribute float aTs; varying vec3 wp; varying float vTop; varying float vL; varying float vS; varying float vTs; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; vTop=aTop; vL=aL; vS=aS; vTs=aTs; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform vec3 sunDir,ridge,haze,mist,glow,sunCol,zen; uniform float t,lowSun,dens; varying vec3 wp; varying float vTop; varying float vL; varying float vS; varying float vTs;'+PEAK_GLSL+
+      'void main(){ vec3 v=normalize(wp-cameraPosition); vec2 sh=normalize(sunDir.xz+1e-5); float tw=max(dot(normalize(v.xz),sh),0.);'+
+      ' float ang=atan(wp.z,wp.x), r=length(wp.xz), along=ang*r, below=vTop-wp.y;'+
+      // slope facing the sun reads lighter, the other side darker
+      ' vec2 tg=vec2(-sin(ang),cos(ang)); float face=clamp(-vS*dot(tg,sh)*1.4,-1.,1.)*smoothstep(-0.03,0.1,sunDir.y)*exp(-max(vTs-wp.y,0.)/22.);'+
+      ' float tex=0.88+0.12*fbm(vec2(along, wp.y)*0.07)+0.07*(n2(vec2(along, wp.y)*0.45)-0.5)*(1.-vL);'+
+      ' vec3 c=ridge*tex*(1.+0.35*face) + sunCol*max(face,0.)*0.05*(1.-vL);'+
+      ' float air=pow(vL,0.75); c=mix(c, haze + glow*pow(tw,6.)*0.4*lowSun, air*0.82);'+                  // aerial perspective
+      ' c=mix(c, c*0.82, smoothstep(5.,0.,below)*(1.-air)*0.6);'+                                         // crisp dark crest
+      ' float fh=12.+14.*(1.-vL)+9.*fbm(vec2(along*0.006+t*0.004, vL*7.)); fh*=0.75+0.35*dens;'+
+      ' float bs=vTs-wp.y; float m=smoothstep(fh*0.15, fh*1.1, bs); m=pow(m,1.3)*(0.8+0.15*vL);'+                         // fog pooled at the foot of every ridge
+      ' vec3 mc=mix(mist, haze, air*0.45) + glow*pow(tw,5.)*0.3*lowSun;'+
+      ' c=mix(c, mc, m);'+
       ' gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
   var ridges = new THREE.Mesh(g, rm); ridges.frustumCulled = false; ridges.renderOrder = 0; group.add(ridges);
   // sea of fog: soft drifting sheets lying in the valleys, catching the sun
   peakMists = [];
-  [[-64, 0.7, 0], [-80, 0.9, 31], [-100, 1.0, 77]].forEach(function(l){
+  [[-112, 0.5, 0], [-124, 0.85, 31]].forEach(function(l){
     var mu = Object.assign({}, u, { lay:{value:l[1]}, off:{value:l[2]} });
     var mm = new THREE.ShaderMaterial({ uniforms:mu, transparent:true, depthWrite:false, fog:false,
       vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
