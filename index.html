@@ -452,6 +452,7 @@
 
 <div id="cardScrim" class="scrim" style="align-items:center">
   <div id="cardBox" role="dialog" aria-label="포스트잇 공유 이미지">
+    <div id="cardTitle" style="display:none;text-align:center"><b style="font-size:18px;color:#F4F1EA">포스트잇을 붙였어요</b><div class="muted" style="margin-top:4px;font-size:13px">친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요</div></div>
     <img id="cardImg" alt="공유할 포스트잇 이미지">
     <p class="muted" id="cardHint" style="text-align:center;margin:0">이미지를 길게 눌러 저장할 수 있어요</p>
     <div class="pillrow">
@@ -3099,7 +3100,7 @@ function syncRegion(force){
     });
     updateEmpty();
     if(openAfterSync){ var want = openAfterSync; openAfterSync = null;
-      noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible) setTimeout(function(){ openReader(m); }, 700); }); }
+      noteMeshes.forEach(function(m){ if(m.userData.note.id===want && m.visible){ standBefore(m); setTimeout(function(){ openReader(m); }, 1300); } }); }
   }, function(){ syncing = false; if(syncAgain){ syncAgain = false; syncRegion(true); } updateEmpty(); });
 }
 setInterval(function(){ if(!document.hidden && !modal && online!==false) syncRegion(false); }, 30000);
@@ -3352,7 +3353,7 @@ $('stick').addEventListener('click', function(){
     bump('posts'); if(nn.spot) bump('spot_posts'); useOne(); setToken(res.id, res.token); markSeen(res.id, 0); syncGen++;
     if(region===cfg.id){ nn.id = res.id; nn.server = true; addNoteMesh(nn, noteMeshes.length); noteMeshes[noteMeshes.length-1].userData.pop = 0; }
     if(typeof res.left==='number'){ var u = store.get('yurichang-day'); store.set('yurichang-day', {d:today(), n:Math.max(DAILY-res.left, u&&u.d===today()?u.n:0)}); }
-    closeModal('composeScrim'); updateEmpty(); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? stickName(spotKind)+'에 살짝 붙였어요' : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
+    closeModal('composeScrim'); updateEmpty(); if(!isCrisis(nn.texts) && region===cfg.id) setTimeout(function(){ postCard = {n:nn, hash:cfg.slug+'/'+res.id}; }, 1100); if(isCrisis(nn.texts)) setTimeout(function(){ openCare('포스트잇을 붙였어요. 그리고 꼭 전하고 싶은 말이 있어요. 지금 이야기를 들어줄 사람이 언제든 기다리고 있어요.'); }, 900); toast((spotKind==='back' ? cfg.name+' 창 뒷면에 붙였어요' : nn.spot ? stickName(spotKind)+'에 살짝 붙였어요' : cfg.name+' 창에 붙였어요')+' · 오늘 '+leftToday()+'장 남았어요');
   }, function(e){
     if(e.network) keepLocal('연결이 안 돼서 내 휴대폰에만 붙였어요');
     else { if(e.message && e.message.indexOf('daily_limit')>=0) store.set('yurichang-day', {d:today(), n:DAILY}); toast(serverMsg(e)); }
@@ -3389,6 +3390,13 @@ function updateBrowse(){
   if(n > 0){ var t = '포스트잇 <b>'+n+'장</b> · 넘겨보기'; if(b.innerHTML !== t) b.innerHTML = t; }
 }
 $('browse').addEventListener('click', function(){ var L = browseList(); if(L.length){ bump('browse_open'); openReader(L[0]); } });
+function standBefore(m){   // put the visitor a step in front of a post-it, looking at it
+  var p = new THREE.Vector3(), d = new THREE.Vector3(); m.getWorldPosition(p); m.getWorldDirection(d); d.y = 0;
+  if(d.lengthSq() < 1e-4) d.set(0,0,1); d.normalize();
+  for(var k=1.6; k>=0.6; k-=0.2){ var x = p.x + d.x*k, z = p.z + d.z*k; if(!blocked(x, z)){ player.x = x; player.z = z; break; } }
+  player.yaw = Math.atan2(d.x, d.z); player.vx = player.vz = 0;
+  var eyeY = baseY(player.x, player.z) + player.eye; player.pitch = Math.max(-0.5, Math.min(0.4, Math.atan2(p.y - eyeY, Math.hypot(p.x-player.x, p.z-player.z))));
+}
 function openReader(mesh){
   reading = mesh; var n = mesh.userData.note;
   openModal('readerScrim'); bump('reads');
@@ -3689,11 +3697,17 @@ $('shareWin').addEventListener('click', function(){
 
 // ---------- story image of one post-it (1080 x 1920) ----------
 var cardBlob = null, cardUrl = null, cardHash = '';
-function makeCard(n){
+function makeCard(n, bg){
   var W=1080, H=1920, cv=document.createElement('canvas'); cv.width=W; cv.height=H; var x=cv.getContext('2d');
   // calm backdrop: the window's sky, softened and darkened toward the edges
   var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,cfg.sky[0]); g.addColorStop(0.55,cfg.sky[1]); g.addColorStop(1,cfg.sky[2]); x.fillStyle=g; x.fillRect(0,0,W,H);
-  x.fillStyle='rgba(16,18,26,.38)'; x.fillRect(0,0,W,H);
+  if(bg){   // the view you were just looking at, cover-cropped and softly blurred so the note stays the subject
+    var sw = bg.width, sh = bg.height, sc = Math.max(W/sw, H/sh), cw = W/sc, ch = H/sc;
+    var sm1 = document.createElement('canvas'); sm1.width = 120; sm1.height = 213; var sx1 = sm1.getContext('2d'); sx1.imageSmoothingQuality = 'high';
+    sx1.drawImage(bg, (sw-cw)/2, (sh-ch)/2, cw, ch, 0, 0, 120, 213);
+    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(sm1, 0, 0, W, H);
+    x.fillStyle='rgba(16,18,26,.30)'; x.fillRect(0,0,W,H);
+  } else { x.fillStyle='rgba(16,18,26,.38)'; x.fillRect(0,0,W,H); }
   var glow=x.createRadialGradient(W/2,880,40,W/2,880,720); glow.addColorStop(0,'rgba(255,240,215,.30)'); glow.addColorStop(1,'rgba(255,240,215,0)'); x.fillStyle=glow; x.fillRect(0,0,W,H);
   var v=x.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,H*0.72); v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,.35)'); x.fillStyle=v; x.fillRect(0,0,W,H);
   // fine paper grain
@@ -3726,6 +3740,12 @@ function makeCard(n){
   x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W/2, 1780);
   return cv;
 }
+var postCard = null;
+function makePostCard(){   // runs right after a render, while the frame is still in the canvas
+  var pc = postCard; postCard = null; if(modal) return;
+  var cv = makeCard(pc.n, renderer.domElement);
+  cv.toBlob(function(b){ if(!b || modal) return; bump('postcard_open'); cardHash = pc.hash; showImage(b, fileName('card','jpg'), true); }, 'image/jpeg', 0.93);
+}
 function openCard(mesh){
   var nn = mesh.userData.note; cardHash = cfg.slug + (nn.server ? '/'+nn.id : '');
   var cv = makeCard(mesh.userData.note);
@@ -3737,9 +3757,10 @@ function fileName(kind, ext){
   var d = new Date(), p = function(n){ return (n<10?'0':'')+n; };
   return 'sumgeul-'+(cfg.slug||'window')+'-'+kind+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+'.'+ext;
 }
-function showImage(b, name){
+function showImage(b, name, post){
   cardBlob = b; cardName = name || 'yurichang.jpg';
-  shareCtx = { text:'누군가 '+cfg.name+' 창에 남긴 한 줄 🪟', hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
+  shareCtx = { text: post ? '오늘 '+cfg.name+' 창에 마음 한 줄 붙이고 왔어요 🪟' : '누군가 '+cfg.name+' 창에 남긴 한 줄 🪟', hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
+  $('cardTitle').style.display = post ? '' : 'none'; $('cardShare').textContent = post ? '스토리·SNS에 올리기' : '공유하기';
   if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
   var file = new File([b], cardName, {type:b.type});
@@ -3963,7 +3984,7 @@ function capturePhoto(){
 $('cardShare').addEventListener('click', function(){
   if(!cardBlob) return;
   var file = new File([cardBlob], cardName, {type:cardBlob.type});
-  bump('card_shares'); navigator.share({files:[file], title:'숨글', text:cfg.name+' 창 · '+pageUrl()+'#'+cfg.slug}).catch(function(){});
+  bump('card_shares'); copyText(shareLink('card'), null); navigator.share({files:[file], title:'숨글', text:shareCtx.text+' '+shareLink('card')}).catch(function(){});
 });
 
 // ---------- "my post-its" news: hearts that arrived since the last visit ----------
@@ -4274,6 +4295,7 @@ function frame(){
   if(photo.on && photo.dof && dofComposer) dofComposer.render();
   else if(hq && composer) composer.render(); else renderer.render(scene, camera);
   if(photo.want){ capturePhoto(); if(superPR) setPR(DPR); }
+  else if(postCard && !photo.on) makePostCard();
   // drop to light mode automatically if the phone struggles
   if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
   requestAnimationFrame(frame);
