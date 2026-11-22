@@ -3609,6 +3609,12 @@ function parseHash(){ var h = location.hash.slice(1).split('/'); return {r:regio
 window.addEventListener('hashchange', function(){ var h=parseHash(); if(h.id) openAfterSync = h.id; if(h.r && h.r!==cfg){ goRegion(h.r); enterWorld(); } else if(h.id){ syncRegion(true); enterWorld(); } });
 var linkedH = parseHash(), linked = linkedH.r;
 if(linked) cfg = linked;
+else {                                   // the opening view changes every visit, never the same window twice in a row
+  var lastBg = null; try{ lastBg = localStorage.getItem('sumgeul_bg'); }catch(e){}
+  var pool = REGIONS.filter(function(r){ return r.id !== lastBg; }); if(!pool.length) pool = REGIONS;
+  cfg = pool[Math.floor(Math.random()*pool.length)];
+  try{ localStorage.setItem('sumgeul_bg', cfg.id); }catch(e){}
+}
 if(linkedH.id) setTimeout(function(){ openAfterSync = linkedH.id; syncRegion(true); }, 0);
 
 function shareOrCopy(data, okMsg){
