@@ -568,12 +568,12 @@ var REGIONS = [
    cut:1.5, flora:{pine:30, bush:16, rocks:16, plants:4, grassTint:'#8fa894', clumps:0.8}, 
    hdri:'dikhololo_night_1k', rot:0.8877, elev:0.9, az:-0.3, skyI:1.0, skyTint:[0.7,0.78,1.05], hor:[0.06,0.08,0.15], up:[0.066,0.072,0.075], low:[0.102,0.096,0.087], lightI:0.35, lightCol:[0.7,0.78,1], lightElev:35, exp:0.75, grassI:1.4, fogN2:25, fogF2:200,
    notes:[]},
-  {id:'gangneung', slug:'vow', name:'다짐하는', scene:'새벽 안개 숲', about:'새 출발, 결심, 내일의 나에게',
-   sky:['#8db5d8','#e9eff0','#bccbc2'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
-   fog:'#dde6e2', fogN:12, fogF:130, ground:'#56773f', grassBase:'#34502a', grassTip:'#8fae5c', flower:'#ffffff', flowerP:0.03,
-   water:'none', trees:150, treeKind:'pine', motes:'pollen', lamp:false, bloom:0.25,
-   cut:1.5, flora:{pine:70, hero:1, heroTint:'#4a7a44', bush:10, rocks:10, ferns:22, plants:14, grassTint:'#d6e8b0', clumps:1}, 
-   hdri:'kiara_1_dawn_1k', rot:0.0453, elev:3.7, az:0.6, skyI:0.9, hor:[1.706,1.252,2.081], up:[0.598,0.637,1.528], low:[0.932,0.642,1.022], lightI:1.8, lightCol:[1,0.72,0.52], lightElev:14, exp:0.55, fogN2:14, fogF2:115,
+  {id:'gangneung', slug:'vow', name:'다짐하는', scene:'산 정상 운해', about:'새 출발, 결심, 내일의 나에게', peak:true,
+   sky:['#2f6fd0','#d8e4f0','#9fb0c4'], sun:[0.6,0.35,-0.7], sunCol:'#fff1d0', sunI:0.85, hemi:['#eaf2f4','#4c5e40'],
+   fog:'#c9d6e4', fogN:30, fogF:170, ground:'#5e6a4a', grassBase:'#3a4a2c', grassTip:'#a3aa6c', flower:'#ffffff', flowerP:0.02,
+   water:'none', trees:60, treeKind:'pine', motes:'none', lamp:false, bloom:0.35,
+   cut:1.5, flora:{pine:46, hero:1, heroTint:'#4a6e44', bush:8, rocks:22, rockTint:'#8a8a86', ferns:10, plants:8, grassTint:'#c9cf9a', clumps:0.7},
+   rot:0, skyI:1.0, hor:[0.62,0.7,0.82], up:[0.5,0.6,0.85], low:[0.5,0.46,0.4], lightI:2.0, lightCol:[1,0.9,0.75], lightElev:30, exp:0.58, fogN2:30, fogF2:170,
    notes:[]},
   {id:'jeju', slug:'wish', name:'소원', scene:'유채꽃 들판', about:'바라는 것, 설레는 일, 응원',
    sky:['#4f97da','#cde4f4','#9fc3d6'], sun:[0.45,0.6,-0.6], sunCol:'#fff6dc', sunI:1.0, hemi:['#dcefff','#5d7a3a'],
@@ -655,6 +655,7 @@ var cfg = REGIONS[0];
 var world = null, noteMeshes = [], glassMesh = null, uniformsList = [];
 var WATER = -0.25;
 
+function peakRim(x,z){ var r = Math.hypot(x,z)||1; return 9.5 - 3.2*sm(0.2, 0.9, -z/r); }   // the summit is narrower out the window, so the drop opens the view
 function groundH(x,z){
   var r = Math.hypot(x,z);
   var y = (Math.sin(x*0.08)*Math.cos(z*0.07)*0.6 + Math.sin(x*0.21+z*0.13)*0.15) * sm(7,30,r);
@@ -665,6 +666,11 @@ function groundH(x,z){
   } else if(cfg.water==='sea'){
     y -= 2.4*sm(-9,-22,z);
     far *= sm(-30,10,z);
+  } else if(cfg.peak){                                  // a rounded summit, then the mountain falls away into the valleys
+    var pa = Math.atan2(z,x), spur = 1 + 0.22*Math.sin(pa*3+0.7) + 0.12*Math.sin(pa*5+2.1);
+    var rim = peakRim(x,z), pt = Math.min(1, Math.max(0, (r-rim)/(66*spur)));
+    y = y*0.5 - 0.004*Math.min(r,rim)*Math.min(r,rim) - 140*Math.pow(pt,0.8)*(1.6-0.6*pt) - 2.2*sm(10,30,r)*(Math.sin(x*0.31+z*0.17)*Math.cos(z*0.27-x*0.11));
+    return y;
   } else if(cfg.water==='farsea'){
     y -= 3.0*sm(-42,-60,z);
     far *= sm(-60,0,z);
@@ -682,7 +688,7 @@ function lightDir(){
 // ---------- living windows: real time of day (device clock) and real Seoul weather ----------
 var PHASE_LABEL = { dawn:'새벽', day:'낮', dusk:'노을', night:'밤' };
 var curPhase = 'day', forcedPhase = null, weather = { kind:'clear', forced:null };
-function phaseNow(){ var d=new Date(), x=d.getHours()+d.getMinutes()/60; if(x>=19.5 || x<5) return 'night'; if(x<7) return 'dawn'; if(x>=17) return 'dusk'; return 'day'; }
+function phaseNow(){ if(cfg && cfg.peak) return peakPhase(); var d=new Date(), x=d.getHours()+d.getMinutes()/60; if(x>=19.5 || x<5) return 'night'; if(x<7) return 'dawn'; if(x>=17) return 'dusk'; return 'day'; }
 var GRADES = {
   day:   { sky:[1,1,1],          light:1,    hemi:1,    exp:1,    lights:false, stars:false },
   dawn:  { sky:[0.6,0.6,0.88],   light:0.55, hemi:0.7,  exp:1.08, lights:false, stars:false, lightCol:[1,0.78,0.72] },
@@ -761,6 +767,7 @@ function drawnSkyMaterial(){
   var u = { top:{value:tintC(col(cfg.sky[0]))}, mid:{value:tintC(col(cfg.sky[1]))}, bot:{value:tintC(col(cfg.sky[2]))},
             sunDir:{value:sunDir()}, sunCol:{value:col(cfg.sunCol)} };
   if(cfg.sunrise) return sunriseSkyMaterial(u);
+  if(cfg.peak) return peakSkyMaterial();
   var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
     vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
     fragmentShader:'uniform vec3 top,mid,bot,sunDir,sunCol; varying vec3 vP; void main(){ vec3 d=normalize(vP); float h=d.y; vec3 c = h>0. ? mix(mid,top,pow(clamp(h*1.4,0.,1.),0.7)) : mix(mid,bot,pow(clamp(-h*3.,0.,1.),0.6)); float s=max(dot(d,sunDir),0.); c += sunCol*(pow(s,900.)*8. + pow(s,12.)*0.3 + pow(s,3.)*0.07); gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
@@ -800,6 +807,158 @@ function makeSky(){
   return sky;
 }
 
+// ---------- 다짐하는 창: mountain summit above a sea of fog; the real sun over Seoul moves the light ----------
+var peakU = null, peakHour = null, peakMists = [];
+function peakClock(){ var d = new Date(); if(peakHour !== null){ d.setHours(Math.floor(peakHour), Math.round((peakHour%1)*60), 0, 0); } return d; }
+function sunAt(d){                                   // Seoul (37.57N, 126.98E), KST: elevation and azimuth in degrees
+  var rad = Math.PI/180, st = new Date(d.getFullYear(),0,0), doy = Math.floor((d - st)/864e5);
+  var dec = 23.44*Math.sin(2*Math.PI*(284+doy)/365)*rad, B = 2*Math.PI*(doy-81)/364;
+  var eot = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B);
+  var kst = (d.getUTCHours()+9)%24*60 + d.getUTCMinutes() + d.getUTCSeconds()/60;
+  var H = ((kst + 4*(126.98-135) + eot)/60 - 12)*15*rad, lat = 37.57*rad;
+  var se = Math.sin(lat)*Math.sin(dec) + Math.cos(lat)*Math.cos(dec)*Math.cos(H);
+  var az = Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(lat) - Math.tan(dec)*Math.cos(lat))/rad + 180;
+  return { e: Math.asin(se)/rad, az: (az+360)%360 };
+}
+function peakSun(){
+  var F = { dawn:{e:1.2, az:118}, day:{e:31, az:172}, dusk:{e:1.2, az:242}, night:{e:-30, az:330} };
+  return forcedPhase ? F[forcedPhase] : sunAt(peakClock());
+}
+function peakPhase(){ var s = peakSun(); return s.e < -7 ? 'night' : s.e < 7 ? (s.az < 180 ? 'dawn' : 'dusk') : 'day'; }
+// the winter sunrise (azimuth ~115°) sits straight out of the window (-z), south to the right: it comes up through the glass
+function peakDir(s){ var e = s.e*Math.PI/180, a = (s.az-115)*Math.PI/180; return new THREE.Vector3(Math.sin(a)*Math.cos(e), Math.sin(e), -Math.cos(a)*Math.cos(e)).normalize(); }
+var PEAK_KEYS = [   // elevation, then linear colours: zenith, horizon, haze, ridge, mist, glow, sun, cloud; light, hemi, mist density
+  [-18, [.003,.005,.016],[.010,.015,.035],[.012,.017,.034],[.004,.006,.014],[.016,.022,.04],[0,0,0],[0,0,0],[.02,.024,.04], 0, .22, .55],
+  [-8,  [.03,.05,.13],[.15,.16,.27],[.10,.12,.21],[.03,.045,.085],[.13,.15,.25],[.3,.12,.1],[0,0,0],[.12,.12,.2], 0, .55, .8],
+  [-2,  [.10,.18,.38],[.80,.60,.50],[.42,.46,.58],[.09,.13,.23],[.50,.54,.66],[1,.42,.2],[1,.4,.14],[.8,.5,.45], .15, .75, 1],
+  [3,   [.13,.28,.60],[1.0,.68,.44],[.62,.62,.68],[.12,.18,.30],[.82,.76,.74],[1,.5,.22],[1,.52,.2],[1,.72,.58], .7, .8, 1],
+  [12,  [.06,.22,.62],[.64,.75,.90],[.56,.66,.80],[.13,.21,.34],[.84,.87,.93],[.5,.42,.3],[1,.85,.62],[1,.96,.9], 1, 1, .85],
+  [35,  [.03,.15,.60],[.58,.72,.92],[.54,.65,.82],[.12,.21,.35],[.88,.90,.95],[.25,.22,.18],[1,.95,.86],[1.05,1.05,1.08], 1, 1, .6]
+];
+function peakPalette(e, evening){
+  var K = PEAK_KEYS, i = 0; while(i < K.length-2 && e > K[i+1][0]) i++;
+  var a = K[i], b = K[i+1], f = Math.min(1, Math.max(0, (e-a[0])/(b[0]-a[0]))), o = {};
+  ['zen','hor','haze','ridge','mist','glow','sun','cloud'].forEach(function(k, j){ var p = a[j+1], q = b[j+1]; o[k] = new THREE.Color(p[0]+(q[0]-p[0])*f, p[1]+(q[1]-p[1])*f, p[2]+(q[2]-p[2])*f); });
+  o.light = a[9]+(b[9]-a[9])*f; o.hemi = a[10]+(b[10]-a[10])*f; o.dens = a[11]+(b[11]-a[11])*f;
+  if(evening){ var w = 1 - sm(4, 18, e); w *= sm(-10, -1, e) * 0.9 + 0.1;       // dusk burns redder than dawn
+    o.hor.lerp(new THREE.Color(o.hor.r*1.05, o.hor.g*0.78, o.hor.b*0.6), w); o.glow.lerp(new THREE.Color(o.glow.r, o.glow.g*0.7, o.glow.b*0.55), w); o.cloud.lerp(new THREE.Color(o.cloud.r, o.cloud.g*0.7, o.cloud.b*0.6), w); }
+  return o;
+}
+var PEAK_GLSL = 'float h1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); } float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h1(i),h1(i+vec2(1,0)),f.x),mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),f.x),f.y); }'+
+  'float fbm(vec2 p){ float s=0., a=.5; for(int i=0;i<5;i++){ s+=a*n2(p); p=p*2.03+vec2(17.1,9.3); a*=.5; } return s; }';
+function peakUniforms(){
+  if(peakU) return peakU;
+  peakU = { t:{value:0}, sunDir:{value:new THREE.Vector3(0,1,0)}, sunUp:{value:1}, lowSun:{value:0},
+    zen:{value:new THREE.Color()}, hor:{value:new THREE.Color()}, haze:{value:new THREE.Color()}, ridge:{value:new THREE.Color()},
+    mist:{value:new THREE.Color()}, glow:{value:new THREE.Color()}, sunCol:{value:new THREE.Color()}, cloud:{value:new THREE.Color()}, dens:{value:1} };
+  uniformsList.push(peakU);
+  return peakU;
+}
+function peakSkyMaterial(){
+  var m = new THREE.ShaderMaterial({ uniforms:peakUniforms(), side:THREE.BackSide, depthWrite:false, fog:false,
+    vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:'uniform vec3 sunDir,zen,hor,haze,glow,sunCol,cloud; uniform float t,sunUp,lowSun; varying vec3 vP;'+PEAK_GLSL+
+      'void main(){ vec3 d=normalize(vP); float h=d.y, hp=max(h,0.); float s=max(dot(d,sunDir),0.);'+
+      ' float az=dot(normalize(d.xz+1e-5),normalize(sunDir.xz+1e-5))*.5+.5;'+
+      ' vec3 c=mix(hor, zen, pow(min(hp*1.5,1.),0.5));'+
+      ' float low=1.-smoothstep(0.,0.5,hp); c+=glow*(pow(az,5.)*low*low*0.8 + pow(s,7.)*0.35);'+
+      ' c=mix(c, haze, (1.-smoothstep(-0.01,0.05,h))*0.55); if(h<0.) c=mix(haze, c, 0.3);'+
+      ' if(h>0.){ vec2 cp=d.xz/(h+0.1)*1.3+vec2(t*0.006,t*0.002); float cl=fbm(cp)*0.75+fbm(cp*2.7+5.)*0.25;'+
+      '   cl=smoothstep(0.56,0.74,cl)*smoothstep(0.03,0.14,h)*(1.-smoothstep(0.45,0.85,h));'+
+      '   vec3 cc=cloud*(0.82+0.3*pow(s,4.)) + glow*pow(s,10.)*0.6; c=mix(c, cc, cl*0.85); }'+
+      ' c+=sunCol*(pow(s,900.)*7.+pow(s,90.)*0.6)*sunUp;'+
+      ' float disk=smoothstep(0.99955,0.99972,s)*sunUp; c=mix(c, sunCol*(4.+3.*(1.-lowSun)), disk);'+
+      ' gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
+  m.userData.sky = true; return m;
+}
+function addPeakVista(group){
+  var u = peakUniforms(), R = rng(9137);
+  // distant ridgelines: rings of silhouettes, each farther one paler, rounded like old Korean mountains
+  var L = [[150,-50,22],[185,-42,22],[225,-34,20],[272,-26,18],[325,-17,15],[385,-9,12],[440,-2,9]];
+  var N = 540, pos = [], top = [], lay = [], idx = [], v = 0;
+  L.forEach(function(l, li){
+    var ph = [], fq = [2,3,4,6,9,13,19,27,41,63,95];
+    fq.forEach(function(){ ph.push(R()*Math.PI*2); });
+    var w1 = R()*6, w2 = R()*6;
+    for(var i=0;i<=N;i++){
+      var a = i/N*Math.PI*2, h = 0;
+      fq.forEach(function(f, k){ h += Math.sin(a*f+ph[k]) / Math.pow(f, 0.85); });
+      h = l[1] + l[2]*(h*0.55 + 0.25*Math.pow(Math.max(0, Math.sin(a*fq[3]+ph[2])), 3));
+      var r = l[0]*(1 + 0.05*Math.sin(a*3+w1) + 0.03*Math.sin(a*7+w2));
+      var x = Math.cos(a)*r, z = Math.sin(a)*r;
+      pos.push(x, h, z, x, -175, z); top.push(h, h); lay.push(li/(L.length-1), li/(L.length-1));
+      if(i<N){ idx.push(v, v+1, v+2, v+1, v+3, v+2); }
+      v += 2;
+    }
+    v = v;   // next ring starts fresh after the seam column
+  });
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aTop', new THREE.Float32BufferAttribute(top, 1));
+  g.setAttribute('aL', new THREE.Float32BufferAttribute(lay, 1));
+  g.setIndex(idx);
+  var rm = new THREE.ShaderMaterial({ uniforms:u, side:THREE.DoubleSide, fog:false,
+    vertexShader:'attribute float aTop; attribute float aL; varying vec3 wp; varying float vTop; varying float vL; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; vTop=aTop; vL=aL; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform vec3 sunDir,ridge,haze,mist,glow,sunCol; uniform float lowSun,dens; varying vec3 wp; varying float vTop; varying float vL;'+PEAK_GLSL+
+      'void main(){ vec3 v=normalize(wp-cameraPosition); float tw=max(dot(normalize(v.xz),normalize(sunDir.xz+1e-5)),0.);'+
+      ' vec3 c=mix(ridge, haze, pow(vL,0.8)*0.86);'+
+      ' c*=0.9+0.1*fbm(wp.xz*0.05)+0.06*fbm(wp.xz*0.4);'+
+      ' c+=glow*pow(tw,6.)*(0.12+0.55*vL)*lowSun + sunCol*pow(max(-dot(normalize(wp.xz),normalize(sunDir.xz+1e-5)),0.),2.)*0.05*(1.-vL)*step(0.,sunDir.y);'+
+      ' float m=1.-smoothstep(vTop-26.-14.*vL, vTop-2., wp.y); m*=0.55+0.35*vL; m*=0.6+0.4*dens;'+
+      ' m=max(m, (1.-smoothstep(-96.,-56.,wp.y))*(0.75+0.2*dens)); c=mix(c, mist, m);'+
+      ' gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
+  var ridges = new THREE.Mesh(g, rm); ridges.frustumCulled = false; ridges.renderOrder = 0; group.add(ridges);
+  // sea of fog: soft drifting sheets lying in the valleys, catching the sun
+  peakMists = [];
+  [[-64, 0.7, 0], [-80, 0.9, 31], [-100, 1.0, 77]].forEach(function(l){
+    var mu = Object.assign({}, u, { lay:{value:l[1]}, off:{value:l[2]} });
+    var mm = new THREE.ShaderMaterial({ uniforms:mu, transparent:true, depthWrite:false, fog:false,
+      vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+      fragmentShader:'uniform vec3 sunDir,mist,glow,haze; uniform float t,lowSun,dens,lay,off; varying vec3 wp;'+PEAK_GLSL+
+        'void main(){ vec2 p=wp.xz+off; float n=fbm(p*0.011+vec2(t*0.004,t*0.0015))*0.7+fbm(p*0.04-vec2(t*0.009,0.))*0.3;'+
+        ' float a=smoothstep(0.32,0.72,n); float dist=length(wp-cameraPosition), r=length(wp.xz);'+
+        ' a*=smoothstep(20.,80.,dist)*(1.-smoothstep(430.,580.,r));'+
+        ' vec3 v=normalize(wp-cameraPosition); float fw=pow(max(dot(v,sunDir),0.),4.), tw=pow(max(dot(normalize(v.xz),normalize(sunDir.xz+1e-5)),0.),6.);'+
+        ' vec3 c=mix(mist, haze, smoothstep(150.,520.,dist)*0.5)*(0.78+0.36*n) + glow*(fw*0.5+tw*0.35)*lowSun;'+
+        ' gl_FragColor=vec4(c, a*lay*(0.45+0.55*dens));\n'+OUT+'}' });
+    var pl = new THREE.Mesh(new THREE.RingGeometry(30, 600, 96, 1), mm);
+    pl.rotation.x = -Math.PI/2; pl.position.y = l[0]; pl.renderOrder = 2; pl.frustumCulled = false; group.add(pl); peakMists.push(pl);
+  });
+  // summit stone: you can lean a note on it too
+  var sg = new THREE.BoxGeometry(0.62, 1.05, 0.34, 3, 4, 2), sp = sg.attributes.position;
+  for(var i=0;i<sp.count;i++){ var px=sp.getX(i), py=sp.getY(i), pz=sp.getZ(i); var k = 1 - 0.18*Math.max(0, py/0.525); sp.setXYZ(i, px*k + (R()-0.5)*0.03, py + (R()-0.5)*0.02 + (py>0.5 ? -Math.abs(px)*0.25 : 0), pz*k + (R()-0.5)*0.02); }
+  sg.computeVertexNormals(); sg.translate(0, 0.525, 0);
+  var cv = document.createElement('canvas'); cv.width = 256; cv.height = 432; var x = cv.getContext('2d');
+  x.fillStyle = '#8d8c87'; x.fillRect(0,0,256,432);
+  for(var q=0;q<2600;q++){ var gr = 110+Math.random()*60|0; x.fillStyle = 'rgba('+gr+','+gr+','+(gr-4)+',0.35)'; x.fillRect(Math.random()*256, Math.random()*432, 2+Math.random()*3, 2+Math.random()*3); }
+  x.textAlign = 'center'; x.font = '700 68px "Noto Serif KR","Nanum Myeongjo",serif';
+  ['다','짐','봉'].forEach(function(ch, n){ x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillText(ch, 130, 120+n*86); x.fillStyle = '#3a3936'; x.fillText(ch, 128, 118+n*86); });
+  x.font = '600 26px "Noto Sans KR",sans-serif'; x.fillStyle = 'rgba(255,255,255,0.3)'; x.fillText('해발 1,000m', 129, 397); x.fillStyle = '#3d3c39'; x.fillText('해발 1,000m', 128, 396);
+  var tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4;
+  var plain = new THREE.MeshLambertMaterial({ color:col('#8d8c87') });
+  var stone = new THREE.Mesh(sg, [plain, plain, plain, plain, new THREE.MeshLambertMaterial({ map:tx }), plain]);
+  var stx = -4.3, stz = -2.4;
+  stone.position.set(stx, groundH(stx, stz) - 0.06, stz); stone.rotation.y = 0.55;
+  stone.castShadow = hq; stone.receiveShadow = hq;
+  stone.userData.stick = 'rock'; stickables.push(stone); colliders.push({x:stx, z:stz, r:0.45});
+  group.add(stone);
+}
+function updatePeak(force){
+  var u = peakU, s = peakSun(), P = peakPalette(s.e, s.az > 180), d = peakDir(s);
+  u.sunDir.value.copy(d); u.sunUp.value = sm(-3, -0.4, s.e); u.lowSun.value = 1 - sm(4, 22, s.e); u.dens.value = P.dens;
+  u.zen.value.copy(P.zen); u.hor.value.copy(P.hor); u.haze.value.copy(P.haze); u.ridge.value.copy(P.ridge);
+  u.mist.value.copy(P.mist); u.glow.value.copy(P.glow); u.sunCol.value.copy(P.sun); u.cloud.value.copy(P.cloud);
+  if(scene.fog) scene.fog.color.copy(P.haze);
+  for(var i=0;i<uniformsList.length;i++){ var fu = uniformsList[i]; if(fu.fogC && fu !== u) fu.fogC.value.copy(P.haze); }
+  if(sun){
+    var ld = new THREE.Vector3(d.x, Math.max(d.y, Math.sin(7*Math.PI/180)), d.z).normalize();
+    sun.position.copy(ld).multiplyScalar(60);
+    var sc = P.sun.clone(); var mx = Math.max(sc.r, sc.g, sc.b, 0.001); sc.multiplyScalar(1/mx);
+    sun.color.copy(sc); sun.intensity = cfg.lightI * P.light * (grade.light > 0.4 ? 1 : 0.8);
+  }
+  if(hemi){ hemi.color.copy(P.zen).lerp(P.hor, 0.5).multiplyScalar(1.1); hemi.groundColor.copy(P.ridge).lerp(new THREE.Color(0.35,0.3,0.24), 0.5); hemi.intensity = P.hemi * 1.25; }
+}
+
 function makeGround(){
   var g = new THREE.PlaneGeometry(520,520,170,170); g.rotateX(-Math.PI/2);
   var p = g.attributes.position, colors = [], base = col(cfg.ground), sand = col(cfg.sand||'#b9a57d'), c = new THREE.Color(), rock = col('#7d8a6e');
@@ -808,11 +967,18 @@ function makeGround(){
     var x=p.getX(i), z=p.getZ(i), y=groundH(x,z); p.setY(i,y);
     c.copy(base).multiplyScalar(0.85+R()*0.3);
     if(cfg.water!=='none'){ var s = 1-sm(WATER+0.15, WATER+0.9, y); c.lerp(sand, s*(cfg.sand?1:0.6)); }
+    if(cfg.peak){ var sl = Math.hypot(groundH(x+1.5,z)-groundH(x-1.5,z), groundH(x,z+1.5)-groundH(x,z-1.5))/3; c.lerp(rock, sm(0.5,1.2,sl)*(0.55+R()*0.3)); }
     colors.push(c.r,c.g,c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
   g.computeVertexNormals();
-  var m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors:true}));
+  var gm = new THREE.MeshLambertMaterial({vertexColors:true});
+  if(cfg.peak) gm.onBeforeCompile = function(sh){
+    sh.uniforms.pMist = peakUniforms().mist; sh.uniforms.pDens = peakU.dens;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWy;').replace('#include <project_vertex>', '#include <project_vertex>\nvWy = (modelMatrix*vec4(transformed,1.)).y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWy; uniform vec3 pMist; uniform float pDens;').replace('#include <fog_fragment>', '#include <fog_fragment>\ngl_FragColor.rgb = mix(gl_FragColor.rgb, pMist*0.94, (1.-smoothstep(-92.,-38.,vWy))*(0.85+0.15*pDens));');
+  };
+  var m = new THREE.Mesh(g, gm);
   m.receiveShadow = true;
   return m;
 }
@@ -893,7 +1059,7 @@ function makeGrass(){
     if(bandAt){ var bd = Math.hypot(x-bandAt.x, z-bandAt.z); if(bd < 1.3) continue; }
     if(sanctAt){ var sd2 = Math.hypot(x-sanctAt.x, z-sanctAt.z); if(sd2 < sanctAt.r+0.3 && (R() < 0.8 || Math.hypot(x-sanctAt.x+0.5, z-sanctAt.z-4.6) < 1.5 || Math.hypot(x-sanctAt.x-3.6, z-sanctAt.z-2.6) < 2.1)) continue; }   // a trampled yard inside the fence, nothing through the pond or hut
     var near = r < 9 ? 0.45 + 0.55*(r-2)/7 : 1;          // shorter, softer blades right around the deck
-    var s = (0.7+R()*0.7)*near; var fl = R()<cfg.flowerP;
+    var s = (0.7+R()*0.7)*near*(cfg.peak ? 0.62 : 1); var fl = R()<cfg.flowerP;
     d.scale.set(s, fl? s*1.25 : s, s); d.updateMatrix();
     mesh.setMatrixAt(n, d.matrix); aF[n] = fl?1:0; n++;
   }
@@ -1115,7 +1281,7 @@ function makeNature(group){
     ['tree_c1','tree_c2','tree_c4'].forEach(function(kk,i){ plant(group, kk, b[i], {tint:f.tint, shadow:true}); });
   }
   if(f.pine){
-    var pines = scatter(R, Math.round(f.pine*k), 9, 40, {view:cfg.id!=='gangneung', s0:0.85, s1:1.35});
+    var pines = scatter(R, Math.round(f.pine*k), 9, cfg.peak ? 30 : 40, {view:true, s0:0.85, s1:1.35});
     var pa = pines, pb=[[],[],[]];
     pa.forEach(function(t){ pb[Math.floor(t.r*3)%3].push(t); });
     ['pine1','pine3','pine5'].forEach(function(kk,i){ plant(group, kk, pb[i], {shadow:true, tint:f.pineTint || (cfg.id==='busan'?'#9fb3a8':null)}); });
@@ -1158,7 +1324,7 @@ var critters = [];
 function lam(c){ return new THREE.MeshLambertMaterial({color:col(c)}); }
 function ball(r, c, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), lam(c)); m.scale.set(sx||1, sy||1, sz||1); return m; }
 var bandAt = null, sanctAt = null;
-function okSpot(x, z){ return !(Math.abs(x)<3.8 && z>-2.2 && z<3.6) && groundH(x,z) > WATER+0.25 && !(bandAt && Math.hypot(x-bandAt.x, z-bandAt.z) < 1.8) && !(sanctAt && Math.hypot(x-sanctAt.x, z-sanctAt.z) < sanctAt.r+3); }
+function okSpot(x, z){ if(cfg.peak && Math.hypot(x,z) > peakRim(x,z)+2.2) return false; return !(Math.abs(x)<3.8 && z>-2.2 && z<3.6) && groundH(x,z) > WATER+0.25 && !(bandAt && Math.hypot(x-bandAt.x, z-bandAt.z) < 1.8) && !(sanctAt && Math.hypot(x-sanctAt.x, z-sanctAt.z) < sanctAt.r+3); }
 function pickSpot(R, rMin, rMax){
   for(var i=0;i<40;i++){ var a=R()*Math.PI*2, r=rMin+R()*(rMax-rMin), x=Math.cos(a)*r, z=Math.sin(a)*r; if(okSpot(x,z)) return {x:x, z:z}; }
   return {x:rMin, z:rMin};
@@ -2568,10 +2734,11 @@ function saveMine(){
 // ---------- build ----------
 var hemi, sun;
 function build(){
-  if(world){ scene.remove(world); world.traverse(function(o){ if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if(o.material){ if(o.material.map && !o.material.map.__keep && !(envCache[cfg.id] && o.material.map===envCache[cfg.id].tex)) o.material.map.dispose(); o.material.dispose(); } }); }
+  if(world){ scene.remove(world); world.traverse(function(o){ if(o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); if(Array.isArray(o.material)){ o.material.forEach(function(m){ if(m.map) m.map.dispose(); m.dispose(); }); } else if(o.material){ if(o.material.map && !o.material.map.__keep && !(envCache[cfg.id] && o.material.map===envCache[cfg.id].tex)) o.material.map.dispose(); o.material.dispose(); } }); }
   uniformsList = []; noteMeshes = []; stickables = []; colliders = [];
   renderer.shadowMap.enabled = hq;
   world = new THREE.Group(); scene.add(world);
+  WATER = cfg.peak ? -400 : -0.25; peakU = null;
   computeGrade();
   renderer.toneMappingExposure = (cfg.exp||0.6)*grade.exp;
   scene.fog = new THREE.Fog(fogColor(), cfg.fogN2*(grade.fog||1), cfg.fogF2*(grade.fog||1));
@@ -2586,6 +2753,7 @@ function build(){
   world.add(makeSky());
   world.add(makeGround());
   var w = makeWater(); if(w) world.add(w);
+  if(cfg.peak) addPeakVista(world);
   bandAt = null; if(cfg.id!=='newyear') bandAt = bandSpot();
   sanctAt = cfg.id==='jeju' ? {x:0, z:19.5, r:8} : null;
   if(!cfg.noGrass) world.add(makeGrass());
@@ -2604,6 +2772,7 @@ function build(){
   regionNotes().forEach(addNoteMesh);
   syncSig = ''; syncRegion(true);
   loadEnv();
+  if(peakU) updatePeak(true);
   if(bloom){ bloom.strength = cfg.bloom; bloom.threshold = 0.85; }
   $('locName').textContent = cfg.name+' 창';
   locBase = cfg.scene + (grade.fixed ? '' : ' · '+PHASE_LABEL[curPhase]) + (wx()==='rain' ? ' · 서울에 비' : wx()==='snow' ? ' · 서울에 눈' : ''); showLocSub();
@@ -2716,7 +2885,7 @@ function tap(cx,cy){
 }
 
 function blocked(x,z){
-  if(Math.hypot(x,z)>58) return true;
+  if(Math.hypot(x,z)>(cfg.peak ? peakRim(x,z)+3.6 : 58)) return true;
   if(Math.abs(x)<2.25 && Math.abs(z)<0.32) return true;
   if(groundH(x,z)<WATER+0.05) return true;
   var c = hitsSolid(x, z, 0.28, null);
@@ -2724,7 +2893,7 @@ function blocked(x,z){
     if(Math.hypot(x-cx, z-cz) < Math.hypot(player.x-cx, player.z-cz)) return true; }
   return false;
 }
-function baseY(x,z){ return (Math.abs(x)<3.2 && z>-1.7 && z<2.9) ? 0.15 : Math.max(groundH(x,z),0); }
+function baseY(x,z){ return (Math.abs(x)<3.2 && z>-1.7 && z<2.9) ? 0.15 : Math.max(groundH(x,z), WATER+0.25); }
 
 // ---------- UI ----------
 var TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
@@ -3960,6 +4129,7 @@ function frame(){
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
+  if(peakU) updatePeak(false);
   updateCritters(dt, t); updatePresence(dt, t);
   if(snowU) snowU.cam.value.copy(camera.position);
   if(rainU) rainU.cam.value.copy(camera.position);
