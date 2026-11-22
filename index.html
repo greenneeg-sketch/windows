@@ -208,6 +208,9 @@
   .news button i{width:26px;height:26px;border-radius:3px;flex-shrink:0;transform:rotate(-4deg)}
   .news button span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .news button b{color:#FF9EC4;white-space:nowrap}
+  #cardX{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:5;width:40px;height:40px;border-radius:50%;border:0;background:rgba(20,22,30,.72);color:#F4F1EA;font:600 18px/40px 'Noto Sans KR',sans-serif;text-align:center;padding:0;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  #cardBox.post #cardImg{max-height:min(50vh,540px)}
+  #cardBox.post #cardTitle{padding:0 44px}
   #cardBox{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px;max-height:100vh}
   #cardImg{display:block;width:auto;height:auto;max-height:min(64vh,640px);max-width:min(88vw,560px);object-fit:contain;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
   .links{display:flex;flex-wrap:wrap;gap:4px 14px;margin:16px 0 0;font-size:12.5px}
@@ -451,6 +454,7 @@
 </div>
 
 <div id="cardScrim" class="scrim" style="align-items:center">
+  <button id="cardX" data-close="cardScrim" aria-label="닫기">✕</button>
   <div id="cardBox" role="dialog" aria-label="포스트잇 공유 이미지">
     <div id="cardTitle" style="display:none;text-align:center"><b style="font-size:18px;color:#F4F1EA">포스트잇을 붙였어요</b><div class="muted" style="margin-top:4px;font-size:13px">친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요</div></div>
     <img id="cardImg" alt="공유할 포스트잇 이미지">
@@ -3760,7 +3764,7 @@ function fileName(kind, ext){
 function showImage(b, name, post){
   cardBlob = b; cardName = name || 'yurichang.jpg';
   shareCtx = { text: post ? '오늘 '+cfg.name+' 창에 마음 한 줄 붙이고 왔어요 🪟' : '누군가 '+cfg.name+' 창에 남긴 한 줄 🪟', hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
-  $('cardTitle').style.display = post ? '' : 'none'; $('cardShare').textContent = post ? '스토리·SNS에 올리기' : '공유하기';
+  $('cardTitle').style.display = post ? '' : 'none'; $('cardBox').classList.toggle('post', !!post); $('cardShare').textContent = post ? '스토리·SNS에 올리기' : '공유하기';
   if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
   var file = new File([b], cardName, {type:b.type});
@@ -3770,6 +3774,7 @@ function showImage(b, name, post){
   $('cardHint').textContent = can ? '공유하기로 보내거나, 이미지 저장 또는 길게 눌러 저장해요' : (TOUCH ? '이미지 저장을 누르거나 이미지를 길게 눌러 저장해요' : '이미지 저장을 누르면 파일로 받아져요');
   openModal('cardScrim');
 }
+$('cardScrim').addEventListener('click', function(e){ if(e.target === this) closeModal('cardScrim'); });   // tap outside the card to close
 $('cardSave').addEventListener('click', function(){
   if(!cardUrl) return;
   var a = document.createElement('a'); a.href = cardUrl; a.download = cardName; a.rel = 'noopener';
