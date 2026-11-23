@@ -236,6 +236,7 @@
   #careLine button{background:none;border:0;color:#FFC94D;font:inherit;font-weight:700;text-decoration:underline;padding:0 0 0 4px}
   .hl{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:#262A38;color:#F4F1EA;text-decoration:none}
   .hl b{font-size:22px;min-width:96px;color:#FFC94D;font-weight:800}.hl span{font-size:14px;line-height:1.45;color:#D9D4CA}
+  .theme.wide{grid-column:span 2}
   .themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
   .theme{min-height:92px;padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,.18);color:#F4F1EA;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;box-shadow:0 8px 20px rgba(0,0,0,.3)}
   .theme b{font-size:17px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
@@ -631,6 +632,13 @@ var REGIONS = [
    cut:1.5, flora:{common:22, tint:['#7fb24a','#93c25a','#6aa242'], hero:1, heroTint:'#7fb24a', bushf:24, rocks:14, rockTint:'#6b6b70', flowers:40, grassTint:'#ffffff', clumps:0.9}, 
    hdri:'quarry_01_1k', rot:0.0328, elev:10.0, az:0.45, skyI:2.4, hor:[0.561,0.668,0.662], up:[0.111,0.21,0.322], low:[0.296,0.326,0.311], lightI:3.0, lightCol:[1,0.96,0.6], lightElev:22, exp:0.5, grassI:0.6, fogN2:40, fogF2:260,
    notes:[]},
+  {id:'moon', slug:'miss', wide:true, name:'그리운', scene:'달에서 본 지구', about:'보고 싶은 사람, 멀리 있는 마음', fixed:true, moon:true,
+   sky:['#04050b','#141a2e','#77767a'], sun:[-0.62,0.34,0.7], sunCol:'#ffffff', sunI:1.2, hemi:['#3a4258','#111114'],
+   fog:'#000000', fogN:3000, fogF:6000, ground:'#8e8c88', grassBase:'#555', grassTip:'#777', flower:'#ffffff', flowerP:0,
+   water:'none', trees:0, treeKind:'pine', motes:'none', lamp:false, bloom:0.55, noGrass:true, grav:0.25,
+   cut:1.5, flora:{rocks:40, rockTint:'#d6d4ce', rockS:[0.2,1.0]},
+   rot:0, skyI:0.22, hor:[0.01,0.012,0.02], up:[0.2,0.24,0.36], low:[0.14,0.14,0.14], lightI:3.3, lightCol:[1,0.98,0.95], lightElev:20, exp:0.6, fogN2:3000, fogF2:6000,
+   notes:[]},
   {id:'newyear', slug:'newyear', season:true, name:'새해 소원', scene:'동해 일출 바닷가', about:'새해에 이루고 싶은 소원 한 장', fixed:true, sunrise:true,
    sky:['#2b2a55','#ff7a2e','#ffc35a'], sun:[0.17,0.075,-1], sunCol:'#ffe7a0', sunI:1.1, hemi:['#ffb27a','#3a2230'],
    fog:'#f08a52', fogN:40, fogF:300, ground:'#6e5040', sand:'#e0a066', grassBase:'#3a3020', grassTip:'#c08a40', flower:'#ffffff', flowerP:0,
@@ -706,6 +714,7 @@ var WATER = -0.25;
 
 function peakRim(x,z){ var r = Math.hypot(x,z)||1; return 9.5 - 3.2*sm(0.2, 0.9, -z/r); }   // the summit is narrower out the window, so the drop opens the view
 function groundH(x,z){
+  if(cfg && cfg.moon) return moonH(x, z);
   var r = Math.hypot(x,z);
   var y = (Math.sin(x*0.08)*Math.cos(z*0.07)*0.6 + Math.sin(x*0.21+z*0.13)*0.15) * sm(7,30,r);
   var far = sm(60,160,r)*(1.2+0.8*Math.sin(x*0.02+z*0.017));
@@ -731,6 +740,7 @@ function sunDir(){
   return new THREE.Vector3(Math.sin(ph)*Math.cos(e), Math.sin(e), -Math.cos(ph)*Math.cos(e)).normalize();
 }
 function lightDir(){
+  if(cfg.moon) return MOON_SUN.clone();
   var e = (cfg.lightElev||cfg.elev||20)*Math.PI/180, ph = Math.atan(cfg.az||0);
   return new THREE.Vector3(Math.sin(ph)*Math.cos(e), Math.sin(e), -Math.cos(ph)*Math.cos(e)).normalize();
 }
@@ -745,7 +755,7 @@ var GRADES = {
   night: { sky:[0.075,0.09,0.17],light:0.1,  hemi:0.2,  exp:1.75, lights:true,  stars:true,  lightCol:[0.6,0.7,1] }
 };
 var grade = GRADES.day;
-function wx(){ return weather.forced || weather.kind; }
+function wx(){ if(cfg && cfg.moon) return 'clear'; return weather.forced || weather.kind; }
 function computeGrade(){
   curPhase = forcedPhase || phaseNow();
   var fixedNight = cfg.id==='busan';                                // a night scene by design
@@ -817,6 +827,7 @@ function drawnSkyMaterial(){
             sunDir:{value:sunDir()}, sunCol:{value:col(cfg.sunCol)} };
   if(cfg.sunrise) return sunriseSkyMaterial(u);
   if(cfg.peak) return peakSkyMaterial();
+  if(cfg.moon) return moonSkyMaterial();
   var m = new THREE.ShaderMaterial({ uniforms:u, side:THREE.BackSide, depthWrite:false, fog:false,
     vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
     fragmentShader:'uniform vec3 top,mid,bot,sunDir,sunCol; varying vec3 vP; void main(){ vec3 d=normalize(vP); float h=d.y; vec3 c = h>0. ? mix(mid,top,pow(clamp(h*1.4,0.,1.),0.7)) : mix(mid,bot,pow(clamp(-h*3.,0.,1.),0.6)); float s=max(dot(d,sunDir),0.); c += sunCol*(pow(s,900.)*8. + pow(s,12.)*0.3 + pow(s,3.)*0.07); gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
@@ -1051,13 +1062,14 @@ function makeGround(){
     var x=p.getX(i), z=p.getZ(i), y=groundH(x,z); p.setY(i,y);
     c.copy(base).multiplyScalar(0.85+R()*0.3);
     if(cfg.water!=='none'){ var s = 1-sm(WATER+0.15, WATER+0.9, y); c.lerp(sand, s*(cfg.sand?1:0.6)); }
+    if(cfg.moon){ var mn = 0.5+0.3*Math.sin(x*0.013+1.1)*Math.cos(z*0.011-0.6)+0.2*Math.sin(x*0.05-z*0.04); c.setRGB(1,1,1).multiplyScalar(0.72 + 0.28*mn + R()*0.08); }
     if(cfg.peak){ var gn = 0.5+0.25*Math.sin(x*0.9+z*0.4)*Math.cos(z*0.7-x*0.3)+0.25*Math.sin(x*2.3-z*1.9); c.setRGB(1,1,1).multiplyScalar(0.62+gn*0.45+R()*0.2);
       var moss = sm(0.62,0.9,Math.sin(x*0.21+1.3)*Math.cos(z*0.19-0.4)*0.5+0.5)*0.3; c.lerp(new THREE.Color(0.55,0.62,0.42), moss); }
     colors.push(c.r,c.g,c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
   g.computeVertexNormals();
-  var gm = new THREE.MeshLambertMaterial(cfg.peak ? {vertexColors:true, map:granite()} : {vertexColors:true});
+  var gm = new THREE.MeshLambertMaterial(cfg.peak ? {vertexColors:true, map:granite()} : cfg.moon ? {vertexColors:true, map:regolith()} : {vertexColors:true});
   if(cfg.peak) gm.onBeforeCompile = function(sh){
     sh.uniforms.pMist = peakUniforms().mist; sh.uniforms.pDens = peakU.dens;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWy;').replace('#include <project_vertex>', '#include <project_vertex>\nvWy = (modelMatrix*vec4(transformed,1.)).y;');
@@ -1392,7 +1404,7 @@ function makeNature(group){
   if(cfg.peak){ if(!granite.rock){ granite.rock = granite().clone(); granite.rock.repeat.set(2.2,2.2); granite.rock.needsUpdate = true; granite.rock.__keep = true; } var rockMap = granite.rock;
     var onTop = function(t){ return !(Math.abs(t.x) < 3.8 && t.z > -1.4 && t.z < 6) && Math.hypot(t.x,t.z) < peakRim(t.x,t.z)+0.2 &&   /* keep the standing spot and the view clear */ seatOn(t, 1.1*t.s, 0.45) && hitsSolid(t.x, t.z, 0.9, null) === null; };
     plant(group, 'rock1', scatter(R, 70, 3.9, 10, {view:true, s0:0.3, s1:0.8}).filter(onTop).slice(0,22), {tintOther:f.rockTint, shadow:true, map:rockMap}); plant(group, 'rock2', scatter(R, 200, 4.2, 10, {view:true, s0:0.25, s1:0.75}).filter(onTop).slice(0,20), {tintOther:f.rockTint, shadow:true, map:rockMap}); }
-  if(f.rocks) plant(group, 'rock'+(1+Math.floor(R()*2)), scatter(R, f.rocks, 5, 45, {shore:-0.4, s0:f.rockS ? f.rockS[0] : 0.3, s1:f.rockS ? f.rockS[1] : 0.9}).filter(function(t){ return !cfg.peak || seatOn(t, 1.1*t.s, 0.6); }), {tintOther:f.rockTint||null, shadow:true, map:cfg.peak ? rockMap : null});
+  if(f.rocks) plant(group, 'rock'+(1+Math.floor(R()*2)), scatter(R, f.rocks, 5, 45, {shore:-0.4, s0:f.rockS ? f.rockS[0] : 0.3, s1:f.rockS ? f.rockS[1] : 0.9}).filter(function(t){ return !cfg.peak || seatOn(t, 1.1*t.s, 0.6); }), {tintOther:f.rockTint||null, shadow:true, map:cfg.peak ? rockMap : cfg.moon ? moonRockMap() : null});
   if(f.flowers){ var fl = scatter(R, f.flowers, 3.8, 30, {s0:0.35, s1:0.6}); plant(group, 'flower3', fl.filter(function(t){return t.r<0.5;})); plant(group, 'flower4', fl.filter(function(t){return t.r>=0.5;})); }
   if(f.plants) plant(group, 'plant', scatter(R, f.plants, 4, 30, {s0:0.35, s1:0.6}));
   if(f.ferns) plant(group, 'fern', scatter(R, f.ferns, 4, 35, {s0:0.18, s1:0.3}));
@@ -2100,6 +2112,7 @@ function makeCritters(group){
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
   addSanctuary(critterGroup);
   addPlant(critterGroup);
+  if(cfg.moon){ addMoonRabbits(critterGroup); makeFootprints(critterGroup); }
   if(cfg.water==='sea') addShore(critterGroup);
   if(cfg.water==='sea' || cfg.water==='farsea'){ addShark(critterGroup); addDolphins(critterGroup); }
   if(cfg.water==='sea') addFish(critterGroup, cfg.id==='busan' ? ['Fish1','Fish2'] : ['Fish1','Fish3']);
@@ -2177,6 +2190,208 @@ function addPlant(group){
       return true;
     } };
   critters.push(c);
+}
+// ---------- 그리운 창: the Moon, with the Earth hanging in a black sky, and rabbit folk who pound rice cake ----------
+var MOON_CRATERS = null, moonPrints = [], moonPrintMesh = null, earthMesh = null;
+function moonCraters(){
+  if(MOON_CRATERS) return MOON_CRATERS;
+  var R = rng(4242), a = [];
+  for(var i=0;i<140;i++){
+    var r = 10 + Math.pow(R(), 0.55)*235, t = R()*Math.PI*2, x = Math.cos(t)*r, z = Math.sin(t)*r, cr = 1.5 + Math.pow(R(), 2.2)*24;
+    if(Math.hypot(x, z) - cr*1.3 < 9) continue;                       // keep the standing ground flat
+    if(z < 0 && Math.abs(x) < 3 + (-z)*0.25 && Math.hypot(x,z) < 40 && cr > 6) continue;   // no big bowl right in front of the glass
+    a.push([x, z, cr, cr*(0.16 + R()*0.08), cr*(0.05 + R()*0.04)]);
+  }
+  a.push([-14, -26, 9, 1.8, 0.7]); a.push([22, -48, 16, 3.2, 1.1]); a.push([-40, -70, 22, 4.2, 1.5]);   // a few you can see through the window
+  return (MOON_CRATERS = a);
+}
+function moonH(x, z){
+  var r = Math.hypot(x, z);
+  var y = 0.35*Math.sin(x*0.045+0.7)*Math.cos(z*0.038-0.4) + 0.9*Math.sin(x*0.011+z*0.008)*sm(15, 80, r) + 0.12*Math.sin(x*0.37+z*0.21)*Math.cos(z*0.29-x*0.17)*sm(6, 14, r);
+  y *= sm(4, 12, r);
+  var C = moonCraters();
+  for(var i=0;i<C.length;i++){ var c = C[i], dx = x-c[0], dz = z-c[1]; if(Math.abs(dx) > c[2]*1.8 || Math.abs(dz) > c[2]*1.8) continue;
+    var d = Math.sqrt(dx*dx+dz*dz)/c[2]; if(d < 1) y += c[3]*(d*d - 1)*(1 - 0.25*(1-d)); y += c[4]*Math.exp(-Math.pow((d-1)/0.22, 2)); }
+  return y - sm(240, 262, r)*30;   // the square sheet sinks under the far highlands at its corners
+}
+var regoTex = null;
+function moonRockMap(){ if(!regolith.rock){ regolith.rock = regolith().clone(); regolith.rock.repeat.set(2,2); regolith.rock.needsUpdate = true; regolith.rock.__keep = true; } return regolith.rock; }
+function regolith(){
+  if(regoTex) return regoTex;
+  var N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; var x = cv.getContext('2d'), R = rng(777);
+  x.fillStyle = '#8f8d89'; x.fillRect(0,0,N,N);
+  function wrap(f){ for(var dx=-N; dx<=N; dx+=N) for(var dy=-N; dy<=N; dy+=N){ x.save(); x.translate(dx,dy); f(); x.restore(); } }
+  for(var i=0;i<220;i++){ var cx=R()*N, cy=R()*N, r=6+R()*50, v=110+R()*60|0, a=0.06+R()*0.1; wrap(function(){ x.fillStyle='rgba('+v+','+v+','+(v-3)+','+a+')'; x.beginPath(); x.arc(cx,cy,r,0,7); x.fill(); }); }
+  for(var j=0;j<14000;j++){ var gx=R()*N, gy=R()*N, g=R(); x.fillStyle = g<0.5 ? 'rgba(50,50,50,0.4)' : 'rgba(210,208,202,0.4)'; x.fillRect(gx,gy,1+R()*1.5,1+R()*1.5); }
+  for(var k=0;k<90;k++){ var px=R()*N, py=R()*N, pr=1.5+R()*5; wrap(function(){ x.fillStyle='rgba(40,40,40,0.35)'; x.beginPath(); x.arc(px,py,pr,0,7); x.fill(); x.fillStyle='rgba(235,233,228,0.35)'; x.beginPath(); x.arc(px+pr*0.35,py+pr*0.35,pr*0.75,0,7); x.fill(); }); }
+  regoTex = new THREE.CanvasTexture(cv); regoTex.wrapS = regoTex.wrapT = THREE.RepeatWrapping; regoTex.encoding = THREE.sRGBEncoding; regoTex.anisotropy = 8;
+  regoTex.repeat.set(520/4, 520/4); regoTex.__keep = true; return regoTex;
+}
+function moonSkyMaterial(){   // black sky, a faint band of the Milky Way
+  var m = new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, fog:false,
+    vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader:'varying vec3 vP;'+PEAK_GLSL+'void main(){ vec3 d=normalize(vP); vec3 n=normalize(vec3(0.35,0.62,0.7)); float b=1.-abs(dot(d,n)); b=pow(b,10.);'+
+      ' float neb=fbm(vec2(atan(d.z,d.x)*3., d.y*6.))*0.7+fbm(vec2(atan(d.z,d.x)*9., d.y*14.)+3.)*0.3; vec3 c=vec3(0.6,0.6,0.75)*b*0.035*(0.5+neb) + vec3(0.002,0.002,0.004);'+
+      ' float sd=max(dot(d,normalize(vec3(-0.62,0.34,0.7))),0.); c+=vec3(1.,0.98,0.94)*(smoothstep(0.99985,0.99992,sd)*30.+pow(sd,800.)*2.+pow(sd,90.)*0.03);'+
+      ' gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
+  m.userData.sky = true; return m;
+}
+function moonStars(){
+  var n = 3200, pos = new Float32Array(n*3), sz = new Float32Array(n), co = new Float32Array(n*3), R = rng(31);
+  for(var i=0;i<n;i++){ var u = R()*2-1, a = R()*Math.PI*2, r = Math.sqrt(1-u*u); pos[i*3] = Math.cos(a)*r*470; pos[i*3+1] = u*470; pos[i*3+2] = Math.sin(a)*r*470;
+    var m = Math.pow(R(), 5); sz[i] = 1.2 + m*4.2; var t = R(); co[i*3] = t<0.15 ? 1 : t<0.3 ? 0.75 : 0.95; co[i*3+1] = t<0.15 ? 0.82 : 0.9; co[i*3+2] = t<0.15 ? 0.65 : t<0.3 ? 1 : 0.95; }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3)); g.setAttribute('aS', new THREE.BufferAttribute(sz,1)); g.setAttribute('aC', new THREE.BufferAttribute(co,3));
+  var mat = new THREE.ShaderMaterial({ transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending,
+    vertexShader:'attribute float aS; attribute vec3 aC; varying vec3 vC; varying float vS; void main(){ vec4 mv=modelViewMatrix*vec4(position+cameraPosition,1.); vC=aC; vS=aS; gl_PointSize=aS*(1.0+0.5*float('+(window.devicePixelRatio>1?1:0)+')); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying vec3 vC; varying float vS; void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,.0,d); gl_FragColor=vec4(vC*a*min(1.,vS*0.35), 1.); }' });
+  var p = new THREE.Points(g, mat); p.frustumCulled = false; p.renderOrder = -1; return p;
+}
+var MOON_SUN = new THREE.Vector3(-0.62, 0.34, 0.7).normalize();   // low sun behind-left: long shadows run out the window, the Earth shows almost full
+var MOON_EARTH = new THREE.Vector3(-0.02, 0.27, -1).normalize();   // up in the top pane when you stand at the glass
+function makeEarth(){
+  var tex = new THREE.TextureLoader().load('tex/earth.jpg'); tex.anisotropy = 4;
+  var u = { map:{value:tex}, sunDir:{value:MOON_SUN}, t:{value:0} }; uniformsList.push(u);
+  var m = new THREE.ShaderMaterial({ uniforms:u, fog:false,
+    vertexShader:'varying vec2 vUv; varying vec3 vN; varying vec3 vW; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform sampler2D map; uniform vec3 sunDir; varying vec2 vUv; varying vec3 vN; varying vec3 vW;'+
+      'void main(){ vec3 n=normalize(vN), v=normalize(cameraPosition-vW); vec3 c=pow(texture2D(map,vUv).rgb, vec3(2.2));'+
+      ' float l=dot(n,sunDir), day=smoothstep(-0.08,0.25,l);'+
+      ' vec3 col=c*(0.04+1.35*max(l,0.)*day) + vec3(0.002,0.004,0.012)*(1.-day);'+
+      ' float spec=pow(max(dot(reflect(-sunDir,n),v),0.),40.)*day*(1.-smoothstep(0.25,0.45,c.g+c.r));'+       // the sun glints off the oceans
+      ' col+=vec3(1.,0.95,0.85)*spec*0.6;'+
+      ' float rim=pow(1.-max(dot(n,v),0.),3.); col+=vec3(0.25,0.5,1.0)*rim*(0.25+0.9*smoothstep(-0.2,0.4,l));'+   // a thin blue atmosphere
+      ' gl_FragColor=vec4(col,1.);\n'+OUT+'}' });
+  var e = new THREE.Mesh(new THREE.SphereGeometry(36, 64, 48), m);
+  e.position.copy(MOON_EARTH).multiplyScalar(580); e.rotation.z = 0.41; e.rotation.y = 2.3; e.renderOrder = 0; e.frustumCulled = false;
+  // halo of the atmosphere around the disk
+  var hc = document.createElement('canvas'); hc.width = hc.height = 128; var hx = hc.getContext('2d'), hg = hx.createRadialGradient(64,64,42,64,64,64);
+  hg.addColorStop(0,'rgba(120,170,255,0.5)'); hg.addColorStop(0.35,'rgba(90,140,255,0.16)'); hg.addColorStop(1,'rgba(60,110,255,0)'); hx.fillStyle = hg; hx.fillRect(0,0,128,128);
+  var halo = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(hc), blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, fog:false }));
+  halo.scale.set(110, 110, 1); halo.position.copy(e.position); halo.renderOrder = 0;
+  var g = new THREE.Group(); g.add(halo); g.add(e); earthMesh = e; return g;
+}
+function makeFarHighlands(){   // the ground carries on to the horizon in low grey hills
+  var RN = 40, AN = 256, pos = [], col = [], idx = [], R = rng(55);
+  var ph = []; for(var i=0;i<8;i++) ph.push(R()*6);
+  for(var ri=0; ri<=RN; ri++){ var rr = 245*Math.pow(880/245, ri/RN);
+    for(var ai=0; ai<=AN; ai++){ var a = ai/AN*Math.PI*2, x = Math.cos(a)*rr, z = Math.sin(a)*rr, k = sm(250, 600, rr);
+      var h = 0.6 + k*(10*Math.sin(a*3+ph[0]) + 7*Math.sin(a*7+ph[1]) + 4*Math.sin(a*13+ph[2]) + 2*Math.sin(a*29+ph[3]))*Math.max(0, Math.sin(rr*0.012+ph[4])*0.6+0.6) + k*6;
+      pos.push(x, h, z); var s = 0.48 + 0.08*Math.sin(a*5+rr*0.02); col.push(s, s, s*0.98);
+      if(ri<RN && ai<AN){ var q0 = ri*(AN+1)+ai, q1 = q0+1, q2 = q0+AN+1, q3 = q2+1; idx.push(q0, q2, q1, q1, q2, q3); } } }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col,3)); g.setIndex(idx); g.computeVertexNormals();
+  var m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors:true, map:regolith(), side:THREE.DoubleSide})); m.receiveShadow = false; m.frustumCulled = false;
+  m.material.onBeforeCompile = function(sh){ sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_UV\nvUv = position.xz*0.08;\n#endif'); };
+  return m;
+}
+// ---------- rabbit folk ----------
+function rabbitMesh(s){
+  var g = new THREE.Group(), white = new THREE.MeshLambertMaterial({color:col('#F4F2EE')}), pink = new THREE.MeshLambertMaterial({color:col('#F5A8B8')}), black = new THREE.MeshPhongMaterial({color:col('#14141A'), shininess:90, specular:col('#888888')});
+  function sph(r, mat, x, y, z, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx||1, sy||1, sz||1); m.castShadow = hq; g.add(m); return m; }
+  var body = sph(0.27, white, 0, 0.3, 0, 1, 1.08, 0.95);
+  var head = new THREE.Group(); head.position.set(0, 0.66, 0.02); g.add(head);
+  function hs(r, mat, x, y, z, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx||1, sy||1, sz||1); m.castShadow = hq; head.add(m); return m; }
+  hs(0.2, white, 0, 0, 0, 1.05, 0.95, 1);
+  hs(0.045, black, -0.075, 0.03, 0.17, 1, 1.2, 0.6); hs(0.045, black, 0.075, 0.03, 0.17, 1, 1.2, 0.6);
+  hs(0.012, new THREE.MeshBasicMaterial({color:0xffffff}), -0.062, 0.05, 0.2); hs(0.012, new THREE.MeshBasicMaterial({color:0xffffff}), 0.088, 0.05, 0.2);
+  hs(0.022, pink, 0, -0.035, 0.195); hs(0.03, pink, -0.12, -0.04, 0.13, 1, 0.6, 0.5); hs(0.03, pink, 0.12, -0.04, 0.13, 1, 0.6, 0.5);
+  var ears = [];
+  [-1, 1].forEach(function(sd){ var e = new THREE.Group(); e.position.set(0.075*sd, 0.14, -0.02); e.rotation.z = -0.16*sd; head.add(e);
+    var o = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), white); o.scale.set(0.9, 4.2, 0.55); o.position.y = 0.23; o.castShadow = hq; e.add(o);
+    var inn = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 8), pink); inn.scale.set(0.8, 4.4, 0.3); inn.position.set(0, 0.22, 0.022); e.add(inn); ears.push(e); });
+  // antenna with a glowing bulb
+  var ant = new THREE.Group(); ant.position.set(0, 0.17, 0.05); head.add(ant);
+  var stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.16, 6), new THREE.MeshLambertMaterial({color:col('#B8C4D6')})); stalk.position.y = 0.08; stalk.rotation.x = 0.25; ant.add(stalk);
+  var bulbM = new THREE.MeshBasicMaterial({color:col('#9FF6FF')}), bulb = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 10), bulbM); bulb.position.set(0, 0.16, 0.02); ant.add(bulb);
+  var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map:presTexture(), color:col('#9FF6FF'), blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, opacity:0.8 })); glow.scale.set(0.22, 0.22, 1); glow.position.copy(bulb.position); ant.add(glow);
+  var arms = [];
+  [-1, 1].forEach(function(sd){ var a = new THREE.Group(); a.position.set(0.22*sd, 0.42, 0.06); g.add(a); var m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), white); m.scale.set(0.8, 1.5, 0.8); m.position.y = -0.06; m.castShadow = hq; a.add(m); arms.push(a); });
+  sph(0.085, white, -0.11, 0.04, 0.12, 1, 0.55, 1.5); sph(0.085, white, 0.11, 0.04, 0.12, 1, 0.55, 1.5);
+  sph(0.075, white, 0, 0.22, -0.26);
+  g.scale.setScalar(s);
+  g.userData = { head:head, ears:ears, bulb:bulbM, glow:glow, arms:arms, body:body };
+  return g;
+}
+function addMoonRabbits(group){
+  var R = Math.random;
+  function place(o, x, z, face){ o.position.set(x, moonH(x, z), z); o.rotation.y = face; group.add(o); colliders.push({x:x, z:z, r:0.5*o.scale.x}); }
+  function blinkUpdate(o, st, dt, T){ var u = o.userData; st.flash = Math.max(0, st.flash - dt);
+    var b = 0.6 + 0.4*Math.sin(T*2 + st.ph) + st.flash*3; u.glow.material.opacity = Math.min(1, 0.45 + b*0.3); u.glow.scale.setScalar(0.2 + b*0.05 + st.flash*0.25);
+    u.ears.forEach(function(e, i){ e.rotation.x = Math.sin(T*1.3 + i + st.ph)*0.06 + (st.flash>0 ? Math.sin(T*20)*0.1 : 0); }); }
+  // 1) the pounder, at a wooden mortar of rice cake
+  var p1 = rabbitMesh(1.25), px = -2.6, pz = -7.5; place(p1, px, pz, 0.5);
+  var wood = new THREE.MeshLambertMaterial({color:col('#8A5A34')});
+  var pts = [new THREE.Vector2(0,0), new THREE.Vector2(0.2,0), new THREE.Vector2(0.22,0.05), new THREE.Vector2(0.17,0.2), new THREE.Vector2(0.24,0.38), new THREE.Vector2(0.24,0.42), new THREE.Vector2(0.19,0.42), new THREE.Vector2(0.17,0.34), new THREE.Vector2(0,0.32)];
+  var mortar = new THREE.Mesh(new THREE.LatheGeometry(pts, 20), wood); mortar.castShadow = hq;
+  var mx = px + Math.sin(0.5)*0.75, mz = pz + Math.cos(0.5)*0.75; mortar.position.set(mx, moonH(mx, mz), mz); mortar.scale.setScalar(1.25); group.add(mortar); colliders.push({x:mx, z:mz, r:0.35});
+  var tteok = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 10), new THREE.MeshLambertMaterial({color:col('#FBF7EE')})); tteok.position.y = 0.34; tteok.scale.y = 0.45; mortar.add(tteok);
+  var pestle = new THREE.Group(); p1.add(pestle); pestle.position.set(0, 0.5, 0.25);
+  var handle = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.55, 8), wood); handle.rotation.x = Math.PI/2; handle.position.z = 0.2; pestle.add(handle);
+  var headP = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.24, 14), wood); headP.position.z = 0.48; headP.castShadow = hq; pestle.add(headP);
+  var flour = new THREE.Group(); group.add(flour);
+  var st1 = {ph:0, flash:0, hit:0, last:0};
+  critters.push({ o:p1, kind:'moonrabbit', headY:1.25, petR:3.2,
+    calm:function(){ st1.flash = 1.2; }, update:function(dt, T){
+      var k = (T % 1.25)/1.25, lift = k < 0.6 ? Math.sin(k/0.6*Math.PI/2) : 1 - Math.pow((k-0.6)/0.4, 2.2);   // slow lift, quick strike
+      if(st1.flash > 0.8) lift = 0.6;
+      pestle.rotation.x = -0.9 + lift*1.5; p1.userData.arms.forEach(function(a){ a.rotation.x = -1.1 + lift*1.2; });
+      p1.userData.body.scale.y = 1.08 - (1-lift)*0.03;
+      if(k < st1.last && st1.flash <= 0.8){ tteok.scale.set(1.12, 0.36, 1.12); for(var i=0;i<5;i++){ var f = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9})); f.position.set(mx + (R()-0.5)*0.2, mortar.position.y + 0.5, mz + (R()-0.5)*0.2); f.userData.v = new THREE.Vector3((R()-0.5)*0.6, 0.5 + R()*0.6, (R()-0.5)*0.6); f.userData.t = 1.6; flour.add(f); } }
+      st1.last = k; tteok.scale.x += (1 - tteok.scale.x)*dt*4; tteok.scale.z = tteok.scale.x; tteok.scale.y += (0.45 - tteok.scale.y)*dt*4;
+      for(var j=flour.children.length-1;j>=0;j--){ var f2 = flour.children[j]; f2.userData.t -= dt; f2.userData.v.y -= 1.62*dt; f2.position.addScaledVector(f2.userData.v, dt); f2.material.opacity = Math.max(0, f2.userData.t/1.6); if(f2.userData.t <= 0) flour.remove(f2); }
+      blinkUpdate(p1, st1, dt, T); return true; } });
+  // 2) the watcher, at a telescope pointed at the Earth
+  var p2 = rabbitMesh(1.15), wx2 = 3.2, wz2 = -9.5; place(p2, wx2, wz2, -0.55);
+  var scope = new THREE.Group(), tx = wx2 - 0.75, tz = wz2 - 0.35; scope.position.set(tx, moonH(tx, tz), tz); group.add(scope); colliders.push({x:tx, z:tz, r:0.3});
+  var metal = new THREE.MeshLambertMaterial({color:col('#C9CED8')}), brass = new THREE.MeshLambertMaterial({color:col('#C89B4A')});
+  for(var l=0;l<3;l++){ var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.95, 6), metal); var la = l*2.1; leg.position.set(Math.cos(la)*0.17, 0.44, Math.sin(la)*0.17); leg.rotation.set(Math.sin(la)*0.36, 0, -Math.cos(la)*0.36); scope.add(leg); }
+  var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.75, 14), brass); tube.castShadow = hq;
+  var aim = new THREE.Group(); aim.position.y = 0.92; scope.add(aim); tube.rotation.x = Math.PI/2; aim.add(tube);
+  aim.lookAt(scope.position.clone().add(MOON_EARTH.clone().multiplyScalar(100)));
+  var st2 = {ph:2, flash:0};
+  critters.push({ o:p2, kind:'moonrabbit', headY:1.15, petR:3.2,
+    calm:function(){ st2.flash = 1.2; }, update:function(dt, T){
+      var h = p2.userData.head; h.rotation.y = 0.5 + Math.sin(T*0.25)*0.35 + (st2.flash > 0 ? -0.6 : 0); h.rotation.x = -0.35 + Math.sin(T*0.4)*0.05;
+      blinkUpdate(p2, st2, dt, T); return true; } });
+  // 3) a little one, bouncing in the low gravity
+  var p3 = rabbitMesh(0.8), cx3 = 0.8, cz3 = -6.2; group.add(p3);
+  var st3 = {ph:4, flash:0, a:0, hopT:0};
+  critters.push({ o:p3, kind:'moonrabbit', headY:0.85, petR:3.2,
+    calm:function(){ st3.flash = 1.2; st3.hopT = 0; st3.big = true; }, update:function(dt, T){
+      st3.hopT += dt; var dur = st3.big ? 2.6 : 1.8; if(st3.hopT > dur){ st3.hopT = 0; st3.big = false; }
+      var k = st3.hopT/dur, hgt = (st3.big ? 2.2 : 0.9)*4*k*(1-k);
+      st3.a += dt*0.32; var x = cx3 + Math.cos(st3.a)*1.8, z = cz3 + Math.sin(st3.a)*1.2;
+      p3.position.set(x, moonH(x, z) + hgt, z); p3.rotation.y = -st3.a; p3.rotation.x = (0.5-k)*0.35*(hgt>0.02?1:0);
+      p3.userData.ears.forEach(function(e){ e.rotation.x = -0.4*(0.5-k)*2; });
+      p3.userData.body.scale.y = 1.08*(k < 0.06 || k > 0.94 ? 0.92 : 1);
+      blinkUpdate(p3, st3, dt, T); return true; } });
+}
+// ---------- footprints that stay: there is no wind on the Moon ----------
+var footTex = null;
+function makeFootprints(group){
+  if(!footTex){ var cv = document.createElement('canvas'); cv.width = 64; cv.height = 128; var x = cv.getContext('2d');
+    x.fillStyle = 'rgba(30,30,32,0.55)'; x.beginPath(); x.ellipse(32, 40, 22, 34, 0, 0, 7); x.fill(); x.beginPath(); x.ellipse(32, 98, 17, 24, 0, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(200,200,196,0.35)'; x.lineWidth = 3; for(var i=0;i<7;i++){ x.beginPath(); x.moveTo(14, 14+i*9); x.lineTo(50, 14+i*9); x.stroke(); }
+    for(var j=0;j<4;j++){ x.beginPath(); x.moveTo(18, 84+j*9); x.lineTo(46, 84+j*9); x.stroke(); }
+    footTex = new THREE.CanvasTexture(cv); footTex.__keep = true; }
+  var mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.13, 0.28).rotateX(-Math.PI/2), new THREE.MeshLambertMaterial({map:footTex, transparent:true, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2}), 240);
+  mesh.count = 0; mesh.frustumCulled = false; mesh.renderOrder = 1; group.add(mesh); moonPrintMesh = mesh;
+  var M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1,1,1), P = new THREE.Vector3(), Y = new THREE.Vector3(0,1,0);
+  function put(i, f){ P.set(f.x, moonH(f.x, f.z) + 0.012, f.z); Q.setFromAxisAngle(Y, f.a); M.compose(P, Q, S); mesh.setMatrixAt(i, M); }
+  moonPrints.forEach(function(f, i){ put(i, f); }); mesh.count = moonPrints.length; mesh.instanceMatrix.needsUpdate = true;
+  var last = {x:player.x, z:player.z}, side = 1;
+  critters.push({ o:mesh, kind:'_prints', update:function(){
+    if(!grounded()) { last.x = player.x; last.z = player.z; return true; }
+    var dx = player.x - last.x, dz = player.z - last.z, d = Math.hypot(dx, dz);
+    if(d > 0.62){ var a = Math.atan2(dx, dz), nx = Math.cos(a), nz = -Math.sin(a); side = -side;
+      var f = {x:player.x + nx*0.12*side, z:player.z + nz*0.12*side, a:a}; moonPrints.push(f); if(moonPrints.length > 240) moonPrints.shift();
+      if(moonPrints.length === 240){ moonPrints.forEach(function(ff, i){ put(i, ff); }); } else put(moonPrints.length-1, f);
+      mesh.count = moonPrints.length; mesh.instanceMatrix.needsUpdate = true; last.x = player.x; last.z = player.z; }
+    return true; } });
+}
+function addMoon(group){
+  group.add(moonStars()); group.add(makeEarth()); group.add(makeFarHighlands());
+  addMoonRabbits(critterGroup || group);
+  makeFootprints(group);
 }
 // ---------- 동해 일출: a giant paper crane on a rock in the sea, gulls that land on it, foam rolling onto the beach ----------
 function triMesh(tris, color){
@@ -2524,6 +2739,7 @@ document.addEventListener('visibilitychange', function(){ if(!document.hidden &&
 
 // ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
 var THOUGHTS = {
+  moonrabbit: ['떡 하나 드릴까요? 방금 찧어서 쫀득해요', '지구에서 보면 우리가 방아 찧는 게 보인대요', '저기 파란 별에 보고 싶은 사람 있어요?', '여기선 폴짝 뛰면 한참 떠 있어요', '더듬이가 반짝이면 반갑다는 뜻이에요', '지구도 매일 조금씩 모양이 바뀌어요', '보고 싶은 마음은 여기까지 다 들려요', '바람이 없어서 발자국이 오래오래 남아요'],
   Deer: ['오늘 풀이 유난히 달아요', '천천히 와줘서 고마워요', '당신도 쉬러 왔군요', '발소리가 다정하네요', '잠깐 같이 있어요', '바람이 등을 쓰다듬어요', '서두르지 않아도 괜찮아요'],
   Stag: ['뿔이 무거워도 고개는 들어요', '이 숲은 내가 지켜요', '다짐은 작게, 걸음은 꾸준히', '안개가 걷히면 길이 보여요', '오늘도 여기까지 잘 왔어요', '깊게 숨 한 번 쉬어요'],
   Fox: ['킁킁… 좋은 냄새가 나요', '사실 수줍음이 많아요', '오늘 하루 어땠어요?', '꼬리는… 아직 안 돼요', '같이 노을 볼래요?', '살금살금 온 거 다 알아요'],
@@ -2536,7 +2752,7 @@ var THOUGHTS = {
   band: ['우리 넷이 모이면 뭐든 할 수 있어요', '꼬꼬, 맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
   squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
 };
-var KIND_NAME = { plant:'내 화분', panda:'판다', shark:'부캉이 친구', crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
+var KIND_NAME = { moonrabbit:'달토끼', plant:'내 화분', panda:'판다', shark:'부캉이 친구', crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
 var lastThought = {}, petNear = null, bubble = { c:null, t:0 };
 function contextThought(){
   if(wx()==='rain') return ['비 냄새가 좋아요', '빗소리 들으면 졸려요'];
@@ -2548,7 +2764,7 @@ function contextThought(){
   return [];
 }
 // ---------- 동물 도감: every line an animal has said to you, kept on this device ----------
-var DEX = [['Deer','🦌'],['Stag','🦌'],['Fox','🦊'],['rabbit','🐰'],['squirrel','🐿️'],['Horse','🐴'],['Horse_White','🐎'],['band','🎺'],['panda','🐼'],['shark','🦈'],['crab','🦀']];
+var DEX = [['Deer','🦌'],['Stag','🦌'],['Fox','🦊'],['rabbit','🐰'],['squirrel','🐿️'],['Horse','🐴'],['Horse_White','🐎'],['band','🎺'],['panda','🐼'],['shark','🦈'],['crab','🦀'],['moonrabbit','🐇']];
 function dexGet(){ return store.get('sumgeul-dex') || {}; }
 function dexRecord(kind, s){
   var L = THOUGHTS[kind]; if(!L) return; var i = L.indexOf(s); if(i < 0) return;
@@ -3001,7 +3217,8 @@ function build(){
   world.add(makeGround());
   var w = makeWater(); if(w) world.add(w);
   if(cfg.peak) addPeakVista(world);
-  bandAt = null; if(cfg.id!=='newyear' && !cfg.peak) bandAt = bandSpot();
+  if(cfg.moon){ world.add(moonStars()); world.add(makeEarth()); world.add(makeFarHighlands()); }
+  bandAt = null; if(cfg.id!=='newyear' && !cfg.peak && !cfg.moon) bandAt = bandSpot();
   sanctAt = cfg.id==='jeju' ? {x:0, z:19.5, r:8} : null;
   if(!cfg.noGrass) world.add(makeGrass());
   if(natReady) makeNature(world); else makeTrees(world);
@@ -3012,7 +3229,7 @@ function build(){
   if(cfg.motes!=='none') world.add(makeMotes());
   cfg.motes = motesWas;
   if(grade.stars && wx()==='clear') world.add(makeStars());
-  snowU = null; if(cfg.snow || snowSeason() || wx()==='snow') world.add(makeSnow(cfg.snow || (wx()==='snow' ? 1400 : 700)));
+  snowU = null; if(cfg.snow || (snowSeason() && !cfg.moon) || wx()==='snow') world.add(makeSnow(cfg.snow || (wx()==='snow' ? 1400 : 700)));
   rainU = null; dropsTex = null; dropsCv = null; if(wx()==='rain' && !cfg.snow){ world.add(makeRain()); makeDrops(world); }
   bulbs = []; if(cfg.lights && natReady) makeLights(world); else if(grade.lights && curPhase!=='day') makeLights(world, true);
   fw.list = [];
@@ -3769,6 +3986,10 @@ function bird(lo, hi, n){
   var at = 0; for(var i=0;i<n;i++){ var f = lo + Math.random()*(hi-lo); chirp(f, f*(0.75+Math.random()*0.2), 0.05+Math.random()*0.07, 0.035, at); at += 0.07+Math.random()*0.08; }
 }
 var SCAPES = {
+  moon: function(){                       // 달: near silence, a soft hum of the base, a far chime now and then
+    bed('brown','lowpass',140,0.7,0.06,0.05,0.02);
+    every(7, 16, function(){ var f=[660,784,880,988][Math.floor(Math.random()*4)]; chirp(f, f, 1.6, 0.012, 0, 'sine'); chirp(f*1.5, f*1.5, 1.2, 0.006, 0.12, 'sine'); });
+  },
   mapo: function(){                       // 노을 호숫가: lapping water, drops, distant birds
     bed('brown','lowpass',520,0.7,0.20,0.13,0.10);
     bed('pink','bandpass',1800,1.4,0.018,0.21,0.012);
@@ -4468,7 +4689,7 @@ function fetchNews(){
 
 // ---------- intro: choose a window ----------
 REGIONS.forEach(function(r, i){
-  var b = document.createElement('button'); b.className='theme'+(r.season?' season':'');
+  var b = document.createElement('button'); b.className='theme'+(r.season?' season':'')+(r.wide?' wide':'');
   b.style.background = 'linear-gradient(180deg,rgba(10,12,20,0) 15%,rgba(10,12,20,.72) 100%),linear-gradient(180deg,'+r.sky[0]+','+r.sky[1]+' 65%,'+r.ground+')';
   var t = document.createElement('b'); t.textContent = r.name+' 창';
   var d = document.createElement('span'); d.textContent = r.scene+' · '+r.about;
@@ -4551,6 +4772,7 @@ function updateSkyFx(dt){
   if(!skyFx) makeSkyFx();
   var s = skyFx, now = performance.now();
   s.bow.position.copy(camera.position);
+  if(cfg.moon){ s.nextM = Math.max(s.nextM, now + 20000); s.nextB = Math.max(s.nextB, now + 60000); }
   if(!s.m && now > s.nextM && !document.hidden){ shootStar(); s.nextM = now + 25000 + Math.random()*55000; }
   if(s.m){
     var m = s.m; m.t += dt;
@@ -4610,7 +4832,7 @@ function frame(){
     if(!blocked(nx,player.z)) player.x=nx; else player.vx=0;
     if(!blocked(player.x,nz)) player.z=nz; else player.vz=0;
   }
-  player.vy -= 13*dt; player.jy += player.vy*dt; if(player.jy<0){ player.jy=0; player.vy=0; }
+  player.vy -= 13*dt*(cfg.grav||1); player.jy += player.vy*dt; if(player.jy<0){ player.jy=0; player.vy=0; }
   if(player.jbuf && grounded()){ if(performance.now()-player.jbuf < 200) player.vy = 4.6; player.jbuf = 0; }
   var eyeT = player.sit ? 1.12 : player.crouch ? 0.95 : 1.6;
   player.eye += (eyeT-player.eye)*Math.min(1,dt*7);
