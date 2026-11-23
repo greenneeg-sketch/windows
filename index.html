@@ -2290,7 +2290,7 @@ function makeFarHighlands(){   // the ground carries on to the horizon in low gr
   return m;
 }
 // ---------- rabbit folk ----------
-function rabbitMesh(s){
+function moonRabbitMesh(s){
   var g = new THREE.Group(), white = new THREE.MeshLambertMaterial({color:col('#F4F2EE')}), pink = new THREE.MeshLambertMaterial({color:col('#F5A8B8')}), black = new THREE.MeshPhongMaterial({color:col('#14141A'), shininess:90, specular:col('#888888')});
   function sph(r, mat, x, y, z, sx, sy, sz){ var m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat); m.position.set(x, y, z); m.scale.set(sx||1, sy||1, sz||1); m.castShadow = hq; g.add(m); return m; }
   var body = sph(0.27, white, 0, 0.3, 0, 1, 1.08, 0.95);
@@ -2324,7 +2324,7 @@ function addMoonRabbits(group){
     var b = 0.6 + 0.4*Math.sin(T*2 + st.ph) + st.flash*3; u.glow.material.opacity = Math.min(1, 0.45 + b*0.3); u.glow.scale.setScalar(0.2 + b*0.05 + st.flash*0.25);
     u.ears.forEach(function(e, i){ e.rotation.x = Math.sin(T*1.3 + i + st.ph)*0.06 + (st.flash>0 ? Math.sin(T*20)*0.1 : 0); }); }
   // 1) the pounder, at a wooden mortar of rice cake
-  var p1 = rabbitMesh(1.25), px = -2.6, pz = -7.5; place(p1, px, pz, 0.5);
+  var p1 = moonRabbitMesh(1.25), px = -2.6, pz = -7.5; place(p1, px, pz, 0.5);
   var wood = new THREE.MeshLambertMaterial({color:col('#8A5A34')});
   var pts = [new THREE.Vector2(0,0), new THREE.Vector2(0.2,0), new THREE.Vector2(0.22,0.05), new THREE.Vector2(0.17,0.2), new THREE.Vector2(0.24,0.38), new THREE.Vector2(0.24,0.42), new THREE.Vector2(0.19,0.42), new THREE.Vector2(0.17,0.34), new THREE.Vector2(0,0.32)];
   var mortar = new THREE.Mesh(new THREE.LatheGeometry(pts, 20), wood); mortar.castShadow = hq;
@@ -2346,7 +2346,7 @@ function addMoonRabbits(group){
       for(var j=flour.children.length-1;j>=0;j--){ var f2 = flour.children[j]; f2.userData.t -= dt; f2.userData.v.y -= 1.62*dt; f2.position.addScaledVector(f2.userData.v, dt); f2.material.opacity = Math.max(0, f2.userData.t/1.6); if(f2.userData.t <= 0) flour.remove(f2); }
       blinkUpdate(p1, st1, dt, T); return true; } });
   // 2) the watcher, at a telescope pointed at the Earth
-  var p2 = rabbitMesh(1.15), wx2 = 3.2, wz2 = -9.5; place(p2, wx2, wz2, -0.55);
+  var p2 = moonRabbitMesh(1.15), wx2 = 3.2, wz2 = -9.5; place(p2, wx2, wz2, -0.55);
   var scope = new THREE.Group(), tx = wx2 - 0.75, tz = wz2 - 0.35; scope.position.set(tx, moonH(tx, tz), tz); group.add(scope); colliders.push({x:tx, z:tz, r:0.3});
   var metal = new THREE.MeshLambertMaterial({color:col('#C9CED8')}), brass = new THREE.MeshLambertMaterial({color:col('#C89B4A')});
   for(var l=0;l<3;l++){ var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.95, 6), metal); var la = l*2.1; leg.position.set(Math.cos(la)*0.17, 0.44, Math.sin(la)*0.17); leg.rotation.set(Math.sin(la)*0.36, 0, -Math.cos(la)*0.36); scope.add(leg); }
@@ -2359,7 +2359,7 @@ function addMoonRabbits(group){
       var h = p2.userData.head; h.rotation.y = 0.5 + Math.sin(T*0.25)*0.35 + (st2.flash > 0 ? -0.6 : 0); h.rotation.x = -0.35 + Math.sin(T*0.4)*0.05;
       blinkUpdate(p2, st2, dt, T); return true; } });
   // 3) a little one, bouncing in the low gravity
-  var p3 = rabbitMesh(0.8), cx3 = 0.8, cz3 = -6.2; group.add(p3);
+  var p3 = moonRabbitMesh(0.8), cx3 = 0.8, cz3 = -6.2; group.add(p3);
   var st3 = {ph:4, flash:0, a:0, hopT:0};
   critters.push({ o:p3, kind:'moonrabbit', headY:0.85, petR:3.2,
     calm:function(){ st3.flash = 1.2; st3.hopT = 0; st3.big = true; }, update:function(dt, T){
