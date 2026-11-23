@@ -2249,12 +2249,18 @@ function moonStars(){
 var MOON_SUN = new THREE.Vector3(-0.62, 0.34, 0.7).normalize();   // low sun behind-left: long shadows run out the window, the Earth shows almost full
 var MOON_EARTH = new THREE.Vector3(-0.02, 0.27, -1).normalize();   // up in the top pane when you stand at the glass
 function makeEarth(){
-  var tex = new THREE.TextureLoader().load('tex/earth.jpg'); tex.anisotropy = 4;
-  var u = { map:{value:tex}, sunDir:{value:MOON_SUN}, t:{value:0} }; uniformsList.push(u);
+  var u = { map:{value:null}, has:{value:0}, sunDir:{value:MOON_SUN}, t:{value:0} }; uniformsList.push(u);
+  (function load(n){   // the photo of the Earth; until it arrives (or if it can't), a painted blue planet stands in
+    if(makeEarth.tex){ u.map.value = makeEarth.tex; u.has.value = 1; return; }
+    new THREE.TextureLoader().load('tex/earth.jpg' + (n ? '?r='+n : ''), function(t){ t.anisotropy = 4; t.__keep = true; makeEarth.tex = t; u.map.value = t; u.has.value = 1; },
+      undefined, function(){ if(n < 3) setTimeout(function(){ load(n+1); }, 4000*(n+1)); });
+  })(0);
   var m = new THREE.ShaderMaterial({ uniforms:u, fog:false,
     vertexShader:'varying vec2 vUv; varying vec3 vN; varying vec3 vW; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:'uniform sampler2D map; uniform vec3 sunDir; varying vec2 vUv; varying vec3 vN; varying vec3 vW;'+
-      'void main(){ vec3 n=normalize(vN), v=normalize(cameraPosition-vW); vec3 c=pow(texture2D(map,vUv).rgb, vec3(2.2));'+
+    fragmentShader:'uniform sampler2D map; uniform float has; uniform vec3 sunDir; varying vec2 vUv; varying vec3 vN; varying vec3 vW;'+PEAK_GLSL+
+      'void main(){ vec3 n=normalize(vN), v=normalize(cameraPosition-vW); vec3 c;'+
+      ' if(has>0.5) c=pow(texture2D(map,vUv).rgb, vec3(2.2));'+
+      ' else { float l=fbm(vUv*vec2(9.,5.)), cl=fbm(vUv*vec2(16.,9.)+4.); c=mix(vec3(0.02,0.08,0.3), vec3(0.12,0.2,0.07), smoothstep(0.52,0.58,l)); c=mix(c, vec3(0.9), smoothstep(0.55,0.75,cl)*0.8); c=mix(c, vec3(0.9), smoothstep(0.82,0.95,abs(vUv.y-0.5)*2.)); }'+
       ' float l=dot(n,sunDir), day=smoothstep(-0.08,0.25,l);'+
       ' vec3 col=c*(0.04+1.35*max(l,0.)*day) + vec3(0.002,0.004,0.012)*(1.-day);'+
       ' float spec=pow(max(dot(reflect(-sunDir,n),v),0.),40.)*day*(1.-smoothstep(0.25,0.45,c.g+c.r));'+       // the sun glints off the oceans
@@ -2265,7 +2271,7 @@ function makeEarth(){
   e.position.copy(MOON_EARTH).multiplyScalar(580); e.rotation.z = 0.41; e.rotation.y = 2.3; e.renderOrder = 0; e.frustumCulled = false;
   // halo of the atmosphere around the disk
   var hc = document.createElement('canvas'); hc.width = hc.height = 128; var hx = hc.getContext('2d'), hg = hx.createRadialGradient(64,64,42,64,64,64);
-  hg.addColorStop(0,'rgba(120,170,255,0.5)'); hg.addColorStop(0.35,'rgba(90,140,255,0.16)'); hg.addColorStop(1,'rgba(60,110,255,0)'); hx.fillStyle = hg; hx.fillRect(0,0,128,128);
+  hg.addColorStop(0,'rgba(120,170,255,0.5)'); hg.addColorStop(0.35,'rgba(90,140,255,0.16)'); hg.addColorStop(1,'rgba(60,110,255,0)'); hx.fillStyle = hg; hx.fillRect(0,0,128,128); hx.globalCompositeOperation = 'destination-out'; hx.beginPath(); hx.arc(64,64,40,0,7); hx.fill();
   var halo = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(hc), blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, fog:false }));
   halo.scale.set(110, 110, 1); halo.position.copy(e.position); halo.renderOrder = 0;
   var g = new THREE.Group(); g.add(halo); g.add(e); earthMesh = e; return g;
