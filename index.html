@@ -830,7 +830,7 @@ function sunAt(d){                                   // Seoul (37.57N, 126.98E),
 }
 function peakSun(){
   var F = { dawn:{e:1.2, az:118}, day:{e:31, az:172}, dusk:{e:1.2, az:242}, night:{e:-30, az:330} };
-  return forcedPhase ? F[forcedPhase] : sunAt(peakClock());
+  return (forcedPhase && peakHour === null) ? F[forcedPhase] : sunAt(peakClock());
 }
 function peakPhase(){ var s = peakSun(); return s.e < -7 ? 'night' : s.e < 7 ? (s.az < 180 ? 'dawn' : 'dusk') : 'day'; }
 // the winter sunrise (azimuth ~115°) sits straight out of the window (-z), south to the right: it comes up through the glass
@@ -858,14 +858,14 @@ function peakUniforms(){
   if(peakU) return peakU;
   peakU = { t:{value:0}, sunDir:{value:new THREE.Vector3(0,1,0)}, sunUp:{value:1}, lowSun:{value:0},
     zen:{value:new THREE.Color()}, hor:{value:new THREE.Color()}, haze:{value:new THREE.Color()}, ridge:{value:new THREE.Color()},
-    mist:{value:new THREE.Color()}, glow:{value:new THREE.Color()}, sunCol:{value:new THREE.Color()}, cloud:{value:new THREE.Color()}, dens:{value:1} };
+    mist:{value:new THREE.Color()}, glow:{value:new THREE.Color()}, sunCol:{value:new THREE.Color()}, cloud:{value:new THREE.Color()}, dens:{value:1}, cloudA:{value:1} };
   uniformsList.push(peakU);
   return peakU;
 }
 function peakSkyMaterial(){
   var m = new THREE.ShaderMaterial({ uniforms:peakUniforms(), side:THREE.BackSide, depthWrite:false, fog:false,
     vertexShader:'varying vec3 vP; void main(){ vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-    fragmentShader:'uniform vec3 sunDir,zen,hor,haze,glow,sunCol,cloud; uniform float t,sunUp,lowSun; varying vec3 vP;'+PEAK_GLSL+
+    fragmentShader:'uniform vec3 sunDir,zen,hor,haze,glow,sunCol,cloud; uniform float t,sunUp,lowSun,cloudA; varying vec3 vP;'+PEAK_GLSL+
       'void main(){ vec3 d=normalize(vP); float h=d.y, hp=max(h,0.); float s=max(dot(d,sunDir),0.);'+
       ' float az=dot(normalize(d.xz+1e-5),normalize(sunDir.xz+1e-5))*.5+.5;'+
       ' vec3 c=mix(hor, zen, pow(min(hp*1.5,1.),0.5));'+
@@ -873,7 +873,7 @@ function peakSkyMaterial(){
       ' c=mix(c, haze, (1.-smoothstep(-0.01,0.05,h))*0.55); if(h<0.) c=mix(haze, c, 0.3);'+
       ' if(h>0.){ vec2 cp=d.xz/(h+0.1)*1.3+vec2(t*0.006,t*0.002); float cl=fbm(cp)*0.75+fbm(cp*2.7+5.)*0.25;'+
       '   cl=smoothstep(0.56,0.74,cl)*smoothstep(0.03,0.14,h)*(1.-smoothstep(0.45,0.85,h));'+
-      '   vec3 cc=cloud*(0.82+0.3*pow(s,4.)) + glow*pow(s,10.)*0.6; c=mix(c, cc, cl*0.85); }'+
+      '   vec3 cc=cloud*(0.82+0.3*pow(s,4.)) + glow*pow(s,10.)*0.6; c=mix(c, cc, cl*0.85*cloudA); }'+
       ' c+=sunCol*(pow(s,900.)*7.+pow(s,90.)*0.6)*sunUp;'+
       ' float disk=smoothstep(0.99955,0.99972,s)*sunUp; c=mix(c, sunCol*(4.+3.*(1.-lowSun)), disk);'+
       ' gl_FragColor=vec4(c,1.);\n'+OUT+'}' });
@@ -969,7 +969,7 @@ function addPeakVista(group){
 }
 function updatePeak(force){
   var u = peakU, s = peakSun(), P = peakPalette(s.e, s.az > 180), d = peakDir(s);
-  u.sunDir.value.copy(d); u.sunUp.value = sm(-3, -0.4, s.e); u.lowSun.value = 1 - sm(4, 22, s.e); u.dens.value = P.dens;
+  u.sunDir.value.copy(d); u.sunUp.value = sm(-3, -0.4, s.e); u.cloudA.value = sm(-13, -4, s.e);   // no clouds smudging the night sky u.lowSun.value = 1 - sm(4, 22, s.e); u.dens.value = P.dens;
   u.zen.value.copy(P.zen); u.hor.value.copy(P.hor); u.haze.value.copy(P.haze); u.ridge.value.copy(P.ridge);
   u.mist.value.copy(P.mist); u.glow.value.copy(P.glow); u.sunCol.value.copy(P.sun); u.cloud.value.copy(P.cloud);
   if(scene.fog) scene.fog.color.copy(P.haze);
@@ -1186,7 +1186,7 @@ function makeWindow(group){
   var gr = x.createLinearGradient(0,0,256,128); gr.addColorStop(0,'rgba(255,255,255,0)'); gr.addColorStop(0.33,'rgba(255,255,255,0)'); gr.addColorStop(0.4,'rgba(255,255,255,.55)'); gr.addColorStop(0.47,'rgba(255,255,255,0)'); gr.addColorStop(0.6,'rgba(255,255,255,0)'); gr.addColorStop(0.63,'rgba(255,255,255,.3)'); gr.addColorStop(0.66,'rgba(255,255,255,0)');
   x.fillStyle=gr; x.fillRect(0,0,256,128);
   var stTex = new THREE.CanvasTexture(cv); stTex.encoding = THREE.sRGBEncoding;
-  var st = new THREE.Mesh(new THREE.PlaneGeometry(W,y1-y0), new THREE.MeshBasicMaterial({map:stTex, transparent:true, opacity:0.12, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false}));
+  var st = new THREE.Mesh(new THREE.PlaneGeometry(W,y1-y0), new THREE.MeshBasicMaterial({map:stTex, transparent:true, opacity: curPhase==='night' ? 0.03 : cfg.peak && curPhase!=='day' ? 0.05 : 0.1, blending:THREE.AdditiveBlending,   /* faint at night: exposure is high */ depthWrite:false, side:THREE.DoubleSide, fog:false}));
   st.position.set(0,(y0+y1)/2,0.002); group.add(st);
   if(cfg.lamp || grade.lights){
     group.add(box(0.07,2.9,0.07,'#2b2b2b',2.9,1.1,1.9,0.4));
@@ -1348,7 +1348,7 @@ function makeNature(group){
   if(f.bush) plant(group, 'bush', scatter(R, f.bush, 5, 40, {view:true, s0:0.6, s1:1.1}), {tint:f.tint ? f.tint.slice(0,3) : null, shadow:true});
   if(f.bushf) plant(group, 'bushf', scatter(R, f.bushf, 4.5, 35, {view:true, s0:0.55, s1:1.0}), {shadow:true});
   if(cfg.peak){ if(!granite.rock){ granite.rock = granite().clone(); granite.rock.repeat.set(2.2,2.2); granite.rock.needsUpdate = true; granite.rock.__keep = true; } var rockMap = granite.rock;
-    var onTop = function(t){ return Math.hypot(t.x,t.z) < peakRim(t.x,t.z)+0.2 && seatOn(t, 1.1*t.s, 0.45) && hitsSolid(t.x, t.z, 0.9, null) === null; };
+    var onTop = function(t){ return !(Math.abs(t.x) < 3.8 && t.z > -1.4 && t.z < 6) && Math.hypot(t.x,t.z) < peakRim(t.x,t.z)+0.2 &&   /* keep the standing spot and the view clear */ seatOn(t, 1.1*t.s, 0.45) && hitsSolid(t.x, t.z, 0.9, null) === null; };
     plant(group, 'rock1', scatter(R, 70, 3.9, 10, {view:true, s0:0.3, s1:0.8}).filter(onTop).slice(0,22), {tintOther:f.rockTint, shadow:true, map:rockMap}); plant(group, 'rock2', scatter(R, 200, 4.2, 10, {view:true, s0:0.25, s1:0.75}).filter(onTop).slice(0,20), {tintOther:f.rockTint, shadow:true, map:rockMap}); }
   if(f.rocks) plant(group, 'rock'+(1+Math.floor(R()*2)), scatter(R, f.rocks, 5, 45, {shore:-0.4, s0:f.rockS ? f.rockS[0] : 0.3, s1:f.rockS ? f.rockS[1] : 0.9}).filter(function(t){ return !cfg.peak || seatOn(t, 1.1*t.s, 0.6); }), {tintOther:f.rockTint||null, shadow:true, map:cfg.peak ? rockMap : null});
   if(f.flowers){ var fl = scatter(R, f.flowers, 3.8, 30, {s0:0.35, s1:0.6}); plant(group, 'flower3', fl.filter(function(t){return t.r<0.5;})); plant(group, 'flower4', fl.filter(function(t){return t.r>=0.5;})); }
