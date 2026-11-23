@@ -4242,14 +4242,26 @@ function makeSkyFx(){
   var mg = new THREE.BufferGeometry(), mp = new Float32Array(12), ma = new Float32Array(8);
   [[0,-1],[0,1],[1,-1],[1,1]].forEach(function(v,i){ ma[i*2]=v[0]; ma[i*2+1]=v[1]; });
   mg.setAttribute('position', new THREE.BufferAttribute(mp,3)); mg.setAttribute('aV', new THREE.BufferAttribute(ma,2)); mg.setIndex([0,2,1, 1,2,3]);
-  var mu = { head:{value:new THREE.Vector3()}, tail:{value:new THREE.Vector3()}, a:{value:0}, w:{value:2.6} };
+  var mu = { head:{value:new THREE.Vector3()}, tail:{value:new THREE.Vector3()}, a:{value:0}, w:{value:2.2}, bf:{value:0.4} };
   var mm = new THREE.ShaderMaterial({ uniforms:mu, transparent:true, depthWrite:false, fog:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
     vertexShader:'attribute vec2 aV; uniform vec3 head,tail; uniform float w; varying vec2 vV; void main(){ vV=aV;'+
       ' vec4 h=viewMatrix*vec4(cameraPosition+head,1.), t=viewMatrix*vec4(cameraPosition+tail,1.); vec4 p=mix(t,h,aV.x);'+
       ' vec2 d=normalize(h.xy/h.z - t.xy/t.z + 1e-6); p.xy += vec2(-d.y,d.x)*aV.y*w*(0.25+0.75*aV.x); gl_Position=projectionMatrix*p; }',
-    fragmentShader:'uniform float a; varying vec2 vV; void main(){ float k=pow(vV.x,2.2)*(1.-vV.y*vV.y); float head=smoothstep(0.93,1.,vV.x)*(1.-abs(vV.y));'+
-      ' vec3 c=mix(vec3(0.55,0.75,1.0), vec3(1.0,0.97,0.9), vV.x)*(k*3.2+head*8.); gl_FragColor=vec4(c*a, 1.);\n'+OUT+'}' });
+    fragmentShader:'uniform float a,bf; varying vec2 vV; void main(){ float x=vV.x, y=vV.y;'+
+      // bright part close to the head, a long faint ionised train behind it; thin hot core inside a soft glow
+      ' float hot=pow(smoothstep(1.-bf, 1., x), 2.2), train=smoothstep(0.,0.5,x)*0.16;'+
+      ' float core=exp(-y*y*38.), glow=exp(-y*y*3.5);'+
+      ' vec3 headC=vec3(0.86,1.0,0.92), midC=vec3(1.0,0.78,0.5), oldC=vec3(0.6,0.7,1.0);'+
+      ' vec3 c=mix(mix(oldC, midC, smoothstep(0.2, 0.75, x)), headC, smoothstep(0.85, 1., x));'+
+      ' float I=(hot*(core*3.2+glow*0.55) + train*(core*0.9+glow*0.25));'+
+      ' gl_FragColor=vec4(c*I*a, 1.);\n'+OUT+'}' });
   var meteor = new THREE.Mesh(mg, mm); meteor.frustumCulled = false; meteor.renderOrder = 3; meteor.visible = false;
+  // the burning head: a small hot point with a halo
+  var hc = document.createElement('canvas'); hc.width = hc.height = 64; var hx = hc.getContext('2d'), hg = hx.createRadialGradient(32,32,0,32,32,32);
+  hg.addColorStop(0,'rgba(255,255,255,1)'); hg.addColorStop(0.12,'rgba(230,255,240,0.9)'); hg.addColorStop(0.35,'rgba(170,230,210,0.25)'); hg.addColorStop(1,'rgba(120,180,255,0)');
+  hx.fillStyle = hg; hx.fillRect(0,0,64,64);
+  var headS = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(hc), blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, fog:false }));
+  headS.renderOrder = 3; headS.visible = false; scene.add(headS);
   // rainbow: drawn on a big sphere around the camera, an arc of 42° around a point just under the horizon (with a faint second bow)
   var ru = { c:{value:new THREE.Vector3(0,0,-1)}, a:{value:0} };
   var rm = new THREE.ShaderMaterial({ uniforms:ru, transparent:true, depthWrite:false, fog:false, side:THREE.BackSide,
@@ -4262,19 +4274,22 @@ function makeSkyFx(){
       ' float al=max(b1,b2)*up*a; if(al<0.002) discard; gl_FragColor=vec4(col*1.15+vec3(0.05), al);\n'+OUT+'}' });
   var bow = new THREE.Mesh(new THREE.SphereGeometry(480, 48, 24), rm); bow.renderOrder = 2; bow.frustumCulled = false; bow.visible = false;
   scene.add(meteor); scene.add(bow);
-  skyFx = { meteor:meteor, mu:mu, bow:bow, ru:ru, m:null, b:null, nextM:performance.now()+20000+Math.random()*30000, nextB:performance.now()+90000+Math.random()*120000, lastToast:0 };
+  skyFx = { meteor:meteor, headS:headS, mu:mu, bow:bow, ru:ru, m:null, b:null, nextM:performance.now()+20000+Math.random()*30000, nextB:performance.now()+90000+Math.random()*120000, lastToast:0 };
 }
+function slerpDir(a, b, t){ var o = a.angleTo(b); if(o < 1e-5) return a.clone(); var so = Math.sin(o); return a.clone().multiplyScalar(Math.sin((1-t)*o)/so).addScaledVector(b, Math.sin(t*o)/so); }
 function camYaw(){ var f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); return Math.atan2(f.x, -f.z); }
 function shootStar(){
   var s = skyFx; if(!s) return;
   // mostly somewhere you are looking, sometimes anywhere in the sky
   var yaw = Math.random()<0.7 ? camYaw() + (Math.random()-0.5)*0.8 : Math.random()*Math.PI*2;
-  var el = (24+Math.random()*18)*Math.PI/180, dirA = (Math.random()<0.5?-1:1)*(0.35+Math.random()*0.5), len = (12+Math.random()*12)*Math.PI/180;
   function dirOf(y, e){ return new THREE.Vector3(Math.sin(y)*Math.cos(e), Math.sin(e), -Math.cos(y)*Math.cos(e)); }
-  var from = {y:yaw, e:el}, to = {y:yaw + Math.cos(dirA)*len*Math.sign(dirA), e:el - Math.abs(Math.sin(dirA))*len*0.8 - len*0.25};
-  s.m = { t:0, dur:0.75+Math.random()*0.6, from:from, to:to, dirOf:dirOf };
-  s.meteor.visible = true;
-  var f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion), mid = dirOf((from.y+to.y)/2, (from.e+to.e)/2);
+  // all the way down: from high in the sky to below the horizon, along a great circle, slanting left or right
+  var rad = Math.PI/180, el = (28+Math.random()*14)*rad, endE = -5*rad, slant = (Math.random()<0.5?-1:1)*(12+Math.random()*45)*rad;
+  var dy = (el-endE)*Math.tan(slant)/Math.cos((el+endE)/2);
+  var A = dirOf(yaw - dy*0.35, el), B = dirOf(yaw + dy*0.65, endE), L = A.angleTo(B);
+  s.m = { t:0, A:A, B:B, L:L, dur:L/((26+Math.random()*16)*rad), fade:0.7, flare:0.55+Math.random()*0.35, seed:Math.random()*10 };
+  s.meteor.visible = true; s.headS.visible = true;
+  var f = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion), mid = A.clone().add(B).normalize();
   if(f.dot(mid) > 0.6 && !modal && performance.now() - s.lastToast > 150000 && $('intro').style.display==='none'){ s.lastToast = performance.now(); setTimeout(function(){ toast('유성이 떨어졌어요. 소원 하나 빌어 볼까요'); }, 500); }
 }
 function showRainbow(){
@@ -4289,13 +4304,19 @@ function updateSkyFx(dt){
   s.bow.position.copy(camera.position);
   if(!s.m && now > s.nextM && !document.hidden){ shootStar(); s.nextM = now + 25000 + Math.random()*55000; }
   if(s.m){
-    var m = s.m; m.t += dt; var k = Math.min(1, m.t/m.dur), e = 1-Math.pow(1-k, 2);
-    var hy = m.from.y+(m.to.y-m.from.y)*e, he = m.from.e+(m.to.e-m.from.e)*e, tk = Math.max(0, e-0.4-0.1*k);
-    var ty = m.from.y+(m.to.y-m.from.y)*tk, te = m.from.e+(m.to.e-m.from.e)*tk;
-    s.mu.head.value.copy(m.dirOf(hy, he)).multiplyScalar(470); s.mu.tail.value.copy(m.dirOf(ty, te)).multiplyScalar(470);
+    var m = s.m; m.t += dt;
+    var k = Math.min(1, m.t/m.dur), after = Math.max(0, m.t - m.dur)/m.fade;      // steady speed to the horizon, then the train fades
+    var trainA = 16*Math.PI/180, hk = k, tk = Math.max(0, k - trainA/m.L) + after*(k - Math.max(0, k - trainA/m.L));
+    var H = slerpDir(m.A, m.B, hk), T = slerpDir(m.A, m.B, Math.min(hk - 0.002, tk));
+    s.mu.head.value.copy(H).multiplyScalar(470); s.mu.tail.value.copy(T).multiplyScalar(470);
+    s.mu.bf.value = Math.min(0.9, (7*Math.PI/180) / Math.max(1e-3, (hk-tk)*m.L));
     var day = curPhase==='day' && !(grade && grade.fixedNight) ? 2.4 : 1;
-    s.mu.a.value = Math.min(1, k*6) * (1 - sm(0.7, 1, k)) * day;
-    if(k >= 1){ s.m = null; s.meteor.visible = false; }
+    var fl = 1 + 0.9*Math.exp(-Math.pow((k-m.flare)/0.07, 2)) + 0.12*Math.sin(m.t*90+m.seed);   // it flares once on the way down, and flickers
+    var bright = sm(0, 0.08, k) * fl * day;
+    s.mu.a.value = bright * (1 - sm(0, 1, after));
+    s.headS.position.copy(camera.position).addScaledVector(H, 470);
+    var hsz = (5 + 4*fl) * (after > 0 ? 0 : 1); s.headS.scale.set(hsz, hsz, 1); s.headS.material.opacity = Math.min(1, bright*0.8);
+    if(after >= 1){ s.m = null; s.meteor.visible = false; s.headS.visible = false; }
   }
   if(!s.b && now > s.nextB && !document.hidden){ if(Math.random() < 0.35) showRainbow(); s.nextB = now + 60000 + Math.random()*90000; }
   if(s.b){
