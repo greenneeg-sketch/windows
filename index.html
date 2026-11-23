@@ -196,6 +196,13 @@
   #intro p{margin:0 0 8px;font-size:15px;line-height:1.6;color:#E6E1D6}
   .ye{margin-top:16px;width:100%;text-align:left;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,214,140,.55);background:linear-gradient(135deg,rgba(255,196,110,.22),rgba(255,140,120,.14));color:#F4F1EA;font:inherit;cursor:pointer;display:block}
   .ye b{display:block;font-size:16px;color:#FFE2A8;margin-bottom:3px} .ye span{font-size:13px;opacity:.85}
+  #capRow{display:flex;flex-direction:column;gap:8px;margin:4px 0}
+  .ye.cap{border-color:rgba(190,220,255,.6);background:linear-gradient(135deg,rgba(150,200,255,.22),rgba(255,210,150,.14))} .ye.cap b{color:#DDEBFF} .ye.cap[disabled]{cursor:default;opacity:.8}
+  .cheers{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:420px}
+  .cheers:empty{display:none}
+  .cheers button{border:0;border-radius:999px;padding:8px 12px;background:rgba(244,241,234,.14);color:#F4F1EA;font:500 13px 'Noto Sans KR',sans-serif;cursor:pointer}
+  .cheers button.on{background:#FFE2A8;color:#2A2420} .cheers button[disabled]{cursor:default} .cheers b{margin-left:4px;font-weight:600;opacity:.85}
+  .cheers .lbl{width:100%;text-align:center;font-size:12px;color:rgba(244,241,234,.7)}
   .news{margin-top:16px;padding:14px;border-radius:16px;background:rgba(255,201,77,.14);border:1px solid rgba(255,201,77,.45);display:flex;flex-direction:column;gap:8px}
   .news[hidden]{display:none}
   .news h3{margin:0;font-size:15px;color:#FFE08F}
@@ -400,9 +407,25 @@
       <p class="muted" id="edHelp" style="flex:1">손가락으로 아무 곳에나 자유롭게 써요</p>
       <button class="tbtn" id="delSel" style="display:none;flex-shrink:0">선택 지우기</button>
     </div>
+    <div id="capRow">
+      <div class="seg" role="group" aria-label="보낼 곳"><button id="sendWin" class="on">창에 붙이기</button><button id="sendCap">✉️ 미래의 나에게</button></div>
+      <div id="capWhen" class="seg" role="group" aria-label="도착할 때" style="display:none"><button data-open="week">일주일 뒤</button><button data-open="month" class="on">한 달 뒤</button><button data-open="newyear">새해 첫날</button></div>
+      <p id="capHelp" class="muted" style="display:none;margin:0">그날이 올 때까지 나만 아는 봉인된 포스트잇이에요. 다른 사람에게는 보이지 않아요.</p>
+    </div>
     <label id="placeRow"><input type="checkbox" id="showPlace" checked> 내 지역(시·도)을 작게 남기기</label>
     <button class="primary" id="stick" disabled>창문에 붙이기</button>
     <p class="legal">붙이면 <a href="terms.html" target="_blank">이용약관</a>과 <a href="privacy.html" target="_blank">개인정보처리방침</a>에 동의하는 거예요</p>
+  </div>
+</div>
+
+<div id="capScrim" class="scrim">
+  <div class="sheet" role="dialog" aria-labelledby="capTitle">
+    <div class="row"><h2 id="capTitle">미래의 나에게 보냈어요 ✉️</h2><div style="flex:1"></div>
+      <button class="close" data-close="capScrim" aria-label="닫기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg></button></div>
+    <p id="capWhenTxt" style="margin:0;font-size:16px"></p>
+    <p id="capPushTxt" class="muted" style="margin:0"></p>
+    <button class="primary" id="capPush">도착하면 알림 받기</button>
+    <button class="primary" data-close="capScrim" style="background:#2A2E3C;color:#F4F1EA">좋아요</button>
   </div>
 </div>
 
@@ -428,6 +451,7 @@
     </div>
     <div id="rCount"></div>
     <div id="readerMeta"></div>
+    <div id="cheerRow" class="cheers"></div>
     <div id="careLine" hidden>이 글이 마음에 걸린다면 하트로 곁에 있어 주세요.<button id="careFromReader">도움 안내</button></div>
     <div class="pillrow">
       <button class="pill" id="heartBtn" style="background:#FF9EC4;color:#3A1424">♥ 공감</button>
@@ -517,6 +541,7 @@
   <h1 aria-label="숨글"><span class="m1">숨</span><span class="m2">글</span><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q50 1 98 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg></h1>
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
   <p>그날 마음에 맞는 창 앞에 서서,<br>사람들이 남긴 포스트잇을 읽고 한 장 붙이고 가요.</p>
+  <button id="capArrive" class="ye cap" hidden></button>
   <button id="yearEnd" class="ye" hidden></button>
   <div id="news" class="news" hidden></div>
   <button id="today" hidden aria-label="오늘의 한 장 읽으러 가기"></button>
@@ -2057,10 +2082,84 @@ function makeCritters(group){
   addBand(critterGroup);
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
   addSanctuary(critterGroup);
+  addPlant(critterGroup);
   if(cfg.water==='sea') addShore(critterGroup);
   if(cfg.water==='sea' || cfg.water==='farsea'){ addShark(critterGroup); addDolphins(critterGroup); }
   if(cfg.water==='sea') addFish(critterGroup, cfg.id==='busan' ? ['Fish1','Fish2'] : ['Fish1','Fish3']);
   if(cfg.id==='newyear' || cfg.id==='busan') addWhale(critterGroup);
+}
+// ---------- 창가 화분: my own little pot on the sill; water it once a day and it grows, it never wilts ----------
+function plantState(){ var s = store.get('sumgeul-plant'); if(!s){ s = {w:0, last:'', hue:['#FF9EC4','#FFD166','#B9A7FF','#FFFFFF','#FF8A65'][Math.floor(Math.random()*5)]}; store.set('sumgeul-plant', s); } return s; }
+function leafGeo(L, W){
+  var sh = new THREE.Shape(); sh.moveTo(0,0); sh.quadraticCurveTo(W, L*0.35, 0, L); sh.quadraticCurveTo(-W, L*0.35, 0, 0);
+  var g = new THREE.ShapeGeometry(sh, 6); return g;
+}
+function buildPlant(pg, st){
+  while(pg.children.length) pg.remove(pg.children[0]);
+  var stage = Math.min(6, st.w), green = new THREE.MeshLambertMaterial({color:col('#5DA34A'), side:THREE.DoubleSide}), dark = new THREE.MeshLambertMaterial({color:col('#3E7F35'), side:THREE.DoubleSide});
+  var stemH = [0, 0.035, 0.07, 0.11, 0.14, 0.16, 0.17][stage];
+  pg.userData.leaves = [];
+  if(stage === 0){ var seed = new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), new THREE.MeshLambertMaterial({color:col('#8a6a3a')})); seed.position.y = 0.003; seed.scale.y = 0.6; pg.add(seed); return; }
+  var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.0028, 0.0038, stemH, 6), green); stem.position.y = stemH/2; pg.add(stem);
+  var nl = [0, 2, 4, 6, 6, 8, 8][stage];
+  for(var i=0;i<nl;i++){
+    var t = nl<=2 ? 1 : 0.25 + 0.65*(i/(nl-1)), L = (stage===1 ? 0.026 : 0.046 + 0.012*Math.sin(i*1.7)) * (1.1 - 0.3*t), lf = new THREE.Mesh(leafGeo(L, L*0.45), i%2 ? dark : green);
+    var hold = new THREE.Group(); hold.position.y = stemH*t; hold.rotation.y = i*2.4; lf.rotation.z = -1.05 + 0.25*t; lf.rotation.x = 0.15;
+    hold.add(lf); pg.add(hold); pg.userData.leaves.push(lf);
+  }
+  if(stage === 4){ var bud = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), new THREE.MeshLambertMaterial({color:col('#7DB35E')})); bud.position.y = stemH + 0.008; bud.scale.y = 1.4; pg.add(bud);
+    var tip = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshLambertMaterial({color:col(st.hue)})); tip.position.y = stemH + 0.02; pg.add(tip); }
+  function flower(x, y, z, s){
+    var f = new THREE.Group(); f.position.set(x, y, z); f.scale.setScalar(s*1.35); f.rotation.x = -0.35;
+    var pm = new THREE.MeshLambertMaterial({color:col(st.hue), side:THREE.DoubleSide});
+    for(var k=0;k<6;k++){ var p = new THREE.Mesh(new THREE.CircleGeometry(0.012, 10), pm); p.scale.set(0.75, 1.25, 1); var h = new THREE.Group(); h.rotation.y = 0; h.rotation.z = k/6*Math.PI*2; p.position.y = 0.014; h.add(p); f.add(h); }
+    var c = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8), new THREE.MeshLambertMaterial({color:col('#F2B632')})); c.scale.z = 0.5; f.add(c);
+    var face = new THREE.Group(); face.rotation.x = -Math.PI/2; face.add(f); f.rotation.x = Math.PI/2 - 0.5; pg.add(face); return face;
+  }
+  if(stage >= 5) flower(0, stemH + 0.01, 0, 1);
+  if(stage >= 6){ var s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.003, 0.09, 5), green); s2.position.set(0.02, 0.06, 0.01); s2.rotation.z = -0.35; pg.add(s2); flower(0.036, 0.105, 0.012, 0.75);
+    var s3 = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.003, 0.075, 5), green); s3.position.set(-0.018, 0.05, -0.01); s3.rotation.z = 0.4; pg.add(s3); flower(-0.033, 0.088, -0.014, 0.65); }
+}
+var PLANT_SAY = [
+  ['씨앗이 물을 꿀꺽 마셨어요', '흙 속에서 뭔가 꼼지락거려요'],
+  ['싹이 났어요! 내일도 와 줄 거죠?', '작은 떡잎 두 장이 인사해요'],
+  ['잎이 하나씩 늘고 있어요', '햇빛 쪽으로 몸을 기울였어요'],
+  ['쑥쑥 자라는 중이에요', '창밖 풍경을 보는 게 좋대요'],
+  ['꽃봉오리가 생겼어요!', '곧 무슨 색인지 보여 줄게요'],
+  ['꽃이 폈어요 🌸 기다려 줘서 고마워요', '오늘도 와 줘서 활짝 웃었어요'],
+  ['꽃이 더 늘었어요. 매일 와 줘서 고마워요', '이 창가가 제일 좋아요']
+];
+function addPlant(group){
+  var st = plantState(), o = new THREE.Group(), sx = 1.32, sz = 0.17;
+  o.position.set(sx, 0.44, sz); o.scale.setScalar(1.8);   // a proper windowsill pot, about 25 cm
+  var pts = [new THREE.Vector2(0.0,0), new THREE.Vector2(0.048,0), new THREE.Vector2(0.052,0.008), new THREE.Vector2(0.064,0.1), new THREE.Vector2(0.072,0.104), new THREE.Vector2(0.072,0.118), new THREE.Vector2(0.062,0.118), new THREE.Vector2(0.058,0.11)];
+  var pot = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), new THREE.MeshLambertMaterial({color:col('#C96F4A'), side:THREE.DoubleSide})); pot.castShadow = hq; o.add(pot);
+  var soil = new THREE.Mesh(new THREE.CircleGeometry(0.058, 20), new THREE.MeshLambertMaterial({color:col('#4A3326')})); soil.rotation.x = -Math.PI/2; soil.position.y = 0.106; o.add(soil);
+  var pg = new THREE.Group(); pg.position.y = 0.106; o.add(pg); buildPlant(pg, st);
+  var drops = new THREE.Group(); o.add(drops);
+  group.add(o);
+  var today = kstDate(), grow = 0, splash = 0;
+  var c = { o:o, kind:'plant', headY:0.62, petR:2.4,
+    calm:function(){
+      var s = plantState(), was = Math.min(6, s.w);
+      if(s.last === kstDate()){ this.line = s.w >= 5 ? '오늘은 충분히 마셨어요. 내일 또 만나요 🌱' : '오늘 물은 다 마셨어요. 내일 또 와 줘요 🌱'; splash = 0.6; return; }
+      s.w++; s.last = kstDate(); store.set('sumgeul-plant', s); bump('plant_water');
+      var now = Math.min(6, s.w); if(now !== was){ buildPlant(pg, s); grow = 1; }
+      var L = PLANT_SAY[now]; this.line = L[Math.floor(Math.random()*L.length)]; splash = 1.4;
+      while(drops.children.length) drops.remove(drops.children[0]);
+      var dm = new THREE.MeshBasicMaterial({color:col('#BFE3FF'), transparent:true, opacity:0.85});
+      for(var i=0;i<9;i++){ var d = new THREE.Mesh(new THREE.SphereGeometry(0.0045, 6, 5), dm); d.position.set((Math.random()-0.5)*0.06, 0.28 + Math.random()*0.12, (Math.random()-0.5)*0.06); d.userData.v = 0; drops.add(d); }
+    },
+    say:function(){ return this.line || ''; },
+    update:function(dt, T){
+      this.petR = plantState().last === kstDate() ? 1.3 : 2.4;   /* once watered today, it stops calling from afar */
+      pg.rotation.z = Math.sin(T*1.3)*0.035; pg.rotation.x = Math.sin(T*0.9+1)*0.02;
+      if(grow > 0){ grow = Math.max(0, grow - dt*1.2); var k = 1 - grow; pg.scale.setScalar(0.6 + 0.4*(1 - Math.pow(1-k, 3)) + Math.sin(k*Math.PI)*0.12); }
+      if(splash > 0){ splash -= dt; (pg.userData.leaves||[]).forEach(function(l, i){ l.rotation.x = 0.15 + Math.sin(T*14 + i)*0.12*Math.max(0, splash); }); }
+      for(var i=drops.children.length-1;i>=0;i--){ var d = drops.children[i]; d.userData.v += dt*2.4; d.position.y -= d.userData.v*dt; if(d.position.y < 0.11) drops.remove(d); }
+      return true;
+    } };
+  critters.push(c);
 }
 // ---------- 동해 일출: a giant paper crane on a rock in the sea, gulls that land on it, foam rolling onto the beach ----------
 function triMesh(tris, color){
@@ -2420,7 +2519,7 @@ var THOUGHTS = {
   band: ['우리 넷이 모이면 뭐든 할 수 있어요', '꼬꼬, 맨 위는 경치가 좋아요… 조금 무섭지만', '아래서 받쳐주는 친구가 있어서 괜찮아요', '우리 노래 들어볼래요?', '흔들려도 같이 버티면 돼요', '오늘 밤 여기서 작은 연주회를 해요'],
   squirrel: ['도토리 숨긴 곳… 까먹었어요', '볼에 간식 가득이에요', '오물오물, 잠깐만요', '꼬리가 제 자랑이에요', '겨울 준비 거의 다 했어요', '당신도 뭔가 모으고 있나요?']
 };
-var KIND_NAME = { panda:'판다', shark:'부캉이 친구', crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
+var KIND_NAME = { plant:'내 화분', panda:'판다', shark:'부캉이 친구', crab:'게', band:'숨글 음악대', Deer:'사슴', Stag:'수사슴', Fox:'여우', Horse:'말', Horse_White:'흰 말', rabbit:'토끼', squirrel:'다람쥐' };
 var lastThought = {}, petNear = null, bubble = { c:null, t:0 };
 function contextThought(){
   if(wx()==='rain') return ['비 냄새가 좋아요', '빗소리 들으면 졸려요'];
@@ -2445,12 +2544,13 @@ function nearestPet(){
 }
 $('petBtn').addEventListener('pointerdown', function(e){ e.preventDefault(); e.stopPropagation(); hideHint(); var c = petNear || nearestPet(); if(!c) return;
   c.calm(); bump('pet'); bump('pet_'+c.kind.toLowerCase().slice(0,8));
-  var b = $('bubble'); b.innerHTML = ''; var sm = document.createElement('small'); sm.textContent = KIND_NAME[c.kind]||''; b.appendChild(sm); b.appendChild(document.createTextNode(pickThought(c.kind)));
+  var b = $('bubble'); b.innerHTML = ''; var sm = document.createElement('small'); sm.textContent = KIND_NAME[c.kind]||''; b.appendChild(sm); b.appendChild(document.createTextNode(c.say ? c.say() : pickThought(c.kind)));
   bubble.c = c; bubble.t = 4.6; b.style.opacity = 1; if(navigator.vibrate) try{ navigator.vibrate(12); }catch(_){} });
-var _bv = new THREE.Vector3();
+var _bv = new THREE.Vector3(), petLbl = '교감';
 function updatePet(dt){
   petNear = (!modal && !placing) ? nearestPet() : null;
   $('petBtn').classList.toggle('on', !!petNear);
+  var pl = petNear && petNear.kind==='plant' ? '물 주기' : '교감'; if(petLbl !== pl){ petLbl = pl; $('petBtn').querySelector('span').textContent = pl; }
   if(bubble.c){
     bubble.t -= dt; var b = $('bubble'), c = bubble.c;
     _bv.set(c.o.position.x, c.o.position.y + c.headY + 0.12, c.o.position.z).project(camera);
@@ -3112,8 +3212,8 @@ function serverMsg(e){ for(var k in SERVER_MSG){ if(e && e.message && e.message.
 function lifeDays(h){ return Math.min(180, 30 + (h||0)*2); }
 function fromServer(row){
   var days = (Date.now() - new Date(row.created_at).getTime())/86400000;
-  return { id:row.id, server:true, spot:(row.spot&&row.spot.length===6)?row.spot:undefined, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0,
-           age:Math.min(1, Math.max(0, days/lifeDays(row.hearts))), left:Math.max(0, Math.ceil(lifeDays(row.hearts)-days)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts };
+  return { id:row.id, server:true, spot:(row.spot&&row.spot.length===6)?row.spot:undefined, place:row.place||undefined, c:row.c, x:row.x, y:row.y, r:row.r, strokes:row.strokes||[], texts:row.texts||[], h:row.hearts||0, cheers:row.cheers||{},
+           age:Math.min(1, Math.max(0, days/lifeDays(row.hearts))), left:Math.max(0, Math.ceil(lifeDays(row.hearts)-days)), mine: !!tokens()[row.id], sig: row.updated_at+'|'+row.hearts+'|'+JSON.stringify(row.cheers||{}) };
 }
 var syncSig = '', syncing = false, syncGen = 0, syncAgain = false;
 // any change I make (post, move, edit, delete) bumps syncGen, so a fetch that started before it can't paint the old state back
@@ -3132,7 +3232,7 @@ $('careFromReader').addEventListener('click', function(){ openCare('혹시 이 �
 function syncRegion(force){
   if(syncing || !world) return; syncing = true;
   var region = cfg.id, gen = syncGen;
-  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,place,spot,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
+  sbFetch('/rest/v1/notes?select=id,x,y,r,c,strokes,texts,hearts,cheers,place,spot,created_at,updated_at&region=eq.'+region+'&order=created_at.asc&limit=150')
   .then(function(rows){
     syncing = false;
     if(gen !== syncGen || syncAgain){ syncAgain = false; syncRegion(true); return; }
@@ -3365,6 +3465,7 @@ function openComposer(mesh){
   ed.hist=[]; ed.sel=null; ed.cur=null; ed.drag=null;
   $('composeTitle').textContent = mesh ? '내 포스트잇 수정' : '포스트잇 쓰기';
   $('quota').textContent = mesh ? '' : '오늘 '+leftToday()+'장 남음';
+  $('capRow').style.display = mesh ? 'none' : 'flex'; setCap(false);
   $('placeRow').style.display = mesh ? 'none' : 'flex';
   var pv = store.get('yurichang-showplace'); $('showPlace').checked = pv===null ? true : !!pv;
   $('stick').textContent = mesh ? '수정 완료' : (pending && pending.spot ? (pending.kind==='back' ? '창문 뒷면에 붙이기' : stickName(pending.kind)+'에 붙이기') : '창문에 붙이기');
@@ -3381,6 +3482,7 @@ $('stick').addEventListener('click', function(){
   ed.sel=null;
   ed.texts.forEach(function(t){ delete t.bad; });
   var btn = $('stick');
+  if(capMode && !ed.editing){ sendCapsule(btn); return; }
   if(ed.editing){
     var em = ed.editing, n = em.userData.note, strokes = ed.strokes, texts = ed.texts, c = ed.c;
     if(n.server){
@@ -3466,6 +3568,7 @@ function openReader(mesh){
   $('delBtn').style.display = n.mine ? '' : 'none';
   $('moveBtn').style.display = n.mine ? '' : 'none';
   $('reportBtn').style.display = n.mine ? 'none' : '';
+  renderCheers(n);
 }
 $('heartBtn').addEventListener('click', function(){
   if(!reading) return; var n = reading.userData.note; if(n.liked) return;
@@ -3477,6 +3580,29 @@ $('heartBtn').addEventListener('click', function(){
   refreshNote(reading);
   $('heartBtn').textContent='♥ 공감했어요'; $('readerMeta').textContent='♥ '+n.h;
 });
+// ---------- 응원 스티커: a few kind words only, no free text ----------
+var CHEERS = [['same','🤝','나도 그래요'],['cheer','💪','힘내요'],['hug','🫂','토닥토닥'],['ok','🍀','잘될 거예요']];
+function myCheers(){ return store.get('sumgeul-cheer') || {}; }
+function renderCheers(n){
+  var row = $('cheerRow'), cs = n.cheers || {}, mine = myCheers()[n.id]; row.innerHTML = '';
+  if(n.mine){
+    var any = CHEERS.filter(function(k){ return cs[k[0]]; }); if(!any.length) return;
+    var l = document.createElement('div'); l.className = 'lbl'; l.textContent = '받은 응원'; row.appendChild(l);
+    any.forEach(function(k){ var b = document.createElement('button'); b.disabled = true; b.innerHTML = k[1]+' '+k[2]+'<b>'+cs[k[0]]+'</b>'; row.appendChild(b); });
+    return;
+  }
+  if(!n.server) return;
+  CHEERS.forEach(function(k){
+    var b = document.createElement('button'); b.className = mine===k[0] ? 'on' : ''; b.innerHTML = k[1]+' '+k[2]+(cs[k[0]] ? '<b>'+cs[k[0]]+'</b>' : '');
+    b.addEventListener('click', function(){
+      var prev = myCheers()[n.id]; if(prev === k[0]) return;
+      if(prev && cs[prev]) cs[prev]--; cs[k[0]] = (cs[k[0]]||0) + 1; n.cheers = cs;
+      var m = myCheers(); m[n.id] = k[0]; store.set('sumgeul-cheer', m); renderCheers(n); bump('cheers'); if(!prev) toast(k[2]+' · 응원을 남겼어요');
+      sbRpc('cheer_note', {p_id:n.id, p_device:deviceId(), p_kind:k[0]}).then(function(r){ if(r && typeof r==='object'){ n.cheers = r; if(reading && reading.userData.note===n) renderCheers(n); } }, function(){});
+    });
+    row.appendChild(b);
+  });
+}
 $('editBtn').addEventListener('click', function(){ var m=reading; closeModal('readerScrim'); openComposer(m); });
 var delArm = false;
 $('delBtn').addEventListener('click', function(){
@@ -3706,7 +3832,9 @@ else {                                   // the opening view changes every visit
   cfg = pool[Math.floor(Math.random()*pool.length)];
   try{ localStorage.setItem('sumgeul_bg', cfg.id); }catch(e){}
 }
-if(linkedH.id) setTimeout(function(){ openAfterSync = linkedH.id; syncRegion(true); }, 0);
+if(linkedH.id){ var lc = caps().filter(function(c){ return c.id===linkedH.id; })[0];
+  if(lc) setTimeout(function(){ if(new Date(lc.open_at) <= Date.now()) openCapsule(lc); }, 900);
+  else setTimeout(function(){ openAfterSync = linkedH.id; syncRegion(true); }, 0); }
 
 function shareOrCopy(data, okMsg){
   bump('shares');
@@ -3789,6 +3917,10 @@ function makeCard(n, bg, kind){
     for(var sp=0; sp<26; sp++){ var sx=60+Math.random()*(W-120), sy=230+Math.random()*1300; if(Math.abs(sx-W/2)<420 && sy>440 && sy<1340) continue;
       var sr=2+Math.random()*5; x.fillStyle='rgba(255,236,190,'+(0.35+Math.random()*0.5)+')'; x.beginPath(); x.moveTo(sx,sy-sr*2.2); x.lineTo(sx+sr*0.5,sy); x.lineTo(sx,sy+sr*2.2); x.lineTo(sx-sr*0.5,sy); x.closePath(); x.fill();
       x.beginPath(); x.moveTo(sx-sr*2.2,sy); x.lineTo(sx,sy+sr*0.5); x.lineTo(sx+sr*2.2,sy); x.lineTo(sx,sy-sr*0.5); x.closePath(); x.fill(); }
+  } else if(kind==='capsule'){
+    x.font='400 70px "Noto Sans KR", sans-serif'; x.fillText('✉️', W/2, 320);
+    x.fillStyle = '#DDEBFF'; x.font='700 50px "Noto Serif KR","Nanum Myeongjo",serif'; x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=18;
+    x.fillText(n.capAgo+'의 나에게서', W/2, 400); x.shadowBlur=0;
   } else if(kind==='hearts'){
     x.fillStyle = '#FF8FA3'; x.font='700 64px "Noto Sans KR", sans-serif'; x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=18;
     x.fillText('♥ '+(n.h||0), W/2, 330); x.shadowBlur=0;
@@ -3804,12 +3936,71 @@ function makeCard(n, bg, kind){
   if(meta.length){ x.fillStyle='rgba(255,255,255,.85)'; x.font='400 32px "Noto Sans KR", sans-serif'; x.fillText(meta.join('   ·   '), W/2, 1400); }
   // footer: hairline + invitation + address
   x.fillStyle='rgba(255,255,255,.35)'; x.fillRect(W/2-40, 1660, 80, 2);
-  x.fillStyle='rgba(255,255,255,.82)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText(kind==='yearend' ? '#올해의나에게 · 나도 한 줄 남기러 가기' : '나도 한 장 붙이러 가기', W/2, 1730);
+  x.fillStyle='rgba(255,255,255,.82)'; x.font='400 30px "Noto Sans KR", sans-serif'; x.fillText(kind==='yearend' ? '#올해의나에게 · 나도 한 줄 남기러 가기' : kind==='capsule' ? '#미래의나에게 · 나도 보내러 가기' : '나도 한 장 붙이러 가기', W/2, 1730);
   x.fillStyle='rgba(255,255,255,.55)'; x.font='400 26px "Noto Sans KR", sans-serif';
   x.fillText(pageUrl().replace(/^https?:\/\//,'').replace(/index\.html$/,'').replace(/\/$/,''), W/2, 1780);
   return cv;
 }
 var postCard = null;
+// ---------- 미래의 나에게: a sealed post-it that comes back to you later ----------
+var capMode = false, capOpen = 'month', capStick = '';
+function caps(){ return store.get('sumgeul-caps') || []; }
+function saveCaps(a){ store.set('sumgeul-caps', a); }
+function setCap(on){
+  if(on && !capMode) capStick = $('stick').textContent;
+  capMode = on; $('sendWin').classList.toggle('on', !on); $('sendCap').classList.toggle('on', on);
+  $('capWhen').style.display = on ? '' : 'none'; $('capHelp').style.display = on ? '' : 'none'; $('placeRow').style.display = on ? 'none' : 'flex';
+  $('stick').textContent = on ? '미래의 나에게 보내기' : (capStick || $('stick').textContent);
+}
+$('sendWin').addEventListener('click', function(){ setCap(false); });
+$('sendCap').addEventListener('click', function(){ bump('capsule_mode'); setCap(true); });
+Array.prototype.forEach.call(document.querySelectorAll('#capWhen button'), function(b){ b.addEventListener('click', function(){
+  capOpen = b.getAttribute('data-open'); Array.prototype.forEach.call(document.querySelectorAll('#capWhen button'), function(x){ x.classList.toggle('on', x===b); }); }); });
+function kDate(iso){ var d = new Date(new Date(iso).getTime() + 9*3600e3); return d.getUTCFullYear()+'년 '+(d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일'; }
+function capAgo(c){
+  var o = new Date(c.open_at), cr = new Date(c.created_at), days = Math.round((o - cr)/864e5);
+  if(new Date(o.getTime()+9*3600e3).getUTCMonth()===0 && new Date(o.getTime()+9*3600e3).getUTCDate()===1 && days > 0 && c.kind==='newyear') return new Date(cr.getTime()+9*3600e3).getUTCFullYear()+'년';
+  return days <= 9 ? '일주일 전' : days <= 35 ? '한 달 전' : days+'일 전';
+}
+function sendCapsule(btn){
+  var texts = ed.texts, strokes = ed.strokes, c = ed.c, kind = capOpen;
+  btn.disabled = true;
+  sbRpc('post_capsule', {p_device:deviceId(), p_region:cfg.id, p_c:c, p_strokes:strokes, p_texts:texts, p_open:kind}).then(function(res){
+    var a = caps(); a.push({id:res.id, region:cfg.id, open_at:res.open_at, created_at:new Date().toISOString(), kind:kind, c:c, strokes:strokes, texts:texts}); saveCaps(a);
+    bump('capsule_'+kind); closeModal('composeScrim'); pending = null; setPlacing(false); YE.flow = false; showCapsules();
+    if(isCrisis(texts)) setTimeout(function(){ openCare(); }, 600); else showCapSent(res.open_at);
+  }, function(e){ toast(e.network ? '인터넷 연결을 확인해 주세요' : serverMsg(e)); }).then(function(){ btn.disabled = false; });
+}
+function showCapSent(openAt){
+  $('capWhenTxt').textContent = kDate(openAt)+'에 도착해요. 그때까지는 나만 아는 봉인된 편지예요.';
+  var pb = $('capPush'); pb.style.display = 'none';
+  function say(t){ $('capPushTxt').textContent = t; }
+  if(IOS && !standalone()) say('공유 → 홈 화면에 추가해 두면 도착 알림을 받을 수 있어요. 아니어도 그날 숨글에 들어오면 첫 화면에서 기다리고 있어요.');
+  else if(!pushable()) say('그날 숨글에 들어오면 첫 화면에서 기다리고 있어요.');
+  else navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
+    if(sub) say('도착하는 날 알림으로 알려드릴게요.'); else { say('알림을 켜 두면 도착하는 날 알려드려요.'); pb.style.display = ''; } }, function(){});
+  openModal('capScrim');
+}
+$('capPush').addEventListener('click', function(){ this.style.display = 'none'; $('capPushTxt').textContent = '도착하는 날 알림으로 알려드릴게요.'; $('pushSw').click(); });
+// arrivals: first screen shows what came back, and how many are still sealed
+function showCapsules(){
+  var now = Date.now(), a = caps(), arrived = a.filter(function(c){ return new Date(c.open_at) <= now && !c.opened; }), sealed = a.filter(function(c){ return new Date(c.open_at) > now; });
+  var b = $('capArrive');
+  if(arrived.length){ var c = arrived[0]; b.disabled = false; b.innerHTML = '<b>✉️ '+capAgo(c)+'의 내가 보낸 포스트잇이 도착했어요</b><span>눌러서 열어 보세요'+(arrived.length>1 ? ' · 도착한 편지 '+arrived.length+'장' : '')+'</span>'; b.hidden = false; b.onclick = function(e){ e.stopPropagation(); openCapsule(c); }; }
+  else if(sealed.length){ sealed.sort(function(x,y){ return new Date(x.open_at)-new Date(y.open_at); }); var dd = Math.max(1, Math.ceil((new Date(sealed[0].open_at)-now)/864e5));
+    b.disabled = true; b.onclick = null; b.innerHTML = '<b>✉️ 봉인된 포스트잇 '+sealed.length+'장</b><span>가장 빠른 도착까지 '+dd+'일 남았어요</span>'; b.hidden = false; }
+  else b.hidden = true;
+}
+function openCapsule(c){
+  bump('capsule_open');
+  var a = caps(); a.forEach(function(x){ if(x.id===c.id) x.opened = true; }); saveCaps(a); showCapsules();
+  sbRpc('open_capsule', {p_device:deviceId(), p_id:c.id}).catch(function(){});
+  var r = regionById(c.region); if(r && r !== cfg){ cfg = r; build(); }
+  enterWorld();
+  setTimeout(function(){ postCard = {n:{c:c.c, strokes:c.strokes||[], texts:c.texts||[], age:0, h:0, capAgo:capAgo(c)}, hash:cfg.slug, kind:'capsule'}; }, 1600);
+}
+showCapsules();
+setInterval(showCapsules, 60000);
 // ---------- year-end campaign: "2026, 올해의 나에게 한 줄" (until New Year's Eve, Korean time) ----------
 function kstDate(){ var d = new Date(Date.now() + 9*3600e3); return d.toISOString().slice(0,10); }
 var YE = { on: kstDate() >= '2026-11-22' && kstDate() <= '2026-12-31', flow:false, year:'2026' };
@@ -3825,7 +4016,7 @@ if(YE.on){
 function makePostCard(){   // runs right after a render, while the frame is still in the canvas
   var pc = postCard; postCard = null; if(modal) return;
   var cv = makeCard(pc.n, renderer.domElement, pc.kind);
-  cv.toBlob(function(b){ if(!b || modal) return; bump(pc.kind==='hearts' ? 'heartcard_open' : 'postcard_open'); cardHash = pc.hash; showImage(b, fileName('card','jpg'), pc); }, 'image/jpeg', 0.93);
+  cv.toBlob(function(b){ if(!b || modal) return; bump(pc.kind==='hearts' ? 'heartcard_open' : pc.kind==='capsule' ? 'capcard_open' : 'postcard_open'); cardHash = pc.hash; showImage(b, fileName('card','jpg'), pc); }, 'image/jpeg', 0.93);
 }
 function openCard(mesh){
   var nn = mesh.userData.note; cardHash = cfg.slug + (nn.server ? '/'+nn.id : '');
@@ -3843,10 +4034,11 @@ function showImage(b, name, post){
   var kind = post && post.kind;
   var stext = kind==='yearend' ? YE.year+', 올해의 나에게 한 줄 남겼어요 ✉️ #올해의나에게 #숨글'
             : kind==='hearts' ? '내 포스트잇에 공감 '+post.n.h+'개가 달렸어요 ♥ #숨글'
+            : kind==='capsule' ? post.n.capAgo+'의 나에게서 포스트잇이 도착했어요 ✉️ #미래의나에게 #숨글'
             : post ? '오늘 '+cfg.name+' 창에 마음 한 줄 붙이고 왔어요 🪟' : '누군가 '+cfg.name+' 창에 남긴 한 줄 🪟';
   shareCtx = { text:stext, hash:cardHash || cfg.slug, blob:b, name:cardName }; cardHash = '';
-  $('cardT1').textContent = kind==='yearend' ? YE.year+'년의 나에게 붙였어요' : kind==='hearts' ? '공감 '+post.n.h+'개를 받은 포스트잇이에요' : '포스트잇을 붙였어요';
-  $('cardT2').textContent = kind==='yearend' ? '연말 카드로 간직하고, 친구에게도 "너도 써 봐" 해 볼까요?' : kind==='hearts' ? '누군가 내 마음에 고개를 끄덕였어요. 이 순간을 나눠 볼까요?' : '친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요';
+  $('cardT1').textContent = kind==='capsule' ? post.n.capAgo+'의 내가 보낸 포스트잇이에요' : kind==='yearend' ? YE.year+'년의 나에게 붙였어요' : kind==='hearts' ? '공감 '+post.n.h+'개를 받은 포스트잇이에요' : '포스트잇을 붙였어요';
+  $('cardT2').textContent = kind==='capsule' ? '그때의 마음, 지금은 어때요? 오늘의 나도 한 장 보내 볼까요' : kind==='yearend' ? '연말 카드로 간직하고, 친구에게도 "너도 써 봐" 해 볼까요?' : kind==='hearts' ? '누군가 내 마음에 고개를 끄덕였어요. 이 순간을 나눠 볼까요?' : '친구에게도 보여줄까요? 링크를 누르면 이 포스트잇 앞으로 바로 와요';
   $('cardTitle').style.display = post ? '' : 'none'; $('cardBox').classList.toggle('post', !!post); $('cardShare').textContent = post ? '스토리·SNS에 올리기' : '공유하기';
   if(cardUrl) URL.revokeObjectURL(cardUrl); cardUrl = URL.createObjectURL(b);
   $('cardImg').src = cardUrl;
@@ -4081,13 +4273,13 @@ function markSeen(id, h){ var m=seenMap(); m[id]=h; store.set('yurichang-seen', 
 function showNews(items){
   var box=$('news'); box.innerHTML='';
   if(!items.length){ box.hidden=true; return; }
-  var total=items.reduce(function(a,b){ return a+b.add; },0);
-  var h=document.createElement('h3'); h.textContent='지난번 이후 내 포스트잇에 공감 '+total+'개가 달렸어요'; box.appendChild(h);
+  var total=items.reduce(function(a,b){ return a+b.add; },0), ctot=items.reduce(function(a,b){ return a+(b.cadd||0); },0);
+  var h=document.createElement('h3'); h.textContent='지난번 이후 내 포스트잇에 '+[total ? '공감 '+total+'개' : '', ctot ? '응원 '+ctot+'개' : ''].filter(Boolean).join(', ')+'가 달렸어요'; box.appendChild(h);
   items.slice(0,3).forEach(function(it){
     var r=null; REGIONS.forEach(function(x){ if(x.id===it.region) r=x; });
     var b=document.createElement('button'), sw=document.createElement('i'), sp=document.createElement('span'), bb=document.createElement('b');
     sw.style.background=CHEX[it.c]||'#FFE45C';
-    sp.textContent=(r? r.name+' 창 · ':'')+(it.text||'그림 포스트잇'); bb.textContent='♥ +'+it.add;
+    sp.textContent=(r? r.name+' 창 · ':'')+(it.text||'그림 포스트잇'); bb.textContent=(it.add ? '♥ +'+it.add : '')+(it.cadd ? (it.add?' ':'')+'🤝 +'+it.cadd : '');
     b.appendChild(sw); b.appendChild(sp); b.appendChild(bb);
     b.addEventListener('click', function(e){ e.stopPropagation(); bump('news_open'); if(r){ bragId = it.id; openNoteIn(r, it.id); } else enterWorld(); });
     box.appendChild(b);
@@ -4202,13 +4394,14 @@ function fetchToday(){
 function fetchNews(){
   var ids = Object.keys(tokens()).filter(function(k){ return /^[0-9a-f-]{36}$/.test(k); });
   if(!ids.length) return;
-  sbFetch('/rest/v1/notes?select=id,region,c,texts,hearts&id=in.('+ids.join(',')+')').then(function(rows){
+  sbFetch('/rest/v1/notes?select=id,region,c,texts,hearts,cheers&id=in.('+ids.join(',')+')').then(function(rows){
     if(!rows) return;
     var seen=seenMap(), items=[];
     rows.forEach(function(r){
       var before = seen[r.id]===undefined ? 0 : seen[r.id];
-      if(r.hearts>before) items.push({id:r.id, region:r.region, c:r.c, add:r.hearts-before, text:(r.texts&&r.texts[0]&&r.texts[0].t)||''});
-      markSeen(r.id, r.hearts);
+      var ct = 0; for(var ck in (r.cheers||{})) ct += r.cheers[ck]; var sc = store.get('sumgeul-seenc') || {}, cb = sc[r.id] === undefined ? 0 : sc[r.id];
+      if(r.hearts>before || ct>cb) items.push({id:r.id, region:r.region, c:r.c, add:Math.max(0, r.hearts-before), cadd:Math.max(0, ct-cb), text:(r.texts&&r.texts[0]&&r.texts[0].t)||''});
+      markSeen(r.id, r.hearts); sc[r.id] = ct; store.set('sumgeul-seenc', sc);
     });
     items.sort(function(a,b){ return b.add-a.add; });
     if($('intro').style.display!=='none') showNews(items);
