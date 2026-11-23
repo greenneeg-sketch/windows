@@ -1238,13 +1238,62 @@ function frameBox(w,h,d,x,y,z){
   var g = new THREE.BoxGeometry(w,h,d); tileBox(g,w,h,d);
   var m = new THREE.Mesh(g, fm); m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; return m;
 }
+// the Moon's window: a white station porthole with rounded corners, bolts, blue light strips and a console below
+function spaceFrame(group, W, y0, y1){
+  function mat(c, r, m){ var x = new THREE.MeshStandardMaterial({ color:col(c), roughness:r, metalness:m||0 }); x.userData.pbr = 0.6; return x; }
+  var hull = mat('#E9ECF0', 0.45, 0.15), gasket = mat('#2B2F37', 0.6), strut = mat('#C9CED6', 0.35, 0.4), boltM = mat('#9AA1AB', 0.35, 0.6), panel = mat('#3A3F49', 0.5);
+  var glowM = new THREE.MeshBasicMaterial({ color:col('#7FDBFF').multiplyScalar(2.2), toneMapped:false, fog:false });
+  function bx(w, h, d, m, x, y, z){ var o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; group.add(o); return o; }
+  function cyl(r, d, m, x, y, z, seg){ var o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d, seg||20), m); o.rotation.x = Math.PI/2; o.position.set(x, y, z); o.castShadow = true; group.add(o); return o; }
+  var T = 0.26, cx = W/2 + T/2 - 0.02, ym = (y0+y1)/2, H = y1 - y0;
+  bx(T, H, 0.34, hull, -cx, ym, 0); bx(T, H, 0.34, hull, cx, ym, 0);
+  bx(W, T, 0.34, hull, 0, y1 + T/2 - 0.02, 0); bx(W, T, 0.34, hull, 0, y0 - T/2 + 0.02, 0);
+  [[-cx, y1 + T/2 - 0.02], [cx, y1 + T/2 - 0.02], [-cx, y0 - T/2 + 0.02], [cx, y0 - T/2 + 0.02]].forEach(function(p){ cyl(T*0.98, 0.34, hull, p[0], p[1], 0, 24); });
+  // dark rubber seal round the glass
+  bx(0.05, H, 0.2, gasket, -W/2 + 0.02, ym, 0); bx(0.05, H, 0.2, gasket, W/2 - 0.02, ym, 0); bx(W, 0.05, 0.2, gasket, 0, y1 - 0.02, 0); bx(W, 0.05, 0.2, gasket, 0, y0 + 0.02, 0);
+  // slim struts where the wooden bars were
+  [-0.667, 0.667].forEach(function(x){ bx(0.07, H, 0.09, strut, x, ym, 0); }); bx(W, 0.07, 0.09, strut, 0, 1.75, 0);
+  // bolts on both faces
+  [0.175, -0.175].forEach(function(z){
+    for(var i=0;i<9;i++){ var x = -1.85 + i*0.4625; cyl(0.028, 0.03, boltM, x, y1 + 0.11, z, 8); cyl(0.028, 0.03, boltM, x, y0 - 0.11, z, 8); }
+    for(var j=0;j<6;j++){ var y = y0 + 0.15 + j*0.44; cyl(0.028, 0.03, boltM, -cx, y, z, 8); cyl(0.028, 0.03, boltM, cx, y, z, 8); } });
+  // blue light strips
+  bx(2.6, 0.03, 0.01, glowM, 0, y1 + 0.2, 0.172); bx(2.6, 0.03, 0.01, glowM, 0, y1 + 0.2, -0.172);
+  // console under the window, with a few status lamps and a name plate
+  bx(W + 0.7, 0.42, 0.62, hull, 0, 0.14, 0.1); bx(W + 0.4, 0.2, 0.02, panel, 0, 0.18, 0.415);
+  ['#7CFF9E', '#FFC65C', '#7FDBFF', '#7FDBFF', '#FF7A7A'].forEach(function(c, i){ var l = new THREE.Mesh(new THREE.CircleGeometry(0.03, 12), new THREE.MeshBasicMaterial({ color:col(c).multiplyScalar(2), toneMapped:false, fog:false })); l.position.set(1.0 + i*0.14, 0.18, 0.427); group.add(l); });
+  var cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; var x = cv.getContext('2d');
+  x.fillStyle = '#20242c'; x.fillRect(0, 0, 512, 96); x.strokeStyle = '#7FDBFF'; x.lineWidth = 4; x.strokeRect(6, 6, 500, 84);
+  x.fillStyle = '#dff6ff'; x.font = '600 44px "Noto Sans KR", sans-serif'; x.textAlign = 'center'; x.fillText('MOON BASE · 그리운 창', 256, 63);
+  var pt = new THREE.CanvasTexture(cv); pt.encoding = THREE.sRGBEncoding; pt.anisotropy = 4;
+  var plate = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.28), new THREE.MeshBasicMaterial({ map:pt, toneMapped:false, fog:false })); plate.position.set(-1.0, 0.18, 0.427); group.add(plate);
+}
+// station modules around the window: CC0 Quaternius "Ultimate Space Kit"
+var baseGLTF = null;
+function addMoonBase(group){
+  var gen = critterGroup;
+  if(!baseGLTF) baseGLTF = new Promise(function(ok, no){ if(!THREE.GLTFLoader) return no(); new THREE.GLTFLoader().load('models/space/moonbase.glb', ok, undefined, no); });
+  baseGLTF.then(function(g){
+    if(critterGroup !== gen) return;
+    var byName = {}; g.scene.children.forEach(function(n){ byName[n.name] = n; });
+    function put(name, x, z, ry, sc, r, dy){ var src = byName[name]; if(!src) return; var o = src.clone(true); o.position.set(x, moonH(x, z) - 0.05 + (dy||0)*sc, z); o.rotation.y = ry; o.scale.setScalar(sc);
+      o.traverse(function(m){ if(m.isMesh){ m.castShadow = hq; m.receiveShadow = true; m.material = m.material.clone(); m.material.roughness = 0.75; m.material.metalness = 0; } }); group.add(o); if(r) colliders.push({ x:x, z:z, r:r }); return o; }
+    put('House_Cylinder', -15, -17, 0.6, 0.9, 2.6); put('Roof_Radar', -15, -17, 0.6, 0.9);
+    put('GeodesicDome', 14, -22, 0, 0.85, 3.6);
+    put('Roof_Antenna', 9.5, -15.5, 0.3, 0.9, 0.6, -4.07);
+    put('SolarPanel_Ground', 7.5, -11, -0.4, 1, 0.6); put('SolarPanel_Ground', 9, -10.2, -0.4, 1, 0.6); put('SolarPanel_Ground', 10.5, -9.4, -0.4, 1, 0.6);
+    put('Rover_1', -8, -13.5, 0.9, 0.55, 1.6);
+  }, function(){});
+}
 function makeWindow(group){
   var wood = '#4a3729', dark = '#33261d';
   var W=4, y0=0.5, y1=3.0;
+  if(cfg.moon) spaceFrame(group, W, y0, y1); else {
   [-2,-0.667,0.667,2].forEach(function(x,i){ var tk=i===0||i===3?0.16:0.1; group.add(frameBox(tk, y1-y0+0.16, 0.14, x, (y0+y1)/2, 0)); });
   [y0,1.75,y1].forEach(function(y,i){ group.add(frameBox(W+0.16, i===1?0.1:0.16, 0.14, 0, y, 0)); });
   group.add(box(0.12,1.0,0.12,dark,-1.9,0.01,0)); group.add(box(0.12,1.0,0.12,dark,1.9,0.01,0));   // posts run down into the ground
   group.add(frameBox(W+0.3,0.06,0.34,0,y0-0.09,0.12));
+  }
   var gm = new THREE.MeshPhysicalMaterial({color:col('#eef6ff'), metalness:0, roughness:0.04, transmission:1, transparent:true, side:THREE.DoubleSide, depthWrite:false});
   gm.userData.pbr = 0.45;
   glassMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, y1-y0), gm); glassMesh.position.set(0,(y0+y1)/2,0); group.add(glassMesh);
@@ -2127,7 +2176,7 @@ function makeCritters(group){
   if(cfg.id==='newyear') addSunriseSea(critterGroup);
   addSanctuary(critterGroup);
   addPlant(critterGroup);
-  if(cfg.moon){ addMoonRabbits(critterGroup); makeFootprints(critterGroup); }
+  if(cfg.moon){ addMoonRabbits(critterGroup); addMoonBase(critterGroup); makeFootprints(critterGroup); }
   if(cfg.water==='sea') addShore(critterGroup);
   if(cfg.water==='sea' || cfg.water==='farsea'){ addShark(critterGroup); addDolphins(critterGroup); }
   if(cfg.water==='sea') addFish(critterGroup, cfg.id==='busan' ? ['Fish1','Fish2'] : ['Fish1','Fish3']);
@@ -2440,6 +2489,8 @@ function addMoonRabbits(group){
     var hnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.85, 8), wood); hnd.position.y = -0.4; pestle.add(hnd);
     var hp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.26, 14), wood); hp.rotation.x = Math.PI/2; hp.position.y = -0.85; hp.castShadow = hq; pestle.add(hp);
     var vS = new THREE.Vector3(), vE = new THREE.Vector3(), vT = new THREE.Vector3(), qd = new THREE.Quaternion(), qp = new THREE.Quaternion(), qb = new THREE.Quaternion();
+    var qCurl = new THREE.Quaternion().setFromAxisAngle(AX, -1.05), curl = Object.keys(r1.bones).filter(function(n){ return /^(Index|Middle|Pinky)[123]/.test(n); }).map(function(n){ return r1.bones[n]; });
+    var qTh = new THREE.Quaternion().setFromAxisAngle(AX, -0.6); Object.keys(r1.bones).filter(function(n){ return /^Thumb2/.test(n); }).forEach(function(n){ curl.push(r1.bones[n]); });
     function reach(n, side){   // turn the upper arm so the hand lands on the handle
       var ua = r1.bones['UpperArm'+n], la = r1.bones['LowerArm'+n]; if(!ua || !la) return;
       ua.getWorldPosition(vS); la.getWorldPosition(vE);
@@ -2454,6 +2505,7 @@ function addMoonRabbits(group){
         var k = (T % 1.25)/1.25, lift = k < 0.6 ? Math.sin(k/0.6*Math.PI/2) : 1 - Math.pow((k-0.6)/0.4, 2.2);   // slow lift, quick strike
         if(st1.flash > 0.8) lift = 0.6;
         pestle.rotation.x = -1.35 - lift*1.65;
+        curl.forEach(function(bn){ bn.quaternion.multiply(qCurl); });   // fists around the handle
         r1.o.updateMatrixWorld(true); reach('L', 1); reach('R', -1);
       if(k < st1.last && st1.flash <= 0.8){ tteok.scale.set(1.12, 0.36, 1.12); for(var i=0;i<5;i++){ var f = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9})); f.position.set(mx + (R()-0.5)*0.2, mortar.position.y + 0.5, mz + (R()-0.5)*0.2); f.userData.v = new THREE.Vector3((R()-0.5)*0.6, 0.5 + R()*0.6, (R()-0.5)*0.6); f.userData.t = 1.6; flour.add(f); } }
       st1.last = k; tteok.scale.x += (1 - tteok.scale.x)*dt*4; tteok.scale.z = tteok.scale.x; tteok.scale.y += (0.45 - tteok.scale.y)*dt*4;
@@ -3626,7 +3678,9 @@ function gateSpot(dir){
   if(cfg.peak){   // small summit crowded with pines: turn a little until the way in is clear
     var a0 = Math.atan2(dx, dz);
     for(var k=0;k<13;k++){ var aa = a0 + (k%2 ? 1 : -1)*Math.ceil(k/2)*0.18, ex = Math.sin(aa), ez = Math.cos(aa), r0 = peakRim(ex*9, ez*9) - 1.0, ok = true;
+      while(r0 > 3 && meshH(ex*r0, ez*r0) < meshH(ex*(r0-2), ez*(r0-2)) - 0.2) r0 -= 0.25;   // stay on the flat top, not down the drop
       for(var q = 0; q <= 4.5 && ok; q += 0.75) if(hitsSolid(ex*(r0-q), ez*(r0-q), 0.7, null)) ok = false;
+      gates.forEach(function(o){ if(Math.hypot(o.x-ex*r0, o.z-ez*r0) < 5) ok = false; });
       if(ok || k===12) return { x:ex*r0, z:ez*r0, dx:ex, dz:ez, y:yAt(ex*r0, ez*r0) }; }
   }
   for(var r = cfg.moon ? 15 : 26; r > 7; r -= 0.5){ var x = dx*r, z = dz*r;
