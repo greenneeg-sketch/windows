@@ -2558,29 +2558,83 @@ function makeRain(){
     fragmentShader:'varying float vA; void main(){ gl_FragColor=vec4(vec3(0.82,0.86,0.92), vA); }' });
   var ls = new THREE.LineSegments(g, m); ls.frustumCulled = false; return ls;
 }
-// raindrops sitting on and running down the glass: a small canvas redrawn a few times a second
-var dropsTex = null, drops = null, dropsCv = null, dropsT = 0;
+// raindrops on the glass: little lenses, not dots. Each one shows the world flipped upside down (ground on top,
+// sky at the bottom), with a dark refracting rim, a bright caustic underneath and a pin of highlight; fine mist
+// in between; heavy drops break loose, run down in jerks, swallow what they hit and leave a clear wet trail of beads.
+var dropsTex = null, drops = null, dropsCv = null, dropsT = 0, dropSt = null, dropMist = null, dropSpr = null, dropRun = null, dropDirty = false;
+var DW = 1024, DH = 640, dropRep = 0;
+function dropSprite(r, seed, sky, gnd){
+  var R = rng(seed), pad = 3, w = Math.ceil(r*2 + pad*2), h = Math.ceil(r*2.3 + pad*2), cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  var x = cv.getContext('2d'), cx = w/2, cy = pad + r*1.15, ph = [R()*6, R()*6, R()*6], am = [0.05+R()*0.05, 0.03+R()*0.04, 0.02+R()*0.02];
+  function shape(k){ x.beginPath(); for(var i=0;i<=40;i++){ var a = i/40*Math.PI*2, rr = r*k*(1 + am[0]*Math.sin(2*a+ph[0]) + am[1]*Math.sin(3*a+ph[1]) + am[2]*Math.sin(5*a+ph[2]));
+      var sy = Math.sin(a) > 0 ? 1.12 : 0.94;   // gravity: fuller at the bottom, a little flatter on top
+      var px = cx + Math.cos(a)*rr, py = cy + Math.sin(a)*rr*sy; i ? x.lineTo(px,py) : x.moveTo(px,py); } x.closePath(); }
+  // body: the world seen through it, upside down
+  shape(1); var g = x.createLinearGradient(0, cy-r, 0, cy+r*1.1);
+  g.addColorStop(0, gnd); g.addColorStop(0.45, gnd); g.addColorStop(0.62, sky); g.addColorStop(1, sky); x.fillStyle = g; x.globalAlpha = 0.62; x.fill();
+  // refracting rim: dark at the edge, thicker on top
+  x.globalAlpha = 1; var rg = x.createRadialGradient(cx, cy+r*0.12, r*0.45, cx, cy, r*1.08);
+  rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.72, 'rgba(10,14,22,0.10)'); rg.addColorStop(1, 'rgba(8,10,16,0.62)'); x.fillStyle = rg; shape(1); x.fill();
+  // caustic: light focused into a crescent near the bottom
+  x.save(); shape(0.82); x.clip(); var cg = x.createRadialGradient(cx, cy+r*0.95, r*0.1, cx, cy+r*0.75, r*0.75);
+  cg.addColorStop(0, 'rgba(255,255,255,0.55)'); cg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = cg; x.fillRect(0,0,w,h); x.restore();
+  // highlight: a small sharp window of light, upper left
+  x.fillStyle = 'rgba(255,255,255,0.92)'; x.beginPath(); x.ellipse(cx - r*0.38, cy - r*0.42, Math.max(0.6, r*0.2), Math.max(0.45, r*0.13), -0.6, 0, 7); x.fill();
+  x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(cx + r*0.3, cy + r*0.55, Math.max(0.4, r*0.12), Math.max(0.3, r*0.06), 0.3, 0, 7); x.fill();
+  return {cv:cv, cx:cx, cy:cy, r:r};
+}
 function makeDrops(group){
-  dropsCv = document.createElement('canvas'); dropsCv.width = 512; dropsCv.height = 320;
-  drops = []; var R = Math.random;
-  for(var i=0;i<260;i++) drops.push({x:R()*512, y:R()*320, r:1+R()*3.2, v:0, run:R()<0.12});
-  dropsTex = new THREE.CanvasTexture(dropsCv); dropsTex.encoding = THREE.sRGBEncoding;
-  var m = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.5), new THREE.MeshBasicMaterial({map:dropsTex, transparent:true, depthWrite:false, side:THREE.DoubleSide, opacity:0.9}));
+  dropsCv = document.createElement('canvas'); dropsCv.width = DW; dropsCv.height = DH;
+  dropSt = document.createElement('canvas'); dropSt.width = DW; dropSt.height = DH;
+  dropMist = document.createElement('canvas'); dropMist.width = DW; dropMist.height = DH;
+  var fc = fogColor().clone().convertLinearToSRGB(), sky = '#'+fc.lerp(new THREE.Color(1,1,1), 0.3).getHexString(), gnd = '#'+new THREE.Color(cfg.ground).multiplyScalar(curPhase==='night' ? 0.3 : 0.55).getHexString();
+  dropSpr = []; for(var i=0;i<40;i++){ var r = i<14 ? 1.6+i*0.15 : 3.5+(i-14)*0.24; dropSpr.push(dropSprite(r, 900+i, sky, gnd)); }
+  // fine mist of tiny droplets
+  var mx = dropMist.getContext('2d'), R = Math.random;
+  for(var j=0;j<5200;j++){ var px = R()*DW, py = R()*DH, pr = 0.5+R()*1.1; mx.fillStyle = 'rgba(255,255,255,'+(0.10+R()*0.16)+')'; mx.beginPath(); mx.arc(px, py, pr, 0, 7); mx.fill();
+    mx.fillStyle = 'rgba(10,14,20,'+(0.08+R()*0.1)+')'; mx.beginPath(); mx.arc(px+pr*0.3, py+pr*0.45, pr*0.7, 0, 7); mx.fill(); }
+  drops = []; for(var k=0;k<620;k++) drops.push(newDrop(R()*DW, R()*DH));
+  dropRun = []; dropDirty = true;
+  dropsTex = new THREE.CanvasTexture(dropsCv); dropsTex.encoding = THREE.sRGBEncoding; dropsTex.anisotropy = 4;
+  var m = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.5), new THREE.MeshBasicMaterial({map:dropsTex, transparent:true, depthWrite:false, side:THREE.DoubleSide, opacity:0.95}));
   m.position.set(0, 1.75, 0.004); group.add(m); drawDrops(0.1);
 }
+function newDrop(x, y, r){ var R = Math.random; r = r || (R()<0.7 ? 1.6+R()*2.2 : 3.6+R()*3.4); return {x:x, y:y, r:r, sp:dropFor(r)}; }
+function dropFor(r){ var best = 0, bd = 1e9; for(var i=0;i<dropSpr.length;i++){ var d = Math.abs(dropSpr[i].r - r) + Math.random()*0.35; if(d<bd){ bd=d; best=i; } } return best; }
 function drawDrops(dt){
   if(!dropsCv || !dropsTex) return;
-  var x = dropsCv.getContext('2d'); x.clearRect(0,0,512,320);
-  for(var i=0;i<drops.length;i++){
-    var d = drops[i];
-    if(d.run){ d.v = Math.min(140, d.v + dt*60); d.y += d.v*dt; if(d.y > 330){ d.y = -10; d.x = Math.random()*512; d.v = 0; }
-      x.strokeStyle = 'rgba(220,230,240,.18)'; x.lineWidth = d.r*0.9; x.beginPath(); x.moveTo(d.x, d.y-30); x.lineTo(d.x, d.y); x.stroke(); }
-    else if(Math.random() < dt*0.08){ d.run = true; d.v = 0; }
-    var g = x.createRadialGradient(d.x-d.r*0.3, d.y-d.r*0.3, 0, d.x, d.y, d.r);
-    g.addColorStop(0, 'rgba(255,255,255,.75)'); g.addColorStop(0.45, 'rgba(210,220,235,.28)'); g.addColorStop(1, 'rgba(60,70,90,.35)');
-    x.fillStyle = g; x.beginPath(); x.arc(d.x, d.y, d.r, 0, Math.PI*2); x.fill();
+  var R = Math.random;
+  // rain keeps landing
+  if(drops.length < 720 && R() < dt*10){ drops.push(newDrop(R()*DW, R()*DH)); dropDirty = true; }
+  // a heavy drop now and then breaks loose
+  if(dropRun.length < 5 && R() < dt*0.55){
+    var bi = -1; for(var t=0;t<12;t++){ var c = Math.floor(R()*drops.length); if(drops[c] && drops[c].r > 4.6){ bi = c; break; } }
+    if(bi>=0){ var d0 = drops.splice(bi,1)[0]; dropRun.push({x:d0.x, y:d0.y, r:d0.r, v:0, hold:0, lb:d0.y, wob:R()*6}); dropDirty = true; }
   }
-  if(drops.length < 340 && Math.random() < dt*6) drops.push({x:Math.random()*512, y:Math.random()*320, r:1+Math.random()*3, v:0, run:false});
+  // runners: stick-slip down the glass, drifting a little sideways, eating drops, beading a trail
+  var mx = dropMist.getContext('2d');
+  for(var i=dropRun.length-1;i>=0;i--){
+    var u = dropRun[i];
+    if(u.hold > 0){ u.hold -= dt; u.v *= 0.5; }
+    else { u.v = Math.min(260, u.v + dt*(140 + u.r*25)); if(R() < dt*1.4) u.hold = 0.15 + R()*0.6; }
+    var oy = u.y, ox = u.x; u.y += u.v*dt; u.x += Math.sin(u.y*0.03 + u.wob)*u.v*dt*0.08;
+    if(u.y - oy > 0.1){
+      mx.save(); mx.globalCompositeOperation = 'destination-out'; mx.lineCap = 'round'; mx.lineWidth = u.r*1.5; mx.beginPath(); mx.moveTo(ox, oy); mx.lineTo(u.x, u.y); mx.stroke(); mx.restore();
+      if(u.y - u.lb > 5 + R()*9){ u.lb = u.y; var br = 0.7 + R()*Math.min(1.6, u.r*0.25); drops.push({x:u.x + (R()-0.5)*u.r*0.6, y:u.y - u.r, r:br, sp:dropFor(br)}); u.r = Math.max(3.2, u.r - br*0.12); dropDirty = true; }
+      for(var k=drops.length-1;k>=0;k--){ var q = drops[k]; if(q.r > 1.4 && Math.abs(q.x-u.x) < u.r+q.r*0.6 && q.y > oy-2 && q.y < u.y+u.r){ u.r = Math.min(9, Math.sqrt(u.r*u.r + q.r*q.r*0.8)); u.v *= 0.85; drops.splice(k,1); dropDirty = true; } }
+    }
+    if(u.y > DH + 20){ dropRun.splice(i,1); }
+  }
+  dropRep -= dt;
+  if(dropDirty && dropRep <= 0){   // repaint the still layer only when something changed (at most 4 times a second)
+    dropRep = 0.25;
+    var sx = dropSt.getContext('2d'); sx.clearRect(0,0,DW,DH); sx.drawImage(dropMist, 0, 0);
+    for(var j=0;j<drops.length;j++){ var d = drops[j], s = dropSpr[d.sp], k2 = d.r/s.r; sx.drawImage(s.cv, d.x - s.cx*k2, d.y - s.cy*k2, s.cv.width*k2, s.cv.height*k2); }
+    dropDirty = false;
+  }
+  var x = dropsCv.getContext('2d'); x.clearRect(0,0,DW,DH); x.drawImage(dropSt, 0, 0);
+  for(var n=0;n<dropRun.length;n++){ var w = dropRun[n], sp = dropSpr[dropFor(w.r)], kk = w.r/sp.r, el = 1 + Math.min(0.5, w.v/400);   // stretched while it moves
+    x.drawImage(sp.cv, w.x - sp.cx*kk/Math.sqrt(el), w.y - sp.cy*kk*el, sp.cv.width*kk/Math.sqrt(el), sp.cv.height*kk*el); }
   dropsTex.needsUpdate = true;
 }
 function fetchWeather(){
