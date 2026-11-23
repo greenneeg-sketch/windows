@@ -295,6 +295,7 @@
   #countdown small{display:block;font-size:30px;font-family:'Noto Sans KR',sans-serif;font-weight:700;letter-spacing:6px;color:#FFE08F;margin-bottom:6px}
   .theme.season{grid-column:1/-1;min-height:84px;border:1.5px solid rgba(255,214,140,.75);position:relative}
   .theme.season:after{content:'12월 한정';position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:#1A1712;background:#FFC94D;border-radius:8px;padding:2px 7px}
+  #travelVeil{position:fixed;inset:0;z-index:25;pointer-events:none;opacity:0;transition:opacity .7s ease;background:#eef2f5}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translateX(-50%);padding:10px 16px;border-radius:18px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:30;white-space:nowrap}
 </style>
 </head>
@@ -336,7 +337,7 @@
     <span>교감</span>
   </button>
   <button id="jumpBtn" class="glass act" aria-label="점프 (Space)">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/><path d="M6 20h12"/></svg>점프
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14l6-6 6 6"/><path d="M6 20h12"/></svg><span id="jumpLabel">점프</span>
   </button>
   <button id="sitBtn" class="glass act" aria-label="앉기 (C)">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10l6 6 6-6"/><path d="M6 20h12"/></svg><span id="sitLabel">앉기</span>
@@ -554,6 +555,7 @@
   </div>
 </div>
 
+<div id="travelVeil"></div>
 <div id="intro" class="veil">
   <h1 aria-label="숨글"><span class="m1">숨</span><span class="m2">글</span><svg viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 Q50 1 98 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".85"/></svg></h1>
   <p class="tag">창에 남기는 따뜻한 한 줄</p>
@@ -720,9 +722,9 @@ function groundH(x,z){
   var far = sm(60,160,r)*(1.2+0.8*Math.sin(x*0.02+z*0.017));
   if(cfg.water==='lake'){
     var d = Math.hypot(x/28,(z+31)/14);
-    y -= 1.8*(1-sm(0.75,1.12,d));
+    y -= 1.8*(1-sm(0.75,1.12,d)) + 2.6*(1-sm(0.2,0.72,d));
   } else if(cfg.water==='sea'){
-    y -= 2.4*sm(-9,-22,z);
+    y -= 2.4*sm(-9,-22,z) + 4.6*sm(-20,-44,z);
     far *= sm(-30,10,z);
   } else if(cfg.peak){                                  // a rounded summit, then the mountain falls away into the valleys
     var pa = Math.atan2(z,x), spur = 1 + 0.22*Math.sin(pa*3+0.7) + 0.12*Math.sin(pa*5+2.1);
@@ -730,7 +732,7 @@ function groundH(x,z){
     y = y*0.5 - 0.004*Math.min(r,rim)*Math.min(r,rim) - 140*Math.pow(pt,0.8)*(1.6-0.6*pt) - 2.2*sm(10,30,r)*(Math.sin(x*0.31+z*0.17)*Math.cos(z*0.27-x*0.11));
     return y;
   } else if(cfg.water==='farsea'){
-    y -= 3.0*sm(-42,-60,z);
+    y -= 3.0*sm(-42,-60,z) + 2.5*sm(-48,-60,z);
     far *= sm(-60,0,z);
   }
   return y + far;
@@ -813,7 +815,7 @@ function applyEnv(c, e){
   if(cfg!==c || !world) return;
   envTex = e.tex; envPM = e.pm; envFor = c.id;
   world.traverse(function(o){
-    var m = o.material; if(!m) return;
+    var m = o.material; if(!m || !m.userData) return;
     if(m.userData.sky){ o.material = photoSkyMaterial(); m.dispose(); }
     if(m.userData.water){ m.uniforms.env.value = envTex; m.uniforms.hasEnv.value = 1; }
     if(m.userData.pbr){ m.envMap = envPM; m.envMapIntensity = m.userData.pbr*cfg.skyI*(grade.sky[0]+grade.sky[1]+grade.sky[2])/3; m.needsUpdate = true; }
@@ -1075,6 +1077,16 @@ function makeGround(){
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vWy;').replace('#include <project_vertex>', '#include <project_vertex>\nvWy = (modelMatrix*vec4(transformed,1.)).y;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWy; uniform vec3 pMist; uniform float pDens;').replace('#include <fog_fragment>', '#include <fog_fragment>\ngl_FragColor.rgb = mix(gl_FragColor.rgb, pMist*0.94, (1.-smoothstep(-92.,-38.,vWy))*(0.85+0.15*pDens));');
   };
+  if(swimHere()){
+    var cu = { t:{value:0}, cI:{value:Math.min(0.55, 0.12*cfg.lightI*grade.light + 0.05)} }; uniformsList.push(cu);
+    gm.onBeforeCompile = function(sh){
+      sh.uniforms.cT = cu.t; sh.uniforms.cI = cu.cI; sh.uniforms.cW = {value:WATER};
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCw;').replace('#include <project_vertex>', '#include <project_vertex>\nvCw = (modelMatrix*vec4(transformed,1.)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCw; uniform float cT, cI, cW;'+
+        'float caus(vec2 p){ vec2 i=p; float c=1.; for(int n=0;n<3;n++){ float tt=cT*0.45*(1.-3.5/float(n+1)); i=p+vec2(cos(tt-i.x)+sin(tt+i.y), sin(tt-i.y)+cos(tt+i.x)); c+=1./length(vec2(p.x/(sin(i.x+tt)/0.006), p.y/(cos(i.y+tt)/0.006))); } c/=3.; c=1.17-pow(c,1.4); return pow(abs(c),7.); }')
+        .replace('#include <fog_fragment>', 'float wd=cW-vCw.y; gl_FragColor.rgb += vec3(0.55,0.8,0.85)*min(caus(vCw.xz*0.9),1.5)*cI*smoothstep(0.03,0.4,wd)*(1.-smoothstep(3.,8.,wd));\n#include <fog_fragment>');
+    };
+  }
   var m = new THREE.Mesh(g, gm);
   m.receiveShadow = true;
   return m;
@@ -1095,11 +1107,11 @@ function makeWater(){
   var dt = waterDepthTex();
   var u = { t:{value:0}, deep:{value:col(cfg.deep)}, shallow:{value:col(cfg.shallow)}, sunDir:{value:sunDir()}, sunCol:{value:lin(cfg.lightCol, 6)},
             env:{value:null}, hasEnv:{value:0}, glit:{value:cfg.glit||0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, tint:{value:new THREE.Vector3().fromArray(grade.sky)},
-            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2}, dTex:{value:dt.tex}, dR:{value:dt.R}, sea:{value:cfg.water==='lake' ? 0.25 : 1} };
+            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2}, dTex:{value:dt.tex}, dR:{value:dt.R}, sea:{value:cfg.water==='lake' ? 0.25 : 1}, upK:{value:Math.max(0.15, Math.min(1.1, cfg.lightI*grade.light*0.5))} };
   uniformsList.push(u);
-  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true,
+  var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, side:THREE.DoubleSide,
     vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
-    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform float glit; uniform float sea; uniform float dR; uniform sampler2D dTex; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp;'+
+    fragmentShader:EQ+' uniform float t; uniform float hasEnv; uniform float glit; uniform float sea; uniform float dR; uniform float upK; uniform sampler2D dTex; uniform vec3 deep,shallow,sunDir,sunCol; '+fogPars+' varying vec3 wp;'+
       'float h1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); } float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h1(i),h1(i+vec2(1,0)),f.x),mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),f.x),f.y); }'+
       // sum of travelling waves -> slope; the swell rolls toward the beach (+z), chop runs across it
       'vec2 slope(vec2 p){ vec2 s=vec2(0.);'+
@@ -1110,6 +1122,9 @@ function makeWater(){
       ' a=dot(p,vec2(-0.2,-0.98))*6.3-t*3.7; s+=vec2(-0.2,-0.98)*cos(a)*0.07;'+
       ' s+=(vec2(n2(p*2.3+t*0.6),n2(p*2.3-t*0.5+7.))-.5)*0.18; return s; }'+
       'void main(){ vec3 v=normalize(cameraPosition-wp); float dist=length(wp-cameraPosition);'+
+      ' if(!gl_FrontFacing){ vec2 sl2=slope(wp.xz)*0.08; float up=-v.y+sl2.x*0.6+sl2.y*0.6;'+          // from under the surface: a bright window straight up, mirror-dark beyond
+      '  vec3 c2=mix(fogC, (shallow*1.1+sunCol*0.04)*upK*(0.85+0.3*n2(wp.xz*1.3+t*0.4)), smoothstep(0.62,0.8,up)); float f2=smoothstep(fogN,fogF,dist);'+
+      '  gl_FragColor=vec4(mix(c2,fogC,f2),1.);\n'+OUT+' return; }'+
       ' vec2 uv=wp.xz/(2.*dR)+.5; float dep = (uv.x<0.||uv.x>1.||uv.y<0.||uv.y>1.) ? 4. : texture2D(dTex,uv).r*4.;'+
       ' vec2 sl=slope(wp.xz)*mix(0.09,0.03,smoothstep(8.,60.,dist)); vec3 n=normalize(vec3(-sl.x,1.,-sl.y));'+
       ' float fr=0.02+0.98*pow(1.-max(dot(v,n),0.),5.); vec3 r=reflect(-v,n); r.y=max(abs(r.y),0.03);'+
@@ -3230,13 +3245,15 @@ function build(){
   if(natReady) makeNature(world); else makeTrees(world);
   makeWindow(world);
   makeCritters(world);
+  seaReset(); if(swimHere()) addSea(world);
+  addGates(world);
   makePresence(world);
   var motesWas = cfg.motes; if(curPhase==='night' && !grade.fixed && cfg.motes!=='none') cfg.motes='firefly';
-  if(cfg.motes!=='none') world.add(makeMotes());
+  if(cfg.motes!=='none'){ var mo = makeMotes(); mo.userData.air = true; world.add(mo); }
   cfg.motes = motesWas;
   if(grade.stars && wx()==='clear') world.add(makeStars());
-  snowU = null; if(cfg.snow || (snowSeason() && !cfg.moon) || wx()==='snow') world.add(makeSnow(cfg.snow || (wx()==='snow' ? 1400 : 700)));
-  rainU = null; dropsTex = null; dropsCv = null; if(wx()==='rain' && !cfg.snow){ world.add(makeRain()); makeDrops(world); }
+  snowU = null; if(cfg.snow || (snowSeason() && !cfg.moon) || wx()==='snow') { var sn = makeSnow(cfg.snow || (wx()==='snow' ? 1400 : 700)); sn.userData.air = true; world.add(sn); }
+  rainU = null; dropsTex = null; dropsCv = null; if(wx()==='rain' && !cfg.snow){ var rn = makeRain(); rn.userData.air = true; world.add(rn); makeDrops(world); }
   bulbs = []; if(cfg.lights && natReady) makeLights(world); else if(grade.lights && curPhase!=='day') makeLights(world, true);
   fw.list = [];
   regionNotes().forEach(addNoteMesh);
@@ -3253,12 +3270,14 @@ var keys = {}, joy = {x:0,y:0,id:null}, look = {id:null,lx:0,ly:0,sx:0,sy:0,t:0}
 var placing = false, modal = false, pending = null, glassGlow = null, nearK = 0;
 function grounded(){ return player.jy<=0.0001 && player.vy<=0; }
 function jump(){
+  if(seaJump()) return;
   if(player.sit){ standUp(); return; }
   if(player.crouch){ player.crouch=false; updateSitLabel(); }
   if(grounded()) player.vy = 4.6; else player.jbuf = performance.now();
 }
 function standUp(){ player.sit=false; player.crouch=false; player.z = Math.max(player.z, BENCH.z+0.45); updateSitLabel(); }
 function sitOrCrouch(){
+  if(seaSit()) return;
   if(player.sit||player.crouch){ standUp(); return; }
   var onBench = false;   // the bench is gone: 앉기 just crouches down
   if(onBench && grounded()){ player.sit=true; player.vx=player.vz=0; toast('벤치에 앉았어요. 움직이면 일어나요'); }
@@ -3267,7 +3286,8 @@ function sitOrCrouch(){
 }
 function updateSitLabel(){
   var on = player.sit||player.crouch;
-  $('sitLabel').textContent = on ? '일어서기' : '앉기';
+  $('sitLabel').textContent = SW.st==='dive' ? '떠오르기' : SW.st==='swim' ? '잠수' : on ? '일어서기' : '앉기';
+  $('jumpLabel').textContent = SW.st==='swim' || SW.st==='dive' ? '물장구' : '점프';
   $('sitBtn').classList.toggle('on', on);
 }
 window.addEventListener('keydown', function(e){
@@ -3354,16 +3374,232 @@ function tap(cx,cy){
   if(hits.length && hits[0].distance<10) openReader(hits[0].object);
 }
 
+
+// ---------- into the water: wade, swim, dive ----------
+var SW = { st:'land', d:0, dz:0, wave:0, dive:false, uw:false, saved:null, boost:0, ringT:0, told:false, uwObj:null, rings:[], bub:null };
+function swimHere(){ return !!cfg && (cfg.water==='lake' || cfg.water==='sea' || cfg.water==='farsea'); }
+function seaReset(){ SW.st='land'; SW.d=0; SW.dz=0; SW.wave=0; SW.dive=false; SW.uw=false; SW.saved=null; SW.boost=0; SW.uwObj=null; SW.rings=[]; SW.bub=null; }
+function seaFloat(){ return swimHere() && groundH(player.x, player.z) < WATER-1.35+SW.dz-0.02; }
+function seaSpeed(sp){
+  if(!swimHere() || SW.d <= 0.02) return sp;
+  if(SW.st==='swim' || SW.st==='dive') return (SW.dive ? 1.7 : 1.5) * (1 + 0.9*Math.min(1, SW.boost));
+  return sp * (1 - 0.45*sm(0.05, 1.2, SW.d));
+}
+function seaJump(){
+  if(SW.st!=='swim' && SW.st!=='dive') return false;
+  SW.boost = 1; if(SW.st==='swim'){ player.vy = 1.6; seaRing(player.x, player.z, 1.4); seaRing(player.x, player.z, 0.8); }
+  return true;
+}
+function seaSit(){
+  if(SW.st==='dive'){ SW.dive = false; updateSitLabel(); return true; }
+  if(SW.st==='swim'){ SW.dive = true; bump('dive'); seaRing(player.x, player.z, 1.2); updateSitLabel(); return true; }
+  return false;
+}
+function seaRing(x, z, sz){
+  if(!SW.rings.length) return; var r = SW.rings.shift(); SW.rings.push(r);
+  r.m.position.set(x, WATER+0.012, z); r.t = 0; r.sz = sz||1; r.m.visible = true;
+}
+function addSea(group){
+  var night = grade.fixedNight || curPhase==='night' ? 0.45 : 1;
+  // ripple rings
+  var rg = new THREE.RingGeometry(0.9, 1, 40); rg.rotateX(-Math.PI/2);
+  for(var i=0;i<10;i++){ var rm = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0, depthWrite:false, fog:false }));
+    rm.visible = false; rm.renderOrder = 2; group.add(rm); SW.rings.push({ m:rm, t:9, sz:1, k:0.3*night }); }
+  var R = rng(hashStr(cfg.id+'sea')), fogU = function(){ return { fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2} }; };
+  // seaweed swaying on the bottom
+  var blade = new THREE.PlaneGeometry(0.16, 1, 1, 6); blade.translate(0, 0.5, 0);
+  var N = cfg.water==='lake' ? 260 : 520, wu = Object.assign({ t:{value:0}, lc:{value:lin(cfg.lightCol, 0.25+0.25*cfg.lightI*grade.light).add(tintC(lin(cfg.up, cfg.skyI*0.5)))} }, fogU()); uniformsList.push(wu);
+  var wm = new THREE.ShaderMaterial({ uniforms:wu, side:THREE.DoubleSide,
+    vertexShader:'attribute vec2 aP; uniform float t; varying float vH; varying float vD; varying float vK; void main(){ vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); float h=uv.y; w.x+=sin(t*1.1+aP.x)*0.22*h*h + sin(t*2.3+aP.x*2.)*0.05*h; w.z+=cos(t*0.9+aP.x)*0.16*h*h; vH=h; vK=aP.y; vD=length(w.xyz-cameraPosition); gl_Position=projectionMatrix*viewMatrix*w; }',
+    fragmentShader:'uniform vec3 lc; '+fogPars+' varying float vH; varying float vD; varying float vK; void main(){ vec3 a=mix(vec3(0.03,0.09,0.03),vec3(0.09,0.06,0.02),vK), b=mix(vec3(0.16,0.32,0.08),vec3(0.3,0.22,0.06),vK); vec3 c=mix(a,b,vH)*lc*1.6; float f=smoothstep(fogN,fogF,vD); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+  var wmesh = new THREE.InstancedMesh(blade, wm, N), d = new THREE.Object3D(), aP = new Float32Array(N*2), n = 0, tries = 0;
+  while(n < N && tries < N*30){ tries++;
+    var x = (R()*2-1)*58, z = -R()*62 + 4, dep = WATER - groundH(x, z);
+    if(dep < 0.9 || Math.hypot(x,z) > 70) continue;
+    var cl = Math.floor(R()*3); for(var k=0;k<4 && n<N;k++){
+      var xx = x + (R()-0.5)*1.2, zz = z + (R()-0.5)*1.2, dd = WATER - groundH(xx, zz); if(dd < 0.8) continue;
+      var hh = Math.min(dd-0.35, 0.6 + R()*2.2*(cl===0?1.4:1)); d.position.set(xx, groundH(xx, zz)-0.05, zz); d.rotation.set(0, R()*Math.PI, 0); d.scale.set(0.7+R()*0.7, hh, 1); d.updateMatrix();
+      wmesh.setMatrixAt(n, d.matrix); aP[n*2] = R()*6.28; aP[n*2+1] = cl===2 ? 1 : 0; n++; }
+  }
+  wmesh.count = n; blade.setAttribute('aP', new THREE.InstancedBufferAttribute(aP, 2)); wmesh.frustumCulled = false; group.add(wmesh);
+  // little fish schools circling in the deep part
+  var fp = [0,0,0.16, 0.035,0,0, -0.035,0,0, 0,0.045,0, 0,-0.03,0.02, 0,0,-0.12, 0.03,0,-0.22, -0.03,0,-0.22],
+      fi = [0,1,3, 0,3,2, 0,4,1, 0,2,4, 1,5,3, 3,5,2, 2,5,4, 4,5,1, 5,6,7, 5,7,6];
+  var fg = new THREE.InstancedBufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi);
+  var schools = [], need = cfg.water==='lake' ? 2 : 4;
+  for(var tr=0; tr<400 && schools.length<need; tr++){ var sx = (R()*2-1)*45, sz = -8 - R()*50, sd = WATER - groundH(sx, sz); if(sd > 2.6 && Math.hypot(sx,sz) < 56) schools.push([sx, sz, sd]); }
+  if(schools.length){
+    var FN = schools.length*16, aC = new Float32Array(FN*4), aQ = new Float32Array(FN*4);
+    for(var j=0;j<FN;j++){ var sc = schools[j%schools.length]; aC[j*4] = sc[0]; aC[j*4+1] = sc[1]; aC[j*4+2] = WATER - 0.9 - R()*Math.min(sc[2]-1.6, 3.2); aC[j*4+3] = 1.2 + R()*2.2;
+      aQ[j*4] = R()*6.28; aQ[j*4+1] = (0.35 + R()*0.25)*(j%2 ? 1 : 1); aQ[j*4+2] = 0.8 + R()*0.6; aQ[j*4+3] = R(); }
+    fg.setAttribute('aC', new THREE.InstancedBufferAttribute(aC, 4)); fg.setAttribute('aQ', new THREE.InstancedBufferAttribute(aQ, 4)); fg.instanceCount = FN;
+    var fu = Object.assign({ t:{value:0}, lc:{value:lin(cfg.lightCol, 0.3+0.3*cfg.lightI*grade.light).add(tintC(lin(cfg.up, cfg.skyI*0.6)))} }, fogU()); uniformsList.push(fu);
+    var fm = new THREE.ShaderMaterial({ uniforms:fu, side:THREE.DoubleSide,
+      vertexShader:'attribute vec4 aC; attribute vec4 aQ; uniform float t; varying float vY; varying float vD; void main(){ vec3 p=position*aQ.z; p.x+=sin(t*9.+aQ.x*3.)*0.05*step(p.z,-0.05)*(-p.z)*4.;'+
+        ' float a=aQ.x+t*aQ.y*(1.+0.2*sin(t*0.3+aQ.w*6.)); float r=aC.w*(1.+0.15*sin(t*0.7+aQ.x)); vec3 c=vec3(aC.x+cos(a)*r, aC.z+sin(t*0.6+aQ.x)*0.25, aC.y+sin(a)*r);'+
+        ' vec3 fw=normalize(vec3(-sin(a),0.,cos(a))); vec3 sd=vec3(fw.z,0.,-fw.x); vec3 w=c+sd*p.x+vec3(0.,p.y,0.)+fw*p.z; vY=position.y; vD=length(w-cameraPosition); gl_Position=projectionMatrix*viewMatrix*vec4(w,1.); }',
+      fragmentShader:'uniform vec3 lc; '+fogPars+' varying float vY; varying float vD; void main(){ vec3 c=mix(vec3(0.5,0.62,0.68),vec3(0.12,0.2,0.3),smoothstep(-0.01,0.03,vY))*lc*1.4; float f=smoothstep(fogN,fogF,vD); gl_FragColor=vec4(mix(c,fogC,f),1.);\n'+OUT+'}' });
+    var fmesh = new THREE.Mesh(fg, fm); fmesh.frustumCulled = false; group.add(fmesh);
+  }
+  // under the surface: a closed blue world, and bubbles from your breath
+  var uc = col(cfg.deep).multiplyScalar(0.55 + 0.45*grade.light).lerp(col(cfg.shallow), 0.12);
+  var sm2 = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide, fog:true });
+  var sph = new THREE.Mesh(new THREE.SphereGeometry(30, 24, 16), sm2); sph.visible = false; sph.frustumCulled = false; group.add(sph);
+  var BN = 40, bp = new Float32Array(BN*3); for(var b=0;b<BN;b++){ bp[b*3] = R(); bp[b*3+1] = R(); bp[b*3+2] = R(); }
+  var bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(bp, 3));
+  var bu = { t:{value:0}, cam:{value:new THREE.Vector3()}, top:{value:WATER} };
+  var bm = new THREE.ShaderMaterial({ uniforms:bu, transparent:true, depthWrite:false,
+    vertexShader:'uniform float t; uniform vec3 cam; uniform float top; varying float vA; void main(){ vec3 s=position; float y=fract(s.y+t*(0.12+s.z*0.1)); vec3 w=cam+vec3((s.x-.5)*3.+sin(t*2.+s.z*9.)*0.08, -1.2+y*3.4, (s.z-.5)*3.); vA=(1.-smoothstep(top-0.3,top,w.y))*smoothstep(0.,0.15,y); vec4 mv=viewMatrix*vec4(w,1.); gl_PointSize=(14.+s.x*10.)/max(0.4,-mv.z); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'varying float vA; void main(){ vec2 q=gl_PointCoord-.5; float r=length(q); float a=smoothstep(.5,.38,r)*(0.25+0.75*smoothstep(.25,.45,r)) + smoothstep(.2,.0,length(q+vec2(.13,.13)))*0.8; gl_FragColor=vec4(vec3(0.85,0.95,1.),a*0.55*vA); }' });
+  var bub = new THREE.Points(bg, bm); bub.visible = false; bub.frustumCulled = false; group.add(bub);
+  SW.uwObj = { sph:sph, col:uc }; SW.bub = { o:bub, u:bu };
+}
+function updateSea(dt, t){
+  if(!swimHere()){ if(SW.st!=='land'){ SW.st='land'; updateSitLabel(); } return; }
+  var gh = groundH(player.x, player.z); SW.d = Math.max(0, WATER - gh);
+  if(SW.dive && SW.d < 1.45) SW.dive = false;
+  var tgt = SW.dive ? Math.max(gh + 0.9, WATER - 4.8) - (WATER + 0.25) : 0;
+  SW.dz += Math.max(-1.4*dt, Math.min(1.8*dt, tgt - SW.dz));
+  var floating = gh < WATER - 1.35 + SW.dz - 0.02;
+  SW.wave = floating && SW.dz > -0.3 ? Math.sin(t*1.7)*0.05 + Math.sin(t*0.9+1.3)*0.03 : 0;
+  SW.boost = Math.max(0, SW.boost - dt*0.8);
+  var st = SW.dive || SW.dz < -0.3 ? 'dive' : floating ? 'swim' : SW.d > 0.03 ? 'wade' : 'land';
+  if(st !== SW.st){
+    if(st==='swim' && SW.st!=='dive'){ bump('swim'); if(!SW.told){ SW.told = true; toast('물에 떴어요 · 잠수 버튼으로 물속에 들어가요'); } }
+    if(st!=='land' && SW.st==='land' && !SW.told && st==='wade') toast('첨벙, 물에 들어왔어요');
+    if((st==='swim' || st==='dive') && (player.crouch || player.sit)){ player.crouch = player.sit = false; }
+    SW.st = st; updateSitLabel();
+  }
+  var moving = Math.hypot(player.vx, player.vz) > 0.4;
+  SW.ringT -= dt; if((st==='wade' || st==='swim') && moving && SW.ringT <= 0){ SW.ringT = st==='swim' ? 0.55 : 0.32; seaRing(player.x - player.vx*0.1, player.z - player.vz*0.1, st==='swim' ? 1 : 0.55 + 0.4*Math.min(1, SW.d)); }
+  for(var i=0;i<SW.rings.length;i++){ var r = SW.rings[i]; if(r.t > 3) continue; r.t += dt;
+    var e = r.t/1.6; r.m.scale.setScalar(r.sz*(0.2 + 1.2*Math.sqrt(Math.min(1,e)))); r.m.material.opacity = r.k*(1-Math.min(1,e))*(1-Math.min(1,e)); if(e >= 1){ r.m.visible = false; r.t = 9; } }
+}
+// standard materials mix fog after tone mapping, custom ones before: find the colour that ends up the same on screen
+function fogOut(c){
+  var k = renderer.toneMappingExposure/0.6, x = c.r*k, y = c.g*k, z = c.b*k;
+  var a = [0.59719*x+0.35458*y+0.04823*z, 0.07600*x+0.90834*y+0.01566*z, 0.02840*x+0.13383*y+0.83777*z];
+  a = a.map(function(v){ return (v*(v+0.0245786)-0.000090537)/(v*(0.983729*v+0.4329510)+0.238081); });
+  var o = [1.60475*a[0]-0.53108*a[1]-0.07367*a[2], -0.10208*a[0]+1.10813*a[1]-0.00605*a[2], -0.00327*a[0]-0.07276*a[1]+1.07602*a[2]].map(function(v){ return Math.min(1, Math.max(0, v)); });
+  if(!(hq && composer)) o = o.map(function(v){ return v < 0.0031308 ? v*12.92 : 1.055*Math.pow(v, 1/2.4) - 0.055; });
+  return new THREE.Color(o[0], o[1], o[2]);
+}
+function seaAfterCam(t){
+  if(!SW.uwObj) return;
+  var under = camera.position.y < WATER - 0.03;
+  if(under !== SW.uw){
+    SW.uw = under;
+    if(under){
+      SW.saved = { list:[], fog:[scene.fog.color.clone(), scene.fog.near, scene.fog.far] };
+      for(var i=0;i<uniformsList.length;i++){ var u = uniformsList[i]; if(u.fogC && u.fogN && u.fogF && u !== SW.uwObj){ SW.saved.list.push([u, u.fogC.value.clone(), u.fogN.value, u.fogF.value]); u.fogC.value = SW.uwObj.col.clone(); u.fogN.value = 0.5; u.fogF.value = 24; } }
+      scene.fog.color.copy(fogOut(SW.uwObj.col)); scene.fog.near = 0.5; scene.fog.far = 24;
+    } else if(SW.saved){
+      SW.saved.list.forEach(function(a){ a[0].fogC.value = a[1]; a[0].fogN.value = a[2]; a[0].fogF.value = a[3]; });
+      scene.fog.color.copy(SW.saved.fog[0]); scene.fog.near = SW.saved.fog[1]; scene.fog.far = SW.saved.fog[2]; SW.saved = null;
+    }
+    SW.uwObj.sph.visible = under; SW.bub.o.visible = under;
+    world.children.forEach(function(o){ if(o.userData.air) o.visible = !under; });
+  }
+  if(under){ SW.uwObj.sph.position.copy(camera.position); SW.bub.u.t.value = t; SW.bub.u.cam.value.copy(camera.position); }
+}
+
+// ---------- paths between windows: walk off the edge of one, arrive in the next ----------
+var LINKS = [['mapo','busan','물가 길'], ['busan','jeju','해안 길'], ['jeju','gangneung','등산로'], ['gangneung','moon','달 망원경'], ['busan','newyear','동쪽 바닷길']];
+var GATE_DIR = { mapo:{busan:[1,0.35]}, busan:{mapo:[-0.57,0.82], jeju:[1,0.35], newyear:[0.12,1]}, jeju:{busan:[-0.5,0.87], gangneung:[0.85,0.6]},
+                 gangneung:{jeju:[0,1], moon:[-1,0.25]}, moon:{gangneung:[0,1]}, newyear:{busan:[0,1]} };
+var gates = [], travel = false;
+function regionById(id){ for(var i=0;i<REGIONS.length;i++) if(REGIONS[i].id===id) return REGIONS[i]; return null; }
+function gateLabel(text, sub){
+  var c = document.createElement('canvas'); c.width = 512; c.height = 160; var x = c.getContext('2d');
+  x.fillStyle = '#7a5434'; x.fillRect(0,0,512,160); x.fillStyle = 'rgba(0,0,0,0.18)'; for(var i=0;i<6;i++) x.fillRect(0, 22+i*26, 512, 2);
+  x.strokeStyle = '#4a3220'; x.lineWidth = 10; x.strokeRect(5,5,502,150);
+  x.fillStyle = '#fff6e4'; x.textAlign = 'center'; x.font = '62px Jua, sans-serif'; x.fillText(text, 256, 82); x.font = '36px Jua, sans-serif'; x.fillStyle = '#f2d9a8'; x.fillText(sub, 256, 132);
+  var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+}
+function mistTex(){
+  if(mistTex.t) return mistTex.t;
+  var c = document.createElement('canvas'); c.width = c.height = 128; var x = c.getContext('2d'), g = x.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,0.9)'); g.addColorStop(0.4,'rgba(255,255,255,0.35)'); g.addColorStop(1,'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0,0,128,128);
+  mistTex.t = new THREE.CanvasTexture(c); mistTex.t.__keep = true; return mistTex.t;
+}
+function gateSpot(dir){
+  var L = Math.hypot(dir[0], dir[1]), dx = dir[0]/L, dz = dir[1]/L, yAt = function(x,z){ return cfg.peak ? meshH(x,z) : groundH(x,z); };
+  if(cfg.peak){ var r0 = peakRim(dx*9, dz*9) - 1.0; return { x:dx*r0, z:dz*r0, dx:dx, dz:dz, y:yAt(dx*r0, dz*r0) }; }
+  for(var r = cfg.moon ? 15 : 26; r > 7; r -= 0.5){ var x = dx*r, z = dz*r;
+    if(groundH(x,z) < WATER + 0.12 || groundH(x - dx*3, z - dz*3) < WATER + 0.1 || hitsSolid(x, z, 0.8, null)) continue;
+    var clear = true; for(var q = 1.5; q <= 9 && clear; q += 1.5) if(hitsSolid(x - dx*q, z - dz*q, 0.9, null)) clear = false;
+    if(!clear && r > 12) continue;
+    return { x:x, z:z, dx:dx, dz:dz, y:yAt(x,z) }; }
+  return null;
+}
+function addGates(group){
+  gates = []; travel = false; $('travelVeil').style.opacity = 0;
+  var mine = GATE_DIR[cfg.id]; if(!mine) return;
+  var yAt = function(x,z){ return cfg.peak ? meshH(x,z) : groundH(x,z); };
+  var lit = grade.fixedNight || curPhase==='night' ? 0.55 : 1;
+  LINKS.forEach(function(l){
+    var to = l[0]===cfg.id ? l[1] : l[1]===cfg.id ? l[0] : null; if(!to || !mine[to]) return;
+    var tr = regionById(to); if(!tr) return;
+    var g = gateSpot(mine[to]); if(!g) return;
+    var px = -g.dz, pz = g.dx, scope = l[2]==='달 망원경', o = new THREE.Group(); group.add(o);
+    var wood = new THREE.MeshLambertMaterial({ color:new THREE.Color('#6b4a2e').multiplyScalar(lit) });
+    // signpost beside the way, facing whoever walks toward it
+    var sx = g.x - g.dx*1.4 + px*0.9, sz = g.z - g.dz*1.4 + pz*0.9, sy = yAt(sx, sz);
+    var post = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 1.75, 7), wood); post.position.set(sx, sy+0.85, sz); post.castShadow = true; o.add(post);
+    var bm = new THREE.MeshLambertMaterial({ map:gateLabel(tr.name+' 창', scope ? (cfg.moon ? '지구로 돌아가는 망원경' : '달로 가는 망원경') : l[2]+' 따라 쭉') });
+    bm.color.setScalar(lit);
+    var board = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.39, 0.04), [wood, wood, wood, wood, bm, wood]);
+    board.position.set(sx, sy+1.45, sz); board.rotation.y = Math.atan2(-g.dx, -g.dz); board.castShadow = true; o.add(board);
+    colliders.push({ x:sx, z:sz, r:0.14 });
+    if(scope){   // a brass telescope on a tripod, tilted at the sky
+      var brass = new THREE.MeshStandardMaterial({ color:'#c9a45a', metalness:0.7, roughness:0.35 }), dark = new THREE.MeshLambertMaterial({ color:'#2a2a2e' });
+      var gy = yAt(g.x, g.z), ts = new THREE.Group(); ts.position.set(g.x, gy, g.z); ts.rotation.y = Math.atan2(g.dx, g.dz); o.add(ts);
+      for(var k=0;k<3;k++){ var a = k*2.094, leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 1.25, 5), dark); leg.position.set(Math.cos(a)*0.22, 0.58, Math.sin(a)*0.22); leg.rotation.set(Math.sin(a)*0.35, 0, -Math.cos(a)*0.35); ts.add(leg); }
+      var tube = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 1.0, 16), brass); tube.position.set(0, 1.25, 0.1); tube.rotation.x = 1.05; tube.castShadow = true; ts.add(tube);
+      var lens = new THREE.Mesh(new THREE.CircleGeometry(0.068, 16), new THREE.MeshBasicMaterial({ color:'#9fd2ff' })); lens.position.set(0, 1.49, 0.535); lens.rotation.x = -0.52; ts.add(lens);
+      colliders.push({ x:g.x, z:g.z, r:0.3 });
+    }
+    // a few stepping stones leading out
+    var stoneM = new THREE.MeshLambertMaterial({ color:new THREE.Color(cfg.moon ? '#bdbab4' : cfg.peak ? '#a8a49c' : '#b9ae96').multiplyScalar(lit) }), sg = new THREE.CylinderGeometry(0.32, 0.36, 0.08, 9);
+    for(var k2=0;k2<9;k2++){ var dd = 1.6 + k2*0.85, wob = Math.sin(k2*1.7)*0.35, qx = g.x - g.dx*dd + px*wob, qz = g.z - g.dz*dd + pz*wob;
+      if(!cfg.peak && groundH(qx,qz) < WATER+0.1) continue; var st = new THREE.Mesh(sg, stoneM); st.position.set(qx, yAt(qx,qz)+0.02, qz); st.rotation.y = k2; st.scale.set(0.8+0.3*Math.sin(k2*2.3), 1, 0.8+0.3*Math.cos(k2*1.9)); st.receiveShadow = true; o.add(st); }
+    // a soft drift of mist where the way leads off
+    var mc = scope ? new THREE.Color('#bcd8ff') : new THREE.Color(cfg.moon ? '#cfd6ff' : '#ffffff');
+    var mist = new THREE.Sprite(new THREE.SpriteMaterial({ map:mistTex(), color:mc.multiplyScalar(0.55*lit), transparent:true, depthWrite:false, opacity:0.7 }));
+    mist.position.set(g.x + g.dx*0.6, yAt(g.x, g.z) + 1.1, g.z + g.dz*0.6); mist.scale.set(3.2, 2.6, 1); o.add(mist);
+    gates.push({ to:to, x:g.x, z:g.z, dx:g.dx, dz:g.dz, mist:mist, armed:false, hint:false, scope:scope });
+  });
+}
+function arriveFrom(fromId){
+  for(var i=0;i<gates.length;i++){ var g = gates[i]; if(g.to !== fromId) continue;
+    var x = g.x - g.dx*2.8, z = g.z - g.dz*2.8; if(blocked(x, z)){ x = g.x - g.dx*4; z = g.z - g.dz*4; }
+    player.x = x; player.z = z; player.yaw = Math.atan2(g.dx, g.dz); player.pitch = 0.02; player.vx = player.vz = 0; return true; }
+  return false;
+}
+function updateGates(dt){
+  for(var i=0;i<gates.length;i++){ var g = gates[i], d = Math.hypot(player.x-g.x, player.z-g.z);
+    g.mist.material.opacity = 0.55 + 0.2*Math.sin(performance.now()/900 + i);
+    if(d > 2.2) g.armed = true;
+    if(d < 5 && !g.hint && !travel){ g.hint = true; var tr = regionById(g.to); toast(g.scope ? '망원경을 들여다보면 '+tr.name+' 창으로 가요' : '이 길로 쭉 가면 '+tr.name+' 창이에요'); }
+    if(g.armed && !travel && d < (g.scope ? 1.0 : 1.15)){ startTravel(g); break; }
+  }
+}
+function startTravel(g){
+  travel = true; var to = regionById(g.to), from = cfg.id; bump('path_'+from+'_'+g.to);
+  var v = $('travelVeil'); v.style.background = g.scope || g.to==='moon' || from==='moon' ? '#05070f' : (grade.fixedNight || curPhase==='night' ? '#121a2e' : curPhase==='dusk' ? '#e8c4a8' : '#eef2f5'); v.style.opacity = 1;
+  player.vx = player.vz = 0;
+  setTimeout(function(){ goRegion(to, from); setTimeout(function(){ v.style.opacity = 0; setTimeout(function(){ travel = false; }, 500); }, 250); }, 750);
+}
 function blocked(x,z){
   if(Math.hypot(x,z)>(cfg.peak ? peakRim(x,z)+0.4 : 58)) return true;
   if(Math.abs(x)<2.25 && Math.abs(z)<0.32) return true;
-  if(groundH(x,z)<WATER+0.05) return true;
+  if(!swimHere() && groundH(x,z)<WATER+0.05) return true;
   var c = hitsSolid(x, z, 0.28, null);
   if(c){ var cx = c.o ? c.o.position.x : c.x, cz = c.o ? c.o.position.z : c.z;
     if(Math.hypot(x-cx, z-cz) < Math.hypot(player.x-cx, player.z-cz)) return true; }
   return false;
 }
-function baseY(x,z){ return Math.max(cfg.peak ? meshH(x,z) : groundH(x,z), WATER+0.25); }
+function baseY(x,z){ if(swimHere()) return Math.max(groundH(x,z), WATER-1.35+SW.dz+SW.wave); return Math.max(cfg.peak ? meshH(x,z) : groundH(x,z), WATER+0.25); }
 
 // ---------- UI ----------
 var TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
@@ -3946,7 +4182,7 @@ function renderRegions(){
   });
 }
 $('loc').addEventListener('click', function(){ renderRegions(); openModal('regionScrim'); });
-function goRegion(r){ bump('w_'+r.id); cfg=r; setHash(); player.x=0; player.z=4.0; player.yaw=0; player.pitch=0.07; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); if(moving){ placing=false; setPlacing(true); toast(r.name+' 창이에요 · 붙일 자리를 눌러요'); } else toast(r.name+' 창 앞에 섰어요'); }
+function goRegion(r, from){ bump('w_'+r.id); cfg=r; setHash(); player.x=0; player.z=4.0; player.yaw=0; player.pitch=0.07; player.sit=player.crouch=false; updateSitLabel(); build(); setAmbience(); if(from && arriveFrom(from)){ toast(r.name+' 창에 왔어요'); return; } if(moving){ placing=false; setPlacing(true); toast(r.name+' 창이에요 · 붙일 자리를 눌러요'); } else toast(r.name+' 창 앞에 섰어요'); }
 
 // ---------- graphics quality ----------
 function markHQ(){ var b=$('hq'); b.classList.toggle('off', !hq); b.setAttribute('aria-label', hq?'고화질 끄기':'고화질 켜기'); }
@@ -4816,11 +5052,12 @@ function frame(){
     if(keys['d']||keys['arrowright']) s+=1; if(keys['a']||keys['arrowleft']) s-=1;
   }
   f += -joy.y; s += joy.x;
+  if(travel) f = s = 0;
   var len = Math.hypot(f,s); if(len>1){ f/=len; s/=len; }
   if(player.sit && len>0.25){ standUp(); }
   if(player.sit){ f=s=0; player.x += (BENCH.x-player.x)*Math.min(1,dt*6); player.z += (BENCH.z+0.05-player.z)*Math.min(1,dt*6); }
   // hold one direction (or Shift) to run; stamina lasts ~3s, comes back after a short rest
-  var want = !player.sit && !player.crouch && !photo.on && grounded() !== false && len > 0.9, ang = Math.atan2(s, f);
+  var want = !player.sit && !player.crouch && !photo.on && grounded() !== false && len > 0.9 && SW.d < 0.4, ang = Math.atan2(s, f);
   if(want && runSt.dir !== null && Math.abs(((ang-runSt.dir+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI) > 0.7) runSt.hold = 0;
   runSt.dir = want ? ang : null; runSt.hold = want ? runSt.hold + dt : 0;
   var go = want && !runSt.tired && runSt.st > 0 && (runSt.hold > 0.45 || keys['shift']);
@@ -4830,6 +5067,7 @@ function frame(){
   if(!modal && joy.id===null && look.id===null && len < 0.05){ if(performance.now() > calmAt) document.body.classList.add('calm'); } else if(len >= 0.05) calmAt = performance.now() + 5000;
   var stEl = $('stam'); stEl.style.opacity = (go || runSt.st < 0.995) ? 1 : 0; stEl.firstChild.style.transform = 'scaleX('+runSt.st.toFixed(3)+')'; stEl.classList.toggle('tired', runSt.tired);
   var sp = player.crouch ? 1.1 : go ? 4.4 : runSt.tired ? 1.8 : 2.3, sy=Math.sin(player.yaw), cy=Math.cos(player.yaw);
+  sp = seaSpeed(sp);
   var tvx = (-sy*f + cy*s)*sp, tvz = (-cy*f - sy*s)*sp;
   var air = grounded() ? 8 : 2.5;
   player.vx += (tvx-player.vx)*Math.min(1,dt*air); player.vz += (tvz-player.vz)*Math.min(1,dt*air);
@@ -4840,9 +5078,9 @@ function frame(){
   }
   player.vy -= 13*dt*(cfg.grav||1); player.jy += player.vy*dt; if(player.jy<0){ player.jy=0; player.vy=0; }
   if(player.jbuf && grounded()){ if(performance.now()-player.jbuf < 200) player.vy = 4.6; player.jbuf = 0; }
-  var eyeT = player.sit ? 1.12 : player.crouch ? 0.95 : 1.6;
+  var eyeT = player.sit ? 1.12 : player.crouch && SW.st!=='swim' && SW.st!=='dive' ? 0.95 : 1.6;
   player.eye += (eyeT-player.eye)*Math.min(1,dt*7);
-  var spd = grounded() ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*(player.running ? 2.6 : 3.2);
+  var spd = grounded() && SW.d < 1.2 ? Math.hypot(player.vx,player.vz) : 0; player.bob += spd*dt*(player.running ? 2.6 : 3.2);
   if(glide){
     glide.t = Math.min(1, (performance.now()-glide.t0)/900); var e = glide.t<0.5 ? 2*glide.t*glide.t : 1-Math.pow(-2*glide.t+2,2)/2;
     player.x = glide.fx+(glide.x-glide.fx)*e; player.z = glide.fz+(glide.z-glide.fz)*e;
@@ -4860,10 +5098,12 @@ function frame(){
   }
   var intro = $('intro').style.display!=='none';
   if(intro){ introYaw = Math.sin(t*0.15)*0.12; }
+  updateSea(dt, t); updateGates(dt);
   camera.position.set(player.x, baseY(player.x,player.z)+(photo.on ? photo.h : player.eye+player.jy+Math.sin(player.bob)*0.025*Math.min(1,spd)), player.z);
   var fovT = photo.on ? 2*Math.atan(sensorH()/2/lensMM())*180/Math.PI : (player.running ? 75 : 68);   // full-frame equivalent: the 43.3mm diagonal spread over this screen's shape
   if(Math.abs(camera.fov-fovT)>0.01){ camera.fov += (fovT-camera.fov)*Math.min(1,dt*12); if(Math.abs(camera.fov-fovT)<0.05) camera.fov=fovT; camera.updateProjectionMatrix(); }
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
+  seaAfterCam(t);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
   if(funnel.entered && !document.hidden){ var st = (performance.now() - funnel.entered)/1000; if(!funnel.t1 && st > 60){ funnel.t1 = true; bump('f_stay1m'); } if(!funnel.t3 && st > 180){ funnel.t3 = true; bump('f_stay3m'); } }
