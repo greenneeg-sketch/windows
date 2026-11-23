@@ -1238,14 +1238,15 @@ function makeWindow(group){
 
 
 // ---------- loading progress ----------
-var LD = {done:0, total:0}, ldHideT;
+var LD = {done:0, total:0}, ldHideT, funnel = {ready:false, entered:0, t1:false, t3:false};
 function ldStart(n){ LD.total += n; ldUpdate(); }
 function ldDone(){ LD.done = Math.min(LD.total, LD.done+1); ldUpdate(); }
 function ldUpdate(){
   var el = $('loader'), pct = LD.total ? Math.round(LD.done/LD.total*100) : 100;
   $('ldBar').style.width = pct+'%'; $('ldText').textContent = '풍경을 그리는 중 · '+pct+'%';
   clearTimeout(ldHideT);
-  if(LD.done >= LD.total){ ldHideT = setTimeout(function(){ el.style.opacity = 0; LD.done = LD.total = 0; }, 500); }
+  if(LD.done >= LD.total){ if(!funnel.ready){ funnel.ready = true; var sec = performance.now()/1000; bump('f_ready'); bump(sec < 3 ? 'load_lt3' : sec < 6 ? 'load_3_6' : sec < 12 ? 'load_6_12' : 'load_gt12'); }
+    ldHideT = setTimeout(function(){ el.style.opacity = 0; LD.done = LD.total = 0; }, 500); }
   else el.style.opacity = 1;
 }
 
@@ -3153,7 +3154,7 @@ function showHint(){
 var toastT;
 function toast(msg){ var t=$('toast'); t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(function(){ t.style.opacity=0; },2000); }
 var placeFree = false;
-function setPlacing(on){ placing=on; if(!on){ placeFree = false; if(moving) cancelMove(); } $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : placeFree ? '붙일 곳을 눌러요' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
+function setPlacing(on){ if(on && !placing) bump('f_place'); placing=on; if(!on){ placeFree = false; if(moving) cancelMove(); } $('placeTxt').textContent = moving ? '붙일 자리를 눌러요 · 다른 창은 왼쪽 위 창 이름' : placeFree ? '붙일 곳을 눌러요' : '유리창을 눌러 붙일 자리를 골라요'; setTimeout(updateEmpty,0); $('place').style.display=on?'flex':'none'; $('add').style.display=on?'none':'flex'; $('cross').style.display='none'; if(glassGlow) glassGlow.visible=on; }
 var glide = null;
 function glideTo(x, z, yaw, pitch, done){ glide = {fx:player.x, fz:player.z, fyaw:player.yaw, fp:player.pitch, x:x, z:z, yaw:yaw, pitch:pitch, t:0, t0:performance.now(), done:done}; player.sit=false; player.crouch=false; updateSitLabel(); }
 $('add').addEventListener('click', function(){
@@ -3219,14 +3220,16 @@ function bump(key, n){ use.u.c[key] = Math.min(500, (use.u.c[key]||0) + (n||1));
     mark(src);
   }catch(_){}
 })();
+(function(){ var ua = navigator.userAgent; bump(/iPhone|iPad|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1) ? 'dev_ios' : /Android/.test(ua) ? 'dev_android' : 'dev_pc', 0); })();
 function flushUse(){
   if(!use.dirty || !SB_URL || /^(localhost|127\.)/.test(location.hostname)) return; use.dirty = false;
   var pwa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   try{ fetch(SB_URL+'/rest/v1/rpc/track_day', {method:'POST', keepalive:true, headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
     body:JSON.stringify({p_device:deviceId(), p_c:use.u.c, p_pwa:pwa})}).catch(function(){ use.dirty = true; }); }catch(_){ use.dirty = true; }
 }
-document.addEventListener('visibilitychange', function(){ if(document.hidden) flushUse(); });
-window.addEventListener('pagehide', flushUse);
+function leftEarly(){ if(!funnel.ready && !funnel.gone){ funnel.gone = true; bump('f_left_loading'); } else if(funnel.ready && !funnel.entered && !funnel.gone){ funnel.gone = true; bump('f_left_intro'); } }
+document.addEventListener('visibilitychange', function(){ if(document.hidden){ leftEarly(); flushUse(); } });
+window.addEventListener('pagehide', function(){ leftEarly(); flushUse(); });
 setInterval(flushUse, 60000); setTimeout(flushUse, 8000);
 function deviceId(){
   var d = store.get('yurichang-device');
@@ -3855,7 +3858,7 @@ function setHash(){ try{ history.replaceState(null, '', '#'+cfg.slug); }catch(e)
 function pageUrl(){ return location.href.split('#')[0]; }
 function enterWorld(){
   var it=$('intro'); if(it.style.display==='none') return;
-  bump('w_'+cfg.id);
+  bump('w_'+cfg.id); if(!funnel.entered){ funnel.entered = performance.now(); bump('f_enter'); }
   it.classList.remove('veil'); $('veilHint').classList.remove('on');
   it.style.opacity=0; setTimeout(function(){ it.style.display='none'; },800);
   document.body.classList.remove('intro'); showHint(); setHash();
@@ -4383,7 +4386,7 @@ function goHome(){
   var it = $('intro'), hint = $('veilHint'), hintT = setTimeout(function(){ if(it.classList.contains('veil') && it.style.display!=='none') hint.classList.add('on'); }, 2600);
   function unveil(){
     if(!it.classList.contains('veil')) return;
-    clearTimeout(hintT); hint.classList.remove('on'); it.classList.remove('veil');
+    clearTimeout(hintT); hint.classList.remove('on'); it.classList.remove('veil'); bump('f_unveil');
     window.removeEventListener('keydown', unveil);
   }
   it.addEventListener('click', unveil);
@@ -4635,6 +4638,7 @@ function frame(){
   camera.rotation.set(player.pitch, player.yaw+(intro?introYaw:0), 0);
   for(var i=0;i<uniformsList.length;i++) if(uniformsList[i].t) uniformsList[i].t.value=t;
   WIND.value = t;
+  if(funnel.entered && !document.hidden){ var st = (performance.now() - funnel.entered)/1000; if(!funnel.t1 && st > 60){ funnel.t1 = true; bump('f_stay1m'); } if(!funnel.t3 && st > 180){ funnel.t3 = true; bump('f_stay3m'); } }
   if(peakU) updatePeak(false);
   updateCritters(dt, t); updatePresence(dt, t); updateSkyFx(dt);
   if(snowU) snowU.cam.value.copy(camera.position);
@@ -4652,7 +4656,7 @@ function frame(){
   if(photo.want){ capturePhoto(); if(superPR) setPR(DPR); }
   else if(postCard && !photo.on) makePostCard();
   // drop to light mode automatically if the phone struggles
-  if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
+  if(hq && !perf.checked && !intro){ perf.n++; perf.sum+=dt; if(perf.n>=180){ perf.checked=true; if(perf.sum/perf.n>0.034){ bump('perf_drop'); hq=false; markHQ(); build(); toast('화면이 버벅여서 가벼운 화질로 바꿨어요'); } } }
   requestAnimationFrame(frame);
 }
 

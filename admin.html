@@ -81,6 +81,8 @@
       <h3>이용 현황 · 최근 7일</h3>
       <div class="kpis" id="kpis"></div>
       <div class="funnel" id="funnel"></div>
+      <h3>어디서 떠나나요 · 로딩과 기기 · 최근 7일</h3>
+      <div class="funnel" id="loadbox"></div>
       <div><div class="bars" id="bars"></div><div class="blab" id="blab"></div>
         <p class="muted" style="margin:6px 0 0;font-size:12px"><span style="color:#FFC94D">■</span> 처음 온 사람 <span style="color:#7FB4FF">■</span> 다시 온 사람 · 최근 14일</p></div>
       <div class="funnel" id="wins"></div>
@@ -197,7 +199,9 @@ function loadUse(){
     });
     function rows(box, list, max){ box.innerHTML=''; list.forEach(function(a){ var d=document.createElement('div'); var em=document.createElement('em'); em.textContent=a[0]; var i=document.createElement('i'); i.style.width=(max? Math.round(a[1]*100/max):0)+'%'; var t=document.createElement('span'); t.textContent=a[1]+(a[2]?' · '+a[2]:''); d.appendChild(em); d.appendChild(i); d.appendChild(t); box.appendChild(d); }); }
     var V=w.visitors||0;
-    rows($('funnel'), [['방문',V],['포스트잇 읽음',w.read||0,pct(w.read,V)],['쓰기 시작',w.composed||0,pct(w.composed,V)],['붙임',w.posted||0,pct(w.posted,V)]], V);
+    var S = m.steps||{}, g = function(k){ return S[k]||0; };
+    rows($('funnel'), [['방문',V],['첫 화면 누름',g('f_unveil'),pct(g('f_unveil'),V)],['3D 로딩 끝',g('f_ready'),pct(g('f_ready'),V)],['창에 들어감',g('f_enter'),pct(g('f_enter'),V)],['1분 넘게 머묾',g('f_stay1m'),pct(g('f_stay1m'),V)],['3분 넘게 머묾',g('f_stay3m'),pct(g('f_stay3m'),V)],['포스트잇 읽음',w.read||0,pct(w.read,V)],['붙이기 누름',g('f_place'),pct(g('f_place'),V)],['쓰기 시작',w.composed||0,pct(w.composed,V)],['붙임',w.posted||0,pct(w.posted,V)]], V);
+    rows($('loadbox'), [['로딩 중에 떠남',g('f_left_loading'),pct(g('f_left_loading'),V)],['첫 화면에서 떠남',g('f_left_intro'),pct(g('f_left_intro'),V)],['로딩 3초 미만',g('load_lt3')],['로딩 3~6초',g('load_3_6')],['로딩 6~12초',g('load_6_12')],['로딩 12초 이상',g('load_gt12')],['버벅여서 가벼운 화질로',g('perf_drop')],['아이폰',g('dev_ios')],['안드로이드',g('dev_android')],['PC',g('dev_pc')]], V);
     var wins = Object.keys(m.windows||{}).map(function(k){ return [WINDOWS[k.slice(2)]||k.slice(2), m.windows[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
     rows($('wins'), wins, wins.length?wins[0][1]:0);
     var SRCN = { insta:'인스타그램', threads:'스레드', x:'X', naver:'네이버', blog:'블로그', kakao:'카카오톡', daum:'다음', google:'구글', facebook:'페이스북', youtube:'유튜브', etc:'기타 사이트' };
