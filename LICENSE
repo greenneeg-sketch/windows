@@ -22,6 +22,7 @@ copyright holder. No license is granted beyond what GitHub's Terms of Service al
 - 동물 3D 모델(사슴, 수사슴, 여우, 말): Quaternius "Ultimate Animated Animals" — CC0 1.0 (models/animals/, 동작 일부만 남겨 압축)
 - 상어 3D 모델: tevy.dev "Reef Shark" — CC0 1.0 (models/sea/ReefShark.glb, 텍스처 제거)
 - 지구 이미지(tex/earth_day.jpg, earth_clouds.jpg, earth_night.jpg): NASA Earth Observatory — "Blue Marble: Next Generation" 2004년 11월 지형·수심 (Reto Stöckli), "The Blue Marble" 구름 (2002), "Black Marble" 2016 밤 불빛 (Suomi NPP VIIRS, Miguel Román / Joshua Stevens) — 미국 정부 저작물, 출처 표기
+- 오늘의 구름: NASA GIBS / Worldview, VIIRS Corrected Reflectance True Color (NOAA-20·Suomi NPP) — 매일 서버가 받아 구름만 뽑아 씀, 미국 정부 저작물, 출처 표기
 - 돌고래·고래·물고기 3D 모델: Quaternius "Animated Fish" — CC0 1.0 (models/sea/, glb로 변환)
 - 달토끼 우주복 몸체: Quaternius "Ultimate Space Kit" 우주비행사 — CC0 1.0 (models/space/, 머리를 떼고 파란색으로 바꿔 압축. 토끼 머리·망원경은 숨글이 직접 만든 모델)
 - 달 기지 건물·돔·태양광 패널·안테나·탐사차: Quaternius "Ultimate Space Kit" — CC0 1.0 (models/space/moonbase.glb 로 묶어 압축)

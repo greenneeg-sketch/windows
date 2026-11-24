@@ -299,8 +299,16 @@
   #scopeView.on{opacity:1;pointer-events:auto}
   #scopeView .ring{position:absolute;inset:0;background:radial-gradient(circle at 50% 46%,rgba(0,0,0,0) 0,rgba(0,0,0,0) 38vmin,rgba(0,0,0,.75) 41vmin,#000 44vmin)}
   #scopeView .ring:after{content:"";position:absolute;left:50%;top:46%;width:82vmin;height:82vmin;transform:translate(-50%,-50%);border-radius:50%;box-shadow:inset 0 0 40px 10px rgba(0,0,0,.55)}
-  #scopeCap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 70px);margin:0;text-align:center;color:#e9f4ff;font-size:15px;line-height:1.6;text-shadow:0 1px 6px #000}
-  #scopeFast{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 18px);padding:10px 16px;color:#fff;font-size:14px}
+  #scopeCap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 112px);margin:0;text-align:center;color:#e9f4ff;font-size:15px;line-height:1.6;text-shadow:0 1px 6px #000}
+  #scopeView .fringe{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(0,0,0,0) 36.5vmin,rgba(255,90,200,.10) 37.6vmin,rgba(90,210,255,.10) 38.6vmin,rgba(0,0,0,0) 40vmin)}
+  #scopeHint{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 70px);margin:0;text-align:center;color:#cfe8ff;font-size:13px;transition:opacity .6s;text-shadow:0 1px 6px #000}
+  #scopeCtl{position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);display:flex;flex-direction:column;gap:10px}
+  #scopeCtl .focus{display:flex;align-items:center;gap:10px;color:#e9f4ff;font-size:13px}
+  #scopeCtl .focus input{flex:1;accent-color:#9FF6FF;height:28px}
+  #scopeCtl .row{display:flex;align-items:center;gap:8px}
+  #scopeCtl .row .sp{flex:1}
+  #scopeCtl button{padding:10px 13px;color:#fff;font-size:14px;min-width:44px}
+  #zLbl{color:#e9f4ff;font-size:14px;min-width:44px;text-align:center}
   #scopeClose{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 14px);padding:10px 14px;color:#fff;font-size:14px}
   body.scope #top,body.scope #acts,body.scope #add,body.scope #joy,body.scope #hint,body.scope #bubble{visibility:hidden}
   #travelVeil{position:fixed;inset:0;z-index:25;pointer-events:none;opacity:0;transition:opacity .7s ease;background:#eef2f5}
@@ -338,7 +346,10 @@
 <div id="joy" class="glass" aria-hidden="true"><div id="knob"></div></div>
 <button id="browse" class="glass" aria-label="이 창의 포스트잇 넘겨보기"></button>
 <div id="bubble" aria-live="polite"></div>
-<div id="scopeView" aria-hidden="true"><div class="ring"></div><p id="scopeCap"></p><button id="scopeFast" class="glass">▶ 하루를 24초로</button><button id="scopeClose" class="glass">✕ 눈 떼기</button></div>
+<div id="scopeView" aria-hidden="true"><div class="ring"></div><div class="fringe"></div><p id="scopeHint"></p><p id="scopeCap"></p>
+  <div id="scopeCtl"><label class="focus">초점<input id="scopeFocus" type="range" min="0" max="100" step="0.5"></label>
+    <div class="row"><button id="zOut" class="glass">－</button><b id="zLbl">×50</b><button id="zIn" class="glass">＋</button><span class="sp"></span><button id="scopeFast" class="glass">▶ 하루</button><button id="scopeMonth" class="glass">◐ 한 달</button></div></div>
+  <button id="scopeClose" class="glass">✕ 눈 떼기</button></div>
 <div id="stam" aria-hidden="true"><i></i></div>
 <div id="acts">
   <button id="petBtn" class="glass act" aria-label="가까운 동물과 교감하기">
@@ -2324,13 +2335,17 @@ var MOON_EARTH = new THREE.Vector3(-0.02, 0.27, -1).normalize();   // up in the 
 // where the Sun shines on the Earth from, as seen from the Moon: set by today's lunar phase.
 // New Moon here means a full Earth there; a waxing crescent Moon means a waning gibbous Earth, and so on.
 function moonAge(){ return (((Date.now() - Date.UTC(2000, 0, 6, 18, 14))/86400000) % 29.530588 + 29.530588) % 29.530588; }
-var EARTH_SUN = (function(){
-  var E = moonAge()/29.530588*Math.PI*2, toMoon = MOON_EARTH.clone().negate(), ax = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0,1,0)).normalize();
-  return toMoon.applyAxisAngle(ax, -E).normalize();   // angle E between "towards the Moon" and "towards the Sun"
-})();
+function earthSunAt(age, out){   // angle E between "towards the Moon" and "towards the Sun", seen from the Earth
+  var E = age/29.530588*Math.PI*2, toMoon = MOON_EARTH.clone().negate(), ax = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0,1,0)).normalize();
+  return (out || new THREE.Vector3()).copy(toMoon.applyAxisAngle(ax, -E)).normalize();
+}
+var EARTH_SUN = earthSunAt(moonAge());            // the real one, used through the telescope
+var EARTH_BRIGHT = earthSunAt(3.6);               // out of the window the Earth always shows a bright, nearly full face
+var EARTH_SUN_NOW = EARTH_BRIGHT.clone();         // what the shader is lit by this frame
 // turn the Earth so the side in daylight is the side in daylight right now (sub-solar longitude from UTC)
-function earthSpin(utcH){
-  var d = new Date(), utc = utcH !== undefined ? utcH : d.getUTCHours() + d.getUTCMinutes()/60, Ls = (12 - utc)*15*Math.PI/180, b = Math.atan2(-EARTH_SUN.z, EARTH_SUN.x);
+function earthSpin(utcH, sun){
+  sun = sun || EARTH_SUN_NOW;
+  var d = new Date(), utc = utcH !== undefined ? utcH : d.getUTCHours() + d.getUTCMinutes()/60, Ls = (12 - utc)*15*Math.PI/180, b = Math.atan2(-sun.z, sun.x);
   return b - Ls;
 }
 var EARTH_TEX = {};
@@ -2341,9 +2356,40 @@ function earthTex(name, u, key, flag){   // load once, retry a few times, keep a
       undefined, function(){ if(n < 3) setTimeout(function(){ load(n+1); }, 4000*(n+1)); });
   })(0);
 }
+// today's clouds: a whole-Earth satellite mosaic from yesterday (NASA GIBS, fetched daily by our server).
+// Keep only what is white and grey (cloud); where the satellite left a gap (black), keep the old cloud map.
+var TODAY_CLOUDS = null;
+function todayClouds(u){
+  if(TODAY_CLOUDS === 'fail') return;
+  if(TODAY_CLOUDS){ u.clouds.value = TODAY_CLOUDS.tex; u.hasC.value = 1; return; }
+  if(todayClouds.busy){ todayClouds.busy.push(u); return; } todayClouds.busy = [u];
+  var base = SB_URL + '/storage/v1/object/public/sky/earth/';
+  fetch(base + 'meta.json?d=' + new Date().toISOString().slice(0,13)).then(function(r){ return r.ok ? r.json() : null; }).then(function(meta){
+    if(!meta || !meta.date) throw 0;
+    var im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = function(){
+      var W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d'); x.drawImage(im, 0, 0, W, H);
+      var d = x.getImageData(0, 0, W, H), p = d.data;
+      var old = EARTH_TEX['earth_clouds.jpg'] && EARTH_TEX['earth_clouds.jpg'].image, od = null;
+      if(old){ var c2 = document.createElement('canvas'); c2.width = W; c2.height = H; var x2 = c2.getContext('2d'); x2.drawImage(old, 0, 0, W, H); od = x2.getImageData(0, 0, W, H).data; }
+      for(var i = 0; i < p.length; i += 4){
+        var r = p[i], g = p[i+1], b = p[i+2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), v;
+        if(mx < 6) v = od ? od[i] : 0;                                                           // no data: fall back
+        else { var sat = mx ? (mx - mn)/mx : 0; v = Math.max(0, Math.min(255, (mn - 70)*1.9)) * Math.max(0, 1 - sat*2.6); }   // bright and colourless = cloud
+        p[i] = p[i+1] = p[i+2] = v; p[i+3] = 255;
+      }
+      x.putImageData(d, 0, 0);
+      var t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = 8; t.__keep = true;
+      TODAY_CLOUDS = { tex:t, meta:meta };
+      todayClouds.busy.forEach(function(uu){ uu.clouds.value = t; uu.hasC.value = 1; }); todayClouds.busy = null;
+    };
+    im.onerror = function(){ TODAY_CLOUDS = 'fail'; todayClouds.busy = null; };
+    im.src = base + 'today.jpg?d=' + meta.date;
+  }).catch(function(){ TODAY_CLOUDS = 'fail'; todayClouds.busy = null; });
+}
 function makeEarth(){
-  var u = { map:{value:null}, has:{value:0}, night:{value:null}, hasN:{value:0}, clouds:{value:null}, hasC:{value:0}, sunDir:{value:EARTH_SUN}, t:{value:0} }; uniformsList.push(u);
-  earthTex('earth_day.jpg', u, 'map', 'has'); earthTex('earth_night.jpg', u, 'night', 'hasN'); earthTex('earth_clouds.jpg', u, 'clouds', 'hasC');
+  var u = { map:{value:null}, has:{value:0}, night:{value:null}, hasN:{value:0}, clouds:{value:null}, hasC:{value:0}, sunDir:{value:EARTH_SUN_NOW}, t:{value:0} }; uniformsList.push(u);
+  earthTex('earth_day.jpg', u, 'map', 'has'); earthTex('earth_night.jpg', u, 'night', 'hasN'); earthTex('earth_clouds.jpg', u, 'clouds', 'hasC'); todayClouds(u);
   var m = new THREE.ShaderMaterial({ uniforms:u, fog:false,
     vertexShader:'varying vec2 vUv; varying vec3 vN; varying vec3 vW; void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*normal); vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
     fragmentShader:'uniform sampler2D map; uniform sampler2D night; uniform sampler2D clouds; uniform float has; uniform float hasN; uniform float hasC; uniform float t; uniform vec3 sunDir; varying vec2 vUv; varying vec3 vN; varying vec3 vW;'+PEAK_GLSL+
@@ -2966,38 +3012,97 @@ document.addEventListener('visibilitychange', function(){ if(!document.hidden &&
 
 // ---------- the Earth through the rabbits' telescope ----------
 var scopeOn = false, scopeK = 0, scopeQ = new THREE.Quaternion(), scopeM = new THREE.Matrix4(), scopeV = new THREE.Vector3(), scopeFov = 0;
-var scopeFast = { on:false, h:0 };
+var scopeFast = { on:false, h:0 }, scopeMonth = { on:false, d:0 }, scopeLook = { zoom:0, z:1, px:0, py:0, tx:0, ty:0, focus:50, target:50, korea:false };
+var ZOOMS = [{ k:1, n:'×50' }, { k:2.8, n:'×150' }, { k:7, n:'×400' }];
+var scopeR = new THREE.Vector3(), scopeU = new THREE.Vector3(), scopeKR = new THREE.Vector3(), scopeTmp = new THREE.Vector3(), sunReal = new THREE.Vector3();
 function whenKR(h){ h = ((h % 24) + 24) % 24; return h < 5 ? '깊은 밤' : h < 9 ? '아침' : h < 17 ? '낮' : h < 20 ? '저녁' : '밤'; }
+function earthShape(age){ var f = (1 + Math.cos(age/29.530588*Math.PI*2))/2; return f > 0.94 ? '꽉 찬 지구' : f > 0.6 ? '볼록한 지구' : f > 0.4 ? '반쪽 지구' : f > 0.06 ? '가느다란 지구' : '거의 그림자뿐인 지구'; }
 function scopeCaption(){
+  var cap = $('scopeCap');
+  if(scopeMonth.on){ var dt = new Date(Date.now() + scopeMonth.d*86400000);
+    cap.innerHTML = '<b>'+(dt.getMonth()+1)+'월 '+dt.getDate()+'일</b> · '+earthShape(moonAge() + scopeMonth.d)+'<br><small style="opacity:.75">달에서 본 지구는 지구에서 본 달과 거꾸로 차고 기울어요</small>'; return; }
   if(scopeFast.on){ var kh = ((scopeFast.h + 9) % 24 + 24) % 24, hh = Math.floor(kh), mm = Math.floor((kh - hh)*60);
-    $('scopeCap').innerHTML = '한국 시각 <b>'+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm+'</b> · '+whenKR(kh)+'<br><small style="opacity:.75">지구가 하루에 한 바퀴 도는 모습을 빠르게 보고 있어요</small>'; return; }
-  var f = (1 + Math.cos(moonAge()/29.530588*Math.PI*2))/2, shape = f > 0.94 ? '꽉 찬 지구' : f > 0.6 ? '볼록한 지구' : f > 0.4 ? '반쪽 지구' : f > 0.06 ? '가느다란 지구' : '거의 그림자뿐인 지구';
-  $('scopeCap').innerHTML = '38만 km 너머, 오늘은 '+shape+'예요<br><small style="opacity:.75">지금 한국은 '+whenKR(new Date().getUTCHours() + 9)+'이에요 · 빛이 닿는 쪽이 낮, 그림자 쪽엔 도시 불빛<br>실제로는 한 시간에 15°씩, 아주 천천히 돌아요</small>';
+    cap.innerHTML = '한국 시각 <b>'+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm+'</b> · '+whenKR(kh)+'<br><small style="opacity:.75">지구가 하루에 한 바퀴 도는 모습을 빠르게 보고 있어요</small>'; return; }
+  var cl = TODAY_CLOUDS && TODAY_CLOUDS.meta ? (function(m){ var p = m.date.split('-'); return ' · 구름은 '+(+p[1])+'월 '+(+p[2])+'일 실제 위성 사진'; })(TODAY_CLOUDS.meta) : '';
+  cap.innerHTML = '38만 km 너머, 오늘은 '+earthShape(moonAge())+'예요<br><small style="opacity:.75">지금 한국은 '+whenKR(new Date().getUTCHours() + 9)+'이에요 · 빛이 닿는 쪽이 낮, 그림자 쪽엔 도시 불빛'+cl+'</small>';
+}
+function scopeZoom(i){
+  i = Math.max(0, Math.min(ZOOMS.length-1, i)); if(i === scopeLook.zoom) return; scopeLook.zoom = i; $('zLbl').textContent = ZOOMS[i].n;
+  if(i === 0){ scopeLook.tx = scopeLook.ty = 0; }
+  scopeLook.korea = i === ZOOMS.length-1;    // the strongest lens finds Korea, if it is on our side
+  scopeLook.target = 25 + Math.random()*50; bump('scope_zoom'+i);    // every new magnification needs focusing again
+  $('scopeHint').textContent = '초점을 맞춰 보세요'; $('scopeHint').style.opacity = 1;
 }
 function openScope(){
   if(scopeOn || !earthMesh) return; scopeOn = true; bump('scope'); if(navigator.vibrate) try{ navigator.vibrate(10); }catch(_){}
-  scopeFast.on = false; $('scopeFast').textContent = '▶ 하루를 24초로'; earthMesh.rotation.y = earthSpin(); scopeCaption();
-  $('scopeView').classList.add('on'); document.body.classList.add('scope');
+  scopeFast.on = scopeMonth.on = false; $('scopeFast').textContent = '▶ 하루'; $('scopeMonth').textContent = '◐ 한 달';
+  scopeLook.zoom = 0; scopeLook.z = 1; scopeLook.px = scopeLook.py = scopeLook.tx = scopeLook.ty = 0; scopeLook.korea = false; $('zLbl').textContent = ZOOMS[0].n;
+  scopeLook.target = 25 + Math.random()*50; scopeLook.focus = scopeLook.target + (Math.random() < 0.5 ? -1 : 1)*(22 + Math.random()*12);
+  $('scopeFocus').value = scopeLook.focus; $('scopeHint').textContent = '초점 다이얼을 돌려 보세요 · 끌어서 둘러보기'; $('scopeHint').style.opacity = 1;
+  scopeCaption(); $('scopeView').classList.add('on'); document.body.classList.add('scope');
 }
-$('scopeFast').addEventListener('click', function(e){ e.stopPropagation();
-  scopeFast.on = !scopeFast.on; var d = new Date(); scopeFast.h = d.getUTCHours() + d.getUTCMinutes()/60;
-  if(scopeFast.on) bump('scope_fast'); else earthMesh.rotation.y = earthSpin();
-  this.textContent = scopeFast.on ? '■ 지금 시각으로' : '▶ 하루를 24초로'; scopeCaption(); });
-function closeScope(){ if(!scopeOn) return; scopeOn = false; if(scopeFast.on){ scopeFast.on = false; if(earthMesh) earthMesh.rotation.y = earthSpin(); } $('scopeView').classList.remove('on'); document.body.classList.remove('scope'); }
+function closeScope(){ if(!scopeOn) return; scopeOn = false; scopeFast.on = scopeMonth.on = false; $('scopeView').classList.remove('on'); document.body.classList.remove('scope'); renderer.domElement.style.filter = ''; }
 $('scopeClose').addEventListener('click', function(e){ e.stopPropagation(); closeScope(); });
-$('scopeView').addEventListener('pointerdown', function(e){ if(e.target.id !== 'scopeClose' && e.target.id !== 'scopeFast') closeScope(); });
+$('scopeFast').addEventListener('click', function(e){ e.stopPropagation();
+  scopeFast.on = !scopeFast.on; scopeMonth.on = false; $('scopeMonth').textContent = '◐ 한 달';
+  var d = new Date(); scopeFast.h = d.getUTCHours() + d.getUTCMinutes()/60; if(scopeFast.on) bump('scope_fast');
+  this.textContent = scopeFast.on ? '■ 지금' : '▶ 하루'; scopeCaption(); });
+$('scopeMonth').addEventListener('click', function(e){ e.stopPropagation();
+  scopeMonth.on = !scopeMonth.on; scopeFast.on = false; $('scopeFast').textContent = '▶ 하루'; scopeMonth.d = 0; if(scopeMonth.on) bump('scope_month');
+  this.textContent = scopeMonth.on ? '■ 오늘' : '◐ 한 달'; scopeCaption(); });
+$('zIn').addEventListener('click', function(e){ e.stopPropagation(); scopeZoom(scopeLook.zoom + 1); });
+$('zOut').addEventListener('click', function(e){ e.stopPropagation(); scopeZoom(scopeLook.zoom - 1); });
+$('scopeFocus').addEventListener('input', function(){ scopeLook.focus = +this.value; });
+['pointerdown','click'].forEach(function(ev){ $('scopeCtl').addEventListener(ev, function(e){ e.stopPropagation(); }); });
+// drag to look around the disk, pinch to change magnification
+(function(){
+  var pts = {}, last = null, pinch0 = 0;
+  var v = $('scopeView');
+  v.addEventListener('pointerdown', function(e){ if(!scopeOn) return; pts[e.pointerId] = { x:e.clientX, y:e.clientY }; last = { x:e.clientX, y:e.clientY }; var k = Object.keys(pts); if(k.length === 2){ var a = pts[k[0]], b = pts[k[1]]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); } try{ v.setPointerCapture(e.pointerId); }catch(_){} });
+  v.addEventListener('pointermove', function(e){ if(!pts[e.pointerId]) return; pts[e.pointerId] = { x:e.clientX, y:e.clientY }; var k = Object.keys(pts);
+    if(k.length === 2){ var a = pts[k[0]], b = pts[k[1]], dd = Math.hypot(a.x-b.x, a.y-b.y); if(pinch0 && dd/pinch0 > 1.35){ scopeZoom(scopeLook.zoom+1); pinch0 = dd; } else if(pinch0 && dd/pinch0 < 0.74){ scopeZoom(scopeLook.zoom-1); pinch0 = dd; } return; }
+    var s = 1.1/(window.innerHeight*ZOOMS[scopeLook.zoom].k);   // roughly the disk's width per screen height
+    scopeLook.tx -= (e.clientX - last.x)*s; scopeLook.ty += (e.clientY - last.y)*s; scopeLook.korea = false; last = { x:e.clientX, y:e.clientY };
+    var r = Math.hypot(scopeLook.tx, scopeLook.ty); if(r > 0.95){ scopeLook.tx *= 0.95/r; scopeLook.ty *= 0.95/r; } });
+  function up(e){ delete pts[e.pointerId]; pinch0 = 0; }
+  v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up);
+})();
 function scopeFrame(dt, t){
   if(!scopeFov) scopeFov = camera.fov;
   var k0 = scopeK; scopeK += ((scopeOn ? 1 : 0) - scopeK)*Math.min(1, dt*3.2); if(!scopeOn && scopeK < 0.002) scopeK = 0;
-  if(scopeK <= 0){ if(k0 > 0){ camera.fov = scopeFov; camera.updateProjectionMatrix(); } else scopeFov = camera.fov; return; }
+  var e = scopeK*scopeK*(3 - 2*scopeK);
+  // the Earth's light: bright out of the window, today's real phase (or the month running fast) in the eyepiece
+  if(earthMesh && cfg.moon){
+    if(scopeOn && scopeMonth.on){ scopeMonth.d += dt; if(scopeMonth.d > 29.53) scopeMonth.d -= 29.53; scopeCaption(); }
+    earthSunAt(moonAge() + (scopeMonth.on ? scopeMonth.d : 0), sunReal);
+    EARTH_SUN_NOW.copy(EARTH_BRIGHT).lerp(sunReal, e).normalize();
+    if(scopeOn && scopeFast.on){ scopeFast.h += dt; scopeCaption(); }   // an hour a second
+    earthMesh.rotation.y = earthSpin(scopeFast.on ? scopeFast.h : undefined);
+  }
+  if(scopeK <= 0){ if(k0 > 0){ camera.fov = scopeFov; camera.updateProjectionMatrix(); renderer.domElement.style.filter = ''; } else scopeFov = camera.fov; return; }
   if(!earthMesh || !cfg.moon){ scopeOn = false; scopeK = 0; return; }
-  if(scopeOn && scopeFast.on){ scopeFast.h += dt; earthMesh.rotation.y = earthSpin(scopeFast.h); scopeCaption(); }   // an hour a second
-  earthMesh.getWorldPosition(scopeV); scopeV.x += Math.sin(t*0.7)*0.25; scopeV.y += Math.sin(t*0.53+1)*0.2;   // a hand on the eyepiece isn't perfectly still
+  var L = scopeLook, Z = ZOOMS[L.zoom].k;
+  L.z += (Z - L.z)*Math.min(1, dt*3);
+  earthMesh.getWorldPosition(scopeV); var R = 36;
+  scopeTmp.copy(scopeV).sub(camera.position).normalize(); scopeR.crossVectors(scopeTmp, camera.up).normalize(); scopeU.crossVectors(scopeR, scopeTmp).normalize();
+  if(L.korea){   // Seoul on the globe: 37.5°N 127°E, through the Earth's own turn and tilt
+    var la = 37.5*Math.PI/180, lo = 127*Math.PI/180, ph = lo + Math.PI;
+    scopeKR.set(-Math.cos(ph)*Math.cos(la), Math.sin(la), Math.sin(ph)*Math.cos(la)).multiplyScalar(R); earthMesh.localToWorld(scopeKR);
+    var nx = scopeKR.clone().sub(scopeV).normalize();
+    if(nx.dot(scopeTmp) < -0.25){ L.tx = scopeKR.clone().sub(scopeV).dot(scopeR)/R; L.ty = scopeKR.clone().sub(scopeV).dot(scopeU)/R; } else L.korea = false;
+  }
+  L.px += (L.tx - L.px)*Math.min(1, dt*4); L.py += (L.ty - L.py)*Math.min(1, dt*4);
+  var wob = 0.25/Math.sqrt(L.z);   // a hand on the eyepiece isn't perfectly still
+  scopeV.addScaledVector(scopeR, L.px*R + Math.sin(t*0.7)*wob).addScaledVector(scopeU, L.py*R + Math.sin(t*0.53+1)*wob);
   scopeM.lookAt(camera.position, scopeV, camera.up); scopeQ.setFromRotationMatrix(scopeM);
-  var e = scopeK*scopeK*(3 - 2*scopeK); camera.quaternion.slerp(scopeQ, e);
-  // frame the whole disk inside the eyepiece circle, edge and air included, on a tall phone screen or a wide one
-  var want = 2*Math.atan(Math.tan(11.8*Math.PI/360)/Math.min(1, camera.aspect))*180/Math.PI;
+  camera.quaternion.slerp(scopeQ, e);
+  // frame the whole disk inside the eyepiece circle at ×50, edge and air included, on a tall phone screen or a wide one
+  var want = 2*Math.atan(Math.tan(11.8*Math.PI/360)/Math.min(1, camera.aspect)/L.z)*180/Math.PI;
   camera.fov = scopeFov + (want - scopeFov)*e; camera.updateProjectionMatrix();
+  // focus: blur grows with how far the dial is from the sweet spot
+  var off = Math.abs(L.focus - L.target), blur = Math.min(9, off*0.22)*e;
+  renderer.domElement.style.filter = blur > 0.15 ? 'blur('+blur.toFixed(1)+'px)' : '';
+  if(off < 4 && $('scopeHint').style.opacity !== '0'){ $('scopeHint').textContent = '찰칵, 초점이 맞았어요'; setTimeout(function(){ $('scopeHint').style.opacity = 0; }, 900); }
 }
 // ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
 var THOUGHTS = {
@@ -3750,7 +3855,6 @@ var LINKS = [['mapo','busan','물가 길'], ['busan','jeju','해안 길'], ['jej
 var GATE_DIR = { mapo:{busan:[1,0.35]}, busan:{mapo:[-0.57,0.82], jeju:[1,0.35], newyear:[0.12,1]}, jeju:{busan:[-0.5,0.87], gangneung:[0.85,0.6]},
                  gangneung:{jeju:[0.35,1], moon:[-0.75,0.7]}, moon:{gangneung:[0,1]}, newyear:{busan:[0,1]} };
 var gates = [], travel = false;
-function regionById(id){ for(var i=0;i<REGIONS.length;i++) if(REGIONS[i].id===id) return REGIONS[i]; return null; }
 function gateLabel(text, sub){
   var c = document.createElement('canvas'); c.width = 512; c.height = 160; var x = c.getContext('2d');
   x.fillStyle = '#7a5434'; x.fillRect(0,0,512,160); x.fillStyle = 'rgba(0,0,0,0.18)'; for(var i=0;i<6;i++) x.fillRect(0, 22+i*26, 512, 2);
