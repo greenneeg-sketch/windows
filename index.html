@@ -2419,11 +2419,15 @@ function astroRabbit(g, h){
     var loc = (RAB_HK*s)/hb.getWorldScale(new THREE.Vector3()).x; head.scale.setScalar(loc); head.position.set(0, RAB_HY*loc, RAB_HZ*loc).applyQuaternion(head.quaternion);
     hb.add(head);
   }
+  var rest = {}, tracked = {}; Object.keys(bones).forEach(function(n){ rest[n] = bones[n].quaternion.clone(); });
+  g.animations.forEach(function(a){ a.tracks.forEach(function(t){ if(/quaternion$/.test(t.name)) tracked[t.name.split('.')[0]] = true; }); });
+  // add a turn on top of the animation; a bone no clip moves is reset first so the turn doesn't pile up frame after frame
+  function twist(n, q){ var b = bones[n]; if(!b) return; if(!tracked[n]) b.quaternion.copy(rest[n]); b.quaternion.multiply(q); }
   var mixer = new THREE.AnimationMixer(body), acts = {}, cur = null;
   g.animations.forEach(function(a){ acts[a.name] = mixer.clipAction(a); });
   function play(n, fade, once){ var a = acts[n] || acts.Idle; if(!a) return; if(a === cur && !once) return;
     a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = !!once; a.setEffectiveWeight(1).fadeIn(fade||0.4).play(); if(cur && cur !== a) cur.fadeOut(fade||0.4); cur = a; }
-  return { o:holder, body:body, mixer:mixer, play:play, acts:acts, head:head, bones:bones };
+  return { o:holder, body:body, mixer:mixer, play:play, acts:acts, head:head, bones:bones, twist:twist };
 }
 // ---------- a white refractor on a tripod: black bands, blue lens, finder scope ----------
 function makeScope(){
@@ -2489,8 +2493,7 @@ function addMoonRabbits(group){
     var hnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.85, 8), wood); hnd.position.y = -0.4; pestle.add(hnd);
     var hp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.26, 14), wood); hp.rotation.x = Math.PI/2; hp.position.y = -0.85; hp.castShadow = hq; pestle.add(hp);
     var vS = new THREE.Vector3(), vE = new THREE.Vector3(), vT = new THREE.Vector3(), qd = new THREE.Quaternion(), qp = new THREE.Quaternion(), qb = new THREE.Quaternion();
-    var qCurl = new THREE.Quaternion().setFromAxisAngle(AX, -1.05), curl = Object.keys(r1.bones).filter(function(n){ return /^(Index|Middle|Pinky)[123]/.test(n); }).map(function(n){ return r1.bones[n]; });
-    var qTh = new THREE.Quaternion().setFromAxisAngle(AX, -0.6); Object.keys(r1.bones).filter(function(n){ return /^Thumb2/.test(n); }).forEach(function(n){ curl.push(r1.bones[n]); });
+    var qCurl = new THREE.Quaternion().setFromAxisAngle(AX, -1.05), curl = Object.keys(r1.bones).filter(function(n){ return /^(Index|Middle|Pinky)[123]|^Thumb2/.test(n); });
     function reach(n, side){   // turn the upper arm so the hand lands on the handle
       var ua = r1.bones['UpperArm'+n], la = r1.bones['LowerArm'+n]; if(!ua || !la) return;
       ua.getWorldPosition(vS); la.getWorldPosition(vE);
@@ -2505,7 +2508,7 @@ function addMoonRabbits(group){
         var k = (T % 1.25)/1.25, lift = k < 0.6 ? Math.sin(k/0.6*Math.PI/2) : 1 - Math.pow((k-0.6)/0.4, 2.2);   // slow lift, quick strike
         if(st1.flash > 0.8) lift = 0.6;
         pestle.rotation.x = -1.35 - lift*1.65;
-        curl.forEach(function(bn){ bn.quaternion.multiply(qCurl); });   // fists around the handle
+        curl.forEach(function(n){ r1.twist(n, qCurl); });   // fists around the handle
         r1.o.updateMatrixWorld(true); reach('L', 1); reach('R', -1);
       if(k < st1.last && st1.flash <= 0.8){ tteok.scale.set(1.12, 0.36, 1.12); for(var i=0;i<5;i++){ var f = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9})); f.position.set(mx + (R()-0.5)*0.2, mortar.position.y + 0.5, mz + (R()-0.5)*0.2); f.userData.v = new THREE.Vector3((R()-0.5)*0.6, 0.5 + R()*0.6, (R()-0.5)*0.6); f.userData.t = 1.6; flour.add(f); } }
       st1.last = k; tteok.scale.x += (1 - tteok.scale.x)*dt*4; tteok.scale.z = tteok.scale.x; tteok.scale.y += (0.45 - tteok.scale.y)*dt*4;
@@ -2517,7 +2520,7 @@ function addMoonRabbits(group){
     critters.push({ o:r2.o, kind:'moonrabbit', headY:1.2, petR:3.2,
       calm:function(){ greet(r2, st2); }, update:function(dt, T){
         r2.mixer.update(dt); settle(r2, st2, dt);
-        if(st2.back <= 0){ var hb = r2.bones.Head; if(hb){ qy.setFromAxisAngle(AY, Math.sin(T*0.25)*0.45 - 0.3); hb.quaternion.multiply(qy); qx.setFromAxisAngle(AX, -0.28); hb.quaternion.multiply(qx); } }
+        if(st2.back <= 0){ qy.setFromAxisAngle(AY, Math.sin(T*0.25)*0.45 - 0.3); qx.setFromAxisAngle(AX, -0.28); r2.twist('Head', qy.multiply(qx)); }
         blinkUpdate(r2, st2, dt, T); return true; } });
     // 3) a little one, bouncing in the low gravity
     var r3 = astroRabbit(g, 0.78), cx3 = 0.8, cz3 = -6.2; group.add(r3.o); r3.play('Walk', 0.01); if(r3.acts.Walk) r3.acts.Walk.timeScale = 0.6;
