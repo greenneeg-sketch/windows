@@ -3710,7 +3710,7 @@ function addGates(group){
     var bm = new THREE.MeshLambertMaterial({ map:gateLabel(tr.name+' 창', scope ? (cfg.moon ? '지구로 돌아가는 망원경' : '달로 가는 망원경') : l[2]+' 따라 쭉') });
     bm.color.setScalar(lit);
     var board = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.39, 0.04), [wood, wood, wood, wood, bm, wood]);
-    board.position.set(sx, sy+1.45, sz); board.rotation.y = Math.atan2(-g.dx, -g.dz); board.castShadow = true; o.add(board);
+    board.position.set(sx - g.dx*0.09, sy+1.45, sz - g.dz*0.09); /* hung on the near side of the post, so the post doesn't cut through the words */ board.rotation.y = Math.atan2(-g.dx, -g.dz); board.castShadow = true; o.add(board);
     colliders.push({ x:sx, z:sz, r:0.14 });
     if(scope){   // the white refractor, tilted at the sky (on the Moon: at the Earth)
       var ts = makeScope(), gy = yAt(g.x, g.z); ts.position.set(g.x, gy, g.z); ts.rotation.y = Math.atan2(g.dx, g.dz); ts.scale.setScalar(1.05); o.add(ts);
