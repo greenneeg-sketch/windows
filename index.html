@@ -299,7 +299,7 @@
   #scopeView.on{opacity:1;pointer-events:auto}
   #scopeView .ring{position:absolute;inset:0;background:radial-gradient(circle at 50% 46%,rgba(0,0,0,0) 0,rgba(0,0,0,0) 38vmin,rgba(0,0,0,.75) 41vmin,#000 44vmin)}
   #scopeView .ring:after{content:"";position:absolute;left:50%;top:46%;width:82vmin;height:82vmin;transform:translate(-50%,-50%);border-radius:50%;box-shadow:inset 0 0 40px 10px rgba(0,0,0,.55)}
-  #scopeCap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 112px);margin:0;text-align:center;color:#e9f4ff;font-size:15px;line-height:1.6;text-shadow:0 1px 6px #000}
+  #scopeCap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 74px);margin:0;text-align:center;color:#e9f4ff;font-size:15px;line-height:1.6;text-shadow:0 1px 6px #000}
   #scopeView .fringe{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 46%,rgba(0,0,0,0) 36.5vmin,rgba(255,90,200,.10) 37.6vmin,rgba(90,210,255,.10) 38.6vmin,rgba(0,0,0,0) 40vmin)}
   #scopeHint{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top) + 70px);margin:0;text-align:center;color:#cfe8ff;font-size:13px;transition:opacity .6s;text-shadow:0 1px 6px #000}
   #scopeCtl{position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 14px);display:flex;flex-direction:column;gap:10px}
@@ -347,7 +347,7 @@
 <button id="browse" class="glass" aria-label="이 창의 포스트잇 넘겨보기"></button>
 <div id="bubble" aria-live="polite"></div>
 <div id="scopeView" aria-hidden="true"><div class="ring"></div><div class="fringe"></div><p id="scopeHint"></p><p id="scopeCap"></p>
-  <div id="scopeCtl"><label class="focus">초점<input id="scopeFocus" type="range" min="0" max="100" step="0.5"></label>
+  <div id="scopeCtl">
     <div class="row"><button id="zOut" class="glass">－</button><b id="zLbl">×50</b><button id="zIn" class="glass">＋</button><span class="sp"></span><button id="scopeFast" class="glass">▶ 하루</button><button id="scopeMonth" class="glass">◐ 한 달</button></div></div>
   <button id="scopeClose" class="glass">✕ 눈 떼기</button></div>
 <div id="stam" aria-hidden="true"><i></i></div>
@@ -3031,14 +3031,13 @@ function scopeZoom(i){
   if(i === 0){ scopeLook.tx = scopeLook.ty = 0; }
   scopeLook.korea = i === ZOOMS.length-1;    // the strongest lens finds Korea, if it is on our side
   scopeLook.target = 25 + Math.random()*50; bump('scope_zoom'+i);    // every new magnification needs focusing again
-  $('scopeHint').textContent = '초점을 맞춰 보세요'; $('scopeHint').style.opacity = 1;
 }
 function openScope(){
   if(scopeOn || !earthMesh) return; scopeOn = true; bump('scope'); if(navigator.vibrate) try{ navigator.vibrate(10); }catch(_){}
   scopeFast.on = scopeMonth.on = false; $('scopeFast').textContent = '▶ 하루'; $('scopeMonth').textContent = '◐ 한 달';
   scopeLook.zoom = 0; scopeLook.z = 1; scopeLook.px = scopeLook.py = scopeLook.tx = scopeLook.ty = 0; scopeLook.korea = false; $('zLbl').textContent = ZOOMS[0].n;
   scopeLook.target = 25 + Math.random()*50; scopeLook.focus = scopeLook.target + (Math.random() < 0.5 ? -1 : 1)*(22 + Math.random()*12);
-  $('scopeFocus').value = scopeLook.focus; $('scopeHint').textContent = '초점 다이얼을 돌려 보세요 · 끌어서 둘러보기'; $('scopeHint').style.opacity = 1;
+  $('scopeHint').textContent = '끌어서 둘러보기 · 두 손가락으로 확대'; $('scopeHint').style.opacity = 1; setTimeout(function(){ $('scopeHint').style.opacity = 0; }, 3500);
   scopeCaption(); $('scopeView').classList.add('on'); document.body.classList.add('scope');
 }
 function closeScope(){ if(!scopeOn) return; scopeOn = false; scopeFast.on = scopeMonth.on = false; $('scopeView').classList.remove('on'); document.body.classList.remove('scope'); renderer.domElement.style.filter = ''; }
@@ -3052,7 +3051,6 @@ $('scopeMonth').addEventListener('click', function(e){ e.stopPropagation();
   this.textContent = scopeMonth.on ? '■ 오늘' : '◐ 한 달'; scopeCaption(); });
 $('zIn').addEventListener('click', function(e){ e.stopPropagation(); scopeZoom(scopeLook.zoom + 1); });
 $('zOut').addEventListener('click', function(e){ e.stopPropagation(); scopeZoom(scopeLook.zoom - 1); });
-$('scopeFocus').addEventListener('input', function(){ scopeLook.focus = +this.value; });
 ['pointerdown','click'].forEach(function(ev){ $('scopeCtl').addEventListener(ev, function(e){ e.stopPropagation(); }); });
 // drag to look around the disk, pinch to change magnification
 (function(){
@@ -3100,9 +3098,9 @@ function scopeFrame(dt, t){
   var want = 2*Math.atan(Math.tan(11.8*Math.PI/360)/Math.min(1, camera.aspect)/L.z)*180/Math.PI;
   camera.fov = scopeFov + (want - scopeFov)*e; camera.updateProjectionMatrix();
   // focus: blur grows with how far the dial is from the sweet spot
+  L.focus += (L.target - L.focus)*Math.min(1, dt*2.4);   // the eyepiece focuses itself, a soft blur settling into sharpness
   var off = Math.abs(L.focus - L.target), blur = Math.min(9, off*0.22)*e;
   renderer.domElement.style.filter = blur > 0.15 ? 'blur('+blur.toFixed(1)+'px)' : '';
-  if(off < 4 && $('scopeHint').style.opacity !== '0'){ $('scopeHint').textContent = '찰칵, 초점이 맞았어요'; setTimeout(function(){ $('scopeHint').style.opacity = 0; }, 900); }
 }
 // ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
 var THOUGHTS = {
