@@ -2510,7 +2510,7 @@ function addMoonRabbits(group){
     var hp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.26, 14), wood); hp.rotation.x = Math.PI/2; hp.position.y = -0.85; hp.castShadow = hq; pestle.add(hp);
     var vS = new THREE.Vector3(), vE = new THREE.Vector3(), vT = new THREE.Vector3(), qd = new THREE.Quaternion(), qp = new THREE.Quaternion(), qb = new THREE.Quaternion();
     var qThumb = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), -0.8), qCurl = new THREE.Quaternion().setFromAxisAngle(AX, -0.55), curl = Object.keys(r1.bones).filter(function(n){ return /^(Index|Middle|Pinky)[123]/.test(n); });
-    var PAW_GAP = 0.085;   // paws on either side of the handle, palms toward each other like a clap
+    var PAW_GAP = 0.15;   // paws on either side of the handle, palms toward each other like a clap
     var vB = new THREE.Vector3();
     function turnToward(bone, eff, tgt){   // one CCD step: swing a bone so the effector points at the target
       bone.getWorldPosition(vB); qd.setFromUnitVectors(vE.copy(eff).sub(vB).normalize(), vS.copy(tgt).sub(vB).normalize());
