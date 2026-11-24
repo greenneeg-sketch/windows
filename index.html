@@ -3042,6 +3042,7 @@ function openScope(){
 }
 function closeScope(){ if(!scopeOn) return; scopeOn = false; scopeFast.on = scopeMonth.on = false; $('scopeView').classList.remove('on'); document.body.classList.remove('scope'); renderer.domElement.style.filter = ''; }
 $('scopeClose').addEventListener('click', function(e){ e.stopPropagation(); closeScope(); });
+document.addEventListener('keydown', function(e){ if(scopeOn && e.key === 'Escape') closeScope(); });
 $('scopeFast').addEventListener('click', function(e){ e.stopPropagation();
   scopeFast.on = !scopeFast.on; scopeMonth.on = false; $('scopeMonth').textContent = '◐ 한 달';
   var d = new Date(); scopeFast.h = d.getUTCHours() + d.getUTCMinutes()/60; if(scopeFast.on) bump('scope_fast');
@@ -3056,7 +3057,7 @@ $('zOut').addEventListener('click', function(e){ e.stopPropagation(); scopeZoom(
 (function(){
   var pts = {}, last = null, pinch0 = 0;
   var v = $('scopeView');
-  v.addEventListener('pointerdown', function(e){ if(!scopeOn) return; pts[e.pointerId] = { x:e.clientX, y:e.clientY }; last = { x:e.clientX, y:e.clientY }; var k = Object.keys(pts); if(k.length === 2){ var a = pts[k[0]], b = pts[k[1]]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); } try{ v.setPointerCapture(e.pointerId); }catch(_){} });
+  v.addEventListener('pointerdown', function(e){ if(!scopeOn || e.target.closest('button,#scopeCtl')) return;   /* capturing the pointer on a button would swallow its click (the ✕ did nothing with a mouse) */ pts[e.pointerId] = { x:e.clientX, y:e.clientY }; last = { x:e.clientX, y:e.clientY }; var k = Object.keys(pts); if(k.length === 2){ var a = pts[k[0]], b = pts[k[1]]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); } try{ v.setPointerCapture(e.pointerId); }catch(_){} });
   v.addEventListener('pointermove', function(e){ if(!pts[e.pointerId]) return; pts[e.pointerId] = { x:e.clientX, y:e.clientY }; var k = Object.keys(pts);
     if(k.length === 2){ var a = pts[k[0]], b = pts[k[1]], dd = Math.hypot(a.x-b.x, a.y-b.y); if(pinch0 && dd/pinch0 > 1.35){ scopeZoom(scopeLook.zoom+1); pinch0 = dd; } else if(pinch0 && dd/pinch0 < 0.74){ scopeZoom(scopeLook.zoom-1); pinch0 = dd; } return; }
     var s = 1.1/(window.innerHeight*ZOOMS[scopeLook.zoom].k);   // roughly the disk's width per screen height
