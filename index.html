@@ -2504,35 +2504,41 @@ function addMoonRabbits(group){
     // 1) the pounder, at a wooden mortar of rice cake
     var r1 = astroRabbit(g, 1.2); place(r1.o, px, pz, 0.5); r1.play('Idle', 0.01);
     r1.mixer.update(0.01); r1.o.updateMatrixWorld(true);
-    var sh = r1.bones.UpperArmL.getWorldPosition(new THREE.Vector3()).add(r1.bones.UpperArmR.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5); r1.o.worldToLocal(sh);
-    var pestle = new THREE.Group(); pestle.position.set(0, sh.y - 0.22, 0.2); /* held at the chest, so the paws don't cover the face */ r1.o.add(pestle);
-    var hnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.85, 8), wood); hnd.position.y = -0.4; pestle.add(hnd);
-    var hp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.26, 14), wood); hp.rotation.x = Math.PI/2; hp.position.y = -0.85; hp.castShadow = hq; pestle.add(hp);
-    var vS = new THREE.Vector3(), vE = new THREE.Vector3(), vT = new THREE.Vector3(), qd = new THREE.Quaternion(), qp = new THREE.Quaternion(), qb = new THREE.Quaternion();
-    var qThumb = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), -0.8), qCurl = new THREE.Quaternion().setFromAxisAngle(AX, -0.55), curl = Object.keys(r1.bones).filter(function(n){ return /^(Index|Middle|Pinky)[123]/.test(n); });
-    var PAW_GAP = 0.15;   // paws on either side of the handle, palms toward each other like a clap
-    var vB = new THREE.Vector3();
+    var sh = r1.bones.UpperArmL.getWorldPosition(new THREE.Vector3()).add(r1.bones.UpperArmR.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5);
+    // the mallet floats on its own: the rabbit moves it with its antenna
+    var top = mortar.position.y + 0.62, pestle = new THREE.Group(); pestle.position.set(mx, top, mz); group.add(pestle);
+    var hp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.26, 14), wood); hp.castShadow = hq; pestle.add(hp);
+    var hnd = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.62, 8), wood); hnd.rotation.x = Math.PI/2; hnd.position.z = -0.31; pestle.add(hnd);   // handle level, off to the side (not at the rabbit's face)
+    pestle.rotation.order = 'YXZ'; pestle.rotation.y = 0.5 + Math.PI/2;
+    var aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:presTexture(), color:col('#9FF6FF'), blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, opacity:0.5 }));
+    aura.scale.set(0.9, 0.9, 1); pestle.add(aura);
+    var vS = new THREE.Vector3(), vE = new THREE.Vector3(), vT = new THREE.Vector3(), vB = new THREE.Vector3(), qd = new THREE.Quaternion(), qp = new THREE.Quaternion(), qb = new THREE.Quaternion();
     function turnToward(bone, eff, tgt){   // one CCD step: swing a bone so the effector points at the target
       bone.getWorldPosition(vB); qd.setFromUnitVectors(vE.copy(eff).sub(vB).normalize(), vS.copy(tgt).sub(vB).normalize());
       bone.parent.getWorldQuaternion(qp); bone.getWorldQuaternion(qb); bone.quaternion.copy(qp.invert().multiply(qd.multiply(qb))); bone.updateMatrixWorld(true);
     }
-    function reach(n, side){   // two-bone reach: lower arm then upper arm, a few rounds, until the paw sits on the handle
+    function reach(n, tgt){   // two-bone reach: lower arm then upper arm, a few rounds
       var ua = r1.bones['UpperArm'+n], la = r1.bones['LowerArm'+n], palm = r1.bones['Middle1'+n] || r1.bones['Index1'+n]; if(!ua || !la || !palm) return;
       r1.touched['UpperArm'+n] = r1.touched['LowerArm'+n] = true;
-      vT.set(PAW_GAP*side, -0.3, 0).applyEuler(pestle.rotation).add(pestle.position); r1.o.localToWorld(vT);
       var eff = new THREE.Vector3();
-      for(var it=0; it<3; it++){ palm.getWorldPosition(eff); turnToward(la, eff, vT); palm.getWorldPosition(eff); turnToward(ua, eff, vT); }
+      for(var it=0; it<3; it++){ palm.getWorldPosition(eff); turnToward(la, eff, tgt); palm.getWorldPosition(eff); turnToward(ua, eff, tgt); }
     }
-    var st1 = {ph:0, flash:0, last:0, back:0};
+    var fwd = new THREE.Vector3(Math.sin(0.5), 0, Math.cos(0.5)), side = new THREE.Vector3(fwd.z, 0, -fwd.x), pawT = new THREE.Vector3();
+    var st1 = {ph:0, flash:0, last:0, back:0, hold:0, zap:0};
     critters.push({ o:r1.o, kind:'moonrabbit', headY:1.3, petR:3.2,
-      calm:function(){ st1.flash = 1.2; }, update:function(dt, T){
-        r1.tick(dt);
-        var k = (T % 1.25)/1.25, lift = k < 0.6 ? Math.sin(k/0.6*Math.PI/2) : 1 - Math.pow((k-0.6)/0.4, 2.2);   // slow lift, quick strike
-        if(st1.flash > 0.8) lift = 0.6;
-        pestle.rotation.x = -1.6 - lift*1.4;
-        r1.twist('Thumb1L', qThumb); r1.twist('Thumb1R', qThumb);   // thumbs laid along the handle, not sticking out
-        r1.o.updateMatrixWorld(true); reach('L', 1); reach('R', -1);
-      if(k < st1.last && st1.flash <= 0.8){ tteok.scale.set(1.12, 0.36, 1.12); for(var i=0;i<5;i++){ var f = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9})); f.position.set(mx + (R()-0.5)*0.2, mortar.position.y + 0.5, mz + (R()-0.5)*0.2); f.userData.v = new THREE.Vector3((R()-0.5)*0.6, 0.5 + R()*0.6, (R()-0.5)*0.6); f.userData.t = 1.6; flour.add(f); } }
+      calm:function(){ st1.flash = 1.2; st1.hold = 2.4; greet(r1, st1); }, update:function(dt, T){
+        r1.tick(dt); settle(r1, st1, dt);
+        st1.hold = Math.max(0, st1.hold - dt); st1.zap = Math.max(0, st1.zap - dt*2.5);
+        var k = (T % 1.6)/1.6, lift = k < 0.7 ? Math.sin(k/0.7*Math.PI/2) : 1 - Math.pow((k-0.7)/0.3, 2.4);   // slow float up, quick strike
+        if(st1.hold > 0){ lift = 0.75; k = st1.last; }
+        pestle.position.y = top + lift*0.75 + Math.sin(T*3.1)*0.015*lift; pestle.rotation.z = Math.sin(T*1.7)*0.12*lift; pestle.rotation.x = -lift*0.35;
+        aura.material.opacity = 0.35 + 0.25*Math.sin(T*6) + st1.zap*0.6; aura.scale.setScalar(0.8 + st1.zap*0.7);
+        if(st1.back <= 0){   // paws held out toward the mortar, a little apart, rising with the mallet
+          pawT.set(mx, sh.y - 0.15 + lift*0.25, mz).addScaledVector(fwd, -0.25); r1.o.updateMatrixWorld(true);
+          reach('L', vT.copy(pawT).addScaledVector(side, 0.24)); reach('R', vT.copy(pawT).addScaledVector(side, -0.24));
+        }
+        if(k < st1.last && st1.hold <= 0){ st1.zap = 1; st1.flash = Math.max(st1.flash, 0.5); }
+      if(k < st1.last && st1.hold <= 0){ tteok.scale.set(1.12, 0.36, 1.12); for(var i=0;i<5;i++){ var f = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9})); f.position.set(mx + (R()-0.5)*0.2, mortar.position.y + 0.5, mz + (R()-0.5)*0.2); f.userData.v = new THREE.Vector3((R()-0.5)*0.6, 0.5 + R()*0.6, (R()-0.5)*0.6); f.userData.t = 1.6; flour.add(f); } }
       st1.last = k; tteok.scale.x += (1 - tteok.scale.x)*dt*4; tteok.scale.z = tteok.scale.x; tteok.scale.y += (0.45 - tteok.scale.y)*dt*4;
       for(var j=flour.children.length-1;j>=0;j--){ var f2 = flour.children[j]; f2.userData.t -= dt; f2.userData.v.y -= 1.62*dt; f2.position.addScaledVector(f2.userData.v, dt); f2.material.opacity = Math.max(0, f2.userData.t/1.6); if(f2.userData.t <= 0) flour.remove(f2); }
         blinkUpdate(r1, st1, dt, T); return true; } });
@@ -2963,7 +2969,7 @@ function scopeFrame(dt, t){
 }
 // ---------- 교감: get close, press the paw button, hear what the animal is thinking ----------
 var THOUGHTS = {
-  moonrabbit: ['떡 하나 드릴까요? 방금 찧어서 쫀득해요', '지구에서 보면 우리가 방아 찧는 게 보인대요', '저기 파란 별에 보고 싶은 사람 있어요?', '여기선 폴짝 뛰면 한참 떠 있어요', '더듬이가 반짝이면 반갑다는 뜻이에요', '지구도 매일 조금씩 모양이 바뀌어요', '보고 싶은 마음은 여기까지 다 들려요', '바람이 없어서 발자국이 오래오래 남아요'],
+  moonrabbit: ['떡 하나 드릴까요? 방금 찧어서 쫀득해요', '지구에서 보면 우리가 방아 찧는 게 보인대요', '저기 파란 별에 보고 싶은 사람 있어요?', '여기선 폴짝 뛰면 한참 떠 있어요', '더듬이가 반짝이면 반갑다는 뜻이에요', '지구도 매일 조금씩 모양이 바뀌어요', '보고 싶은 마음은 여기까지 다 들려요', '바람이 없어서 발자국이 오래오래 남아요', '떡메는 더듬이로 움직여요. 손은 거들 뿐이에요'],
   Deer: ['오늘 풀이 유난히 달아요', '천천히 와줘서 고마워요', '당신도 쉬러 왔군요', '발소리가 다정하네요', '잠깐 같이 있어요', '바람이 등을 쓰다듬어요', '서두르지 않아도 괜찮아요'],
   Stag: ['뿔이 무거워도 고개는 들어요', '이 숲은 내가 지켜요', '다짐은 작게, 걸음은 꾸준히', '안개가 걷히면 길이 보여요', '오늘도 여기까지 잘 왔어요', '깊게 숨 한 번 쉬어요'],
   Fox: ['킁킁… 좋은 냄새가 나요', '사실 수줍음이 많아요', '오늘 하루 어땠어요?', '꼬리는… 아직 안 돼요', '같이 노을 볼래요?', '살금살금 온 거 다 알아요'],
