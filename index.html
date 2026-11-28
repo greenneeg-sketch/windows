@@ -1127,7 +1127,7 @@ function makeWater(){
   var dt = waterDepthTex();
   var u = { t:{value:0}, deep:{value:col(cfg.deep)}, shallow:{value:col(cfg.shallow)}, sunDir:{value:sunDir()}, sunCol:{value:lin(cfg.lightCol, 6)},
             env:{value:null}, hasEnv:{value:0}, glit:{value:cfg.glit||0}, rot:{value:cfg.rot}, skyI:{value:cfg.skyI}, tint:{value:new THREE.Vector3().fromArray(grade.sky)},
-            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2}, dTex:{value:dt.tex}, dR:{value:dt.R}, sea:{value:cfg.water==='lake' ? 0.25 : 1}, upK:{value:Math.max(0.15, Math.min(1.1, cfg.lightI*grade.light*0.5))} };
+            fogC:{value:fogColor()}, fogN:{value:cfg.fogN2}, fogF:{value:cfg.fogF2}, dTex:{value:dt.tex}, dR:{value:dt.R}, sea:{value:cfg.water==='lake' ? 0.25 : 1}, upK:{value:Math.max(0.3, Math.min(1.1, cfg.lightI*grade.light*0.5))} };
   uniformsList.push(u);
   var m = new THREE.ShaderMaterial({ uniforms:u, transparent:true, side:THREE.DoubleSide,
     vertexShader:'varying vec3 wp; void main(){ vec4 w=modelMatrix*vec4(position,1.); wp=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
@@ -1144,6 +1144,7 @@ function makeWater(){
       'void main(){ vec3 v=normalize(cameraPosition-wp); float dist=length(wp-cameraPosition);'+
       ' if(!gl_FrontFacing){ vec2 sl2=slope(wp.xz)*0.08; float up=-v.y+sl2.x*0.6+sl2.y*0.6;'+          // from under the surface: a bright window straight up, mirror-dark beyond
       '  vec3 c2=mix(fogC, (shallow*1.1+sunCol*0.04)*upK*(0.85+0.3*n2(wp.xz*1.3+t*0.4)), smoothstep(0.62,0.8,up)); float f2=smoothstep(fogN,fogF,dist);'+
+      '  vec3 rd=normalize(-v+vec3(sl2.x,0.,sl2.y)*0.6); float sd=max(dot(rd,normalize(sunDir)),0.); c2+=sunCol*(pow(sd,60.)*0.12+pow(sd,7.)*0.025)*(0.7+0.6*n2(wp.xz*2.2+t*0.9));'+   // the sun (or the moon) seen through the surface: a shimmering patch of light
       '  gl_FragColor=vec4(mix(c2,fogC,f2),1.);\n'+OUT+' return; }'+
       ' vec2 uv=wp.xz/(2.*dR)+.5; float dep = (uv.x<0.||uv.x>1.||uv.y<0.||uv.y>1.) ? 4. : texture2D(dTex,uv).r*4.;'+
       ' vec2 sl=slope(wp.xz)*mix(0.09,0.03,smoothstep(8.,60.,dist)); vec3 n=normalize(vec3(-sl.x,1.,-sl.y));'+
@@ -2336,7 +2337,8 @@ var MOON_EARTH = new THREE.Vector3(-0.02, 0.27, -1).normalize();   // up in the 
 // New Moon here means a full Earth there; a waxing crescent Moon means a waning gibbous Earth, and so on.
 function moonAge(){ return (((Date.now() - Date.UTC(2000, 0, 6, 18, 14))/86400000) % 29.530588 + 29.530588) % 29.530588; }
 function earthSunAt(age, out){   // angle E between "towards the Moon" and "towards the Sun", seen from the Earth
-  var E = age/29.530588*Math.PI*2, toMoon = MOON_EARTH.clone().negate(), ax = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0,1,0)).normalize();
+  // swing the Sun round the Earth's own up-axis (sideways), so the day/night line runs north-south as it does in life
+  var E = age/29.530588*Math.PI*2, toMoon = MOON_EARTH.clone().negate(), ax = new THREE.Vector3(0,1,0).addScaledVector(toMoon, -toMoon.y).normalize();
   return (out || new THREE.Vector3()).copy(toMoon.applyAxisAngle(ax, -E)).normalize();
 }
 var EARTH_SUN = earthSunAt(moonAge());            // the real one, used through the telescope
